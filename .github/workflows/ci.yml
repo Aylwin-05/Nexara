@@ -90,12 +90,33 @@ jobs:
         working-directory: backend
         run: pip install -r requirements.txt
 
+      - name: Verify migrations apply cleanly on a fresh database
+        working-directory: backend
+        env:
+          DATABASE_URL: "postgresql+asyncpg://nexara:test@localhost:5432/nexara_test"
+          SECRET_KEY: "test-key-do-not-use-in-production"
+          SMTP_HOST: "localhost"
+          SMTP_PORT: "587"
+          SMTP_USERNAME: "test"
+          SMTP_PASSWORD: "test"
+          SMTP_FROM_EMAIL: "noreply@example.com"
+          SMTP_FROM_NAME: "Nexara"
+        run: |
+          alembic upgrade head
+          test "$(alembic heads | wc -l)" -eq 1
+
       - name: Run backend tests
         working-directory: backend
         env:
           DATABASE_URL: "postgresql+asyncpg://nexara:test@localhost:5432/nexara_test"
           REDIS_URL: "redis://localhost:6379/0"
           SECRET_KEY: "test-key-do-not-use-in-production"
+          SMTP_HOST: "localhost"
+          SMTP_PORT: "587"
+          SMTP_USERNAME: "test"
+          SMTP_PASSWORD: "test"
+          SMTP_FROM_EMAIL: "noreply@example.com"
+          SMTP_FROM_NAME: "Nexara"
         run: python -m pytest test_all.py -x -q
 
       - name: Run extended tests
@@ -104,6 +125,12 @@ jobs:
           DATABASE_URL: "postgresql+asyncpg://nexara:test@localhost:5432/nexara_test"
           REDIS_URL: "redis://localhost:6379/0"
           SECRET_KEY: "test-key-do-not-use-in-production"
+          SMTP_HOST: "localhost"
+          SMTP_PORT: "587"
+          SMTP_USERNAME: "test"
+          SMTP_PASSWORD: "test"
+          SMTP_FROM_EMAIL: "noreply@example.com"
+          SMTP_FROM_NAME: "Nexara"
         run: python -m pytest test_everything.py -x -q
 
   frontend-test:

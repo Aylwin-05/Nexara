@@ -1,3 +1,4 @@
+from app.core.ip_utils import resolve_client_ip
 from app.core.rate_limit import (
     RateLimitExceeded,
     get_limiter,
@@ -24,7 +25,7 @@ def rate_limit(
         limiter = get_limiter()
         try:
             await limiter.check(
-                f"{key}.{_client_ip(request)}",
+                f"{key}.{resolve_client_ip(request)}",
                 limit,
                 window,
             )
@@ -36,25 +37,3 @@ def rate_limit(
             )
 
     return Depends(dependency)
-
-
-def _client_ip(request: Request) -> str:
-    # NOTE: the reverse proxy (nginx) OVERWRITES X-Forwarded-For
-    # with $remote_addr, so the first entry is the real client.
-    # The header is only honored when it contains a valid IP;
-    # garbage or absent values fall back to the direct peer.
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        candidate = forwarded.split(",")[0].strip()
-        if _is_ip(candidate):
-            return candidate
-    return request.client.host if request.client else "unknown"
-
-
-def _is_ip(value: str) -> bool:
-    try:
-        import ipaddress
-        ipaddress.ip_address(value)
-        return True
-    except ValueError:
-        return False

@@ -6,10 +6,16 @@ const messageService = {
     // Get Messages
     // ======================================================
 
-    async getMessages(conversationId) {
+    async getMessages(conversationId, { limit = 50, before = null } = {}) {
 
         const response = await api.get(
-            `/messages/${conversationId}`
+            `/messages/${conversationId}`,
+            {
+                params: {
+                    limit,
+                    ...(before ? { before } : {}),
+                },
+            }
         );
 
         return response.data;
@@ -32,6 +38,13 @@ const messageService = {
         forwardedCount = 0,
     ) {
 
+        // One key per send attempt, sent as client_message_id. The
+        // API retry interceptor replays the exact same body (and
+        // key) on a network failure, so the server dedupes instead
+        // of inserting a duplicate.
+        const clientMessageId =
+            crypto.randomUUID();
+
         const response =
             await api.post(
 
@@ -41,6 +54,9 @@ const messageService = {
 
                     conversation_id:
                         conversationId,
+
+                    client_message_id:
+                        clientMessageId,
 
                     ciphertext:
                         encrypted.ciphertext,

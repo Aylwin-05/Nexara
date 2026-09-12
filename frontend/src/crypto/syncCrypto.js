@@ -20,7 +20,7 @@ import { pbkdf2 } from "@noble/hashes/pbkdf2.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { gcm } from "@noble/ciphers/aes.js";
 
-import { randomBytes } from "./signal/bytes.js";
+import { randomBytes, b64encode, b64decode, utf8Encode, utf8Decode } from "./signal/bytes.js";
 import { signalKeyStore } from "./signal/keyStore.js";
 
 export const SYNC_KEY_ITERATIONS = 600_000;
@@ -28,37 +28,6 @@ export const SYNC_KEY_SIZE = 32;
 export const SYNC_NONCE_SIZE = 12;
 
 let cachedSyncKey = null;
-
-// ==========================================================
-// Node-safe base64 helpers (globalThis.btoa exists in browsers
-// and in Node >= 16)
-// ==========================================================
-
-function b64encode(bytes) {
-    let binary = "";
-    const view = new Uint8Array(bytes);
-    for (let i = 0; i < view.length; i += 1) {
-        binary += String.fromCharCode(view[i]);
-    }
-    return globalThis.btoa(binary);
-}
-
-function b64decode(text) {
-    const binary = globalThis.atob(text);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i += 1) {
-        bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes;
-}
-
-function utf8Bytes(text) {
-    return new TextEncoder().encode(text);
-}
-
-function utf8Text(bytes) {
-    return new TextDecoder().decode(bytes);
-}
 
 // The backend stores and serves the PBKDF2 salt as HEX
 // (recovery_service.py: salt.hex()). Earlier client code tried
@@ -91,7 +60,7 @@ export function deriveWrapKeyFromCode(code, saltText) {
     const salt = decodeSalt(saltText);
     return pbkdf2(
         sha256,
-        utf8Bytes(normalizeRecoveryCode(code)),
+        utf8Encode(normalizeRecoveryCode(code)),
         salt,
         {
             c: SYNC_KEY_ITERATIONS,
@@ -118,10 +87,6 @@ export function unwrapSyncSecret(code, saltB64, wrappedKey) {
 // Sync-key access (stored secret -> AES-256-GCM key)
 // ==========================================================
 
-export async function getStoredSyncSecret() {
-    return signalKeyStore.getSyncSecret();
-}
-
 export async function getSyncKey() {
     if (cachedSyncKey) return cachedSyncKey;
     const secretB64 = await signalKeyStore.getSyncSecret();
@@ -142,7 +107,7 @@ export async function encryptSyncText(plaintext, ciphertext = null) {
     const key = await getSyncKey();
     if (!key) return null;
     const nonce = randomBytes(SYNC_NONCE_SIZE);
-    const data = gcm(key, nonce).encrypt(utf8Bytes(plaintext));
+    const data = gcm(key, nonce).encrypt(utf8Encode(plaintext));
     return {
         nonce: b64encode(nonce),
         data: b64encode(data),
@@ -156,7 +121,7 @@ export async function decryptSyncText(envelope) {
         return null;
     }
     try {
-        return utf8Text(
+        return utf8Decode(
             gcm(key, b64decode(envelope.nonce)).decrypt(
                 b64decode(envelope.data),
             ),

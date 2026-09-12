@@ -9,12 +9,6 @@ import api from "../api/api";
 // see your last-seen status, profile photo and stories.
 // ==========================================================
 
-const PRIVACY_LABELS = {
-    everyone: "Everyone",
-    my_contacts: "My contacts",
-    nobody: "Nobody",
-};
-
 async function blockUser(userId) {
     const response = await api.post("/blocks/", {
         user_id: userId,
@@ -48,5 +42,4 @@ export default {
     getBlockedUsers,
     getPrivacy,
     updatePrivacy,
-    PRIVACY_LABELS,
 };

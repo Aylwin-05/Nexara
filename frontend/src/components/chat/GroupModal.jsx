@@ -4,6 +4,7 @@ import {
 } from "react";
 import toast from "react-hot-toast";
 
+import { getApiErrorDetail } from "../../utils/errors";
 import UserAvatar from "../UserAvatar";
 
 import friendService from "../../services/friendService";
@@ -134,10 +135,7 @@ export default function GroupModal({
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to create the group."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to create the group."));
 
         }
         finally {

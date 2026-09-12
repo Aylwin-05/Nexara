@@ -5,6 +5,8 @@ import api, {
     clearAccessToken,
 } from "../api/api";
 
+import websocketService from "./websocketService";
+
 const authService = {
 
     // ======================================================
@@ -234,6 +236,11 @@ const authService = {
         localStorage.removeItem(
             "user",
         );
+
+        // A logged-out user must not keep an event stream open
+        // (or auto-reconnect it): it would leak live activity and
+        // the server would push messages into an unauthenticated UI.
+        websocketService.disconnect();
 
     },
 

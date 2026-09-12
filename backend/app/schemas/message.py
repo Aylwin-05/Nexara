@@ -17,6 +17,14 @@ class SendMessageRequest(BaseModel):
 
     conversation_id: UUID
 
+    # Client-generated key shared across retries of the SAME send
+    # attempt: a retry replays the original message instead of
+    # inserting a duplicate.
+    client_message_id: str | None = Field(
+        default=None,
+        max_length=64,
+    )
+
     ciphertext: str = Field(
         min_length=1,
         max_length=100000,

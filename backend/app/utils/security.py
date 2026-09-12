@@ -28,17 +28,21 @@ class SecurityUtils:
     @staticmethod
     def hash_otp(otp: str) -> str:
         """
-        Return SHA-256 hash of an OTP.
+        Return a salted, KDF-stretched hash of an OTP.
+
+        Reuses the scrypt PIN scheme (per-OTP random salt) so a DB
+        leak is not enough for offline guessing of the 6-digit space:
+        each guess costs a scrypt iteration instead of one SHA-256.
         """
-        return hashlib.sha256(otp.encode("utf-8")).hexdigest()
+        return SecurityUtils.hash_pin(otp)
 
     @staticmethod
     def verify_otp(plain_otp: str, hashed_otp: str) -> bool:
         """
-        Constant-time OTP comparison.
+        Constant-time OTP comparison against the scrypt hash.
         """
-        return compare_digest(
-            SecurityUtils.hash_otp(plain_otp),
+        return SecurityUtils.verify_pin(
+            plain_otp,
             hashed_otp,
         )
 

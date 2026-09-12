@@ -160,6 +160,34 @@ class ConversationRepository(BaseRepository):
         return result.scalar_one_or_none()
 
     # ==========================================================
+    # Get User's Participants in Many Conversations (batch)
+    # ==========================================================
+
+    async def get_participants_for_user(
+        self,
+        conversation_ids: list[UUID],
+        user_id: UUID,
+    ) -> dict[UUID, ConversationParticipant]:
+        """Map conversation_id -> the user's own participant row."""
+
+        if not conversation_ids:
+            return {}
+
+        result = await self.execute(
+            select(ConversationParticipant).where(
+                ConversationParticipant.user_id == user_id,
+                ConversationParticipant.conversation_id.in_(
+                    conversation_ids
+                ),
+            )
+        )
+
+        return {
+            participant.conversation_id: participant
+            for participant in result.scalars().all()
+        }
+
+    # ==========================================================
     # Get Other User
     # ==========================================================
 
@@ -183,6 +211,44 @@ class ConversationRepository(BaseRepository):
         )
 
         return result.scalar_one_or_none()
+
+    # ==========================================================
+    # Get Other Users in Many Conversations (batch)
+    # ==========================================================
+
+    async def get_other_users(
+        self,
+        conversation_ids: list[UUID],
+        current_user_id: UUID,
+    ) -> dict[UUID, User]:
+        """Map conversation_id -> the peer (facts up to the same
+        semantics as get_other_user: it is only consulted for
+        two-person conversations, which have exactly one peer)."""
+
+        if not conversation_ids:
+            return {}
+
+        result = await self.execute(
+            select(
+                ConversationParticipant.conversation_id,
+                User,
+            )
+            .join(
+                ConversationParticipant,
+                User.id == ConversationParticipant.user_id,
+            )
+            .where(
+                ConversationParticipant.conversation_id.in_(
+                    conversation_ids
+                ),
+                User.id != current_user_id,
+            )
+        )
+
+        return {
+            conversation_id: user
+            for conversation_id, user in result.all()
+        }
 
     # ==========================================================
     # Verify Participant
@@ -281,6 +347,34 @@ class ConversationRepository(BaseRepository):
         )
 
         return result.scalar_one()
+
+    # ==========================================================
+    # Get Participant Counts in Many Conversations (batch)
+    # ==========================================================
+
+    async def get_participant_counts(
+        self,
+        conversation_ids: list[UUID],
+    ) -> dict[UUID, int]:
+        """Map conversation_id -> member count."""
+
+        if not conversation_ids:
+            return {}
+
+        result = await self.execute(
+            select(
+                ConversationParticipant.conversation_id,
+                func.count(),
+            )
+            .where(
+                ConversationParticipant.conversation_id.in_(
+                    conversation_ids
+                )
+            )
+            .group_by(ConversationParticipant.conversation_id)
+        )
+
+        return dict(result.all())
 
     # ==========================================================
     # Remove Participant (leave group)

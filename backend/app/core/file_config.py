@@ -105,14 +105,7 @@ ENCRYPTED_EXTENSIONS = {
     ".bin",
 }
 
-AVATAR_EXTENSIONS = {
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".gif",
-    ".bmp",
-    ".webp",
-}
+AVATAR_EXTENSIONS = IMAGE_EXTENSIONS
 
 STORY_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
 

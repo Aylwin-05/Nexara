@@ -9,6 +9,7 @@ import VoiceRecorder from "./VoiceRecorder";
 
 import { useAuth } from "../../context/AuthContext";
 import { animateSendPulse } from "../../utils/animations";
+import { messageSnippet } from "../../utils/message";
 
 import "./Chat.css";
 
@@ -142,39 +143,6 @@ function EmojiPicker({ onPick }) {
             ))}
         </div>
     );
-}
-
-// ==========================================================
-// Quote / Edit preview snippet for a message
-// ==========================================================
-
-function messageSnippet(message) {
-
-    if (!message) return "";
-
-    if (message.deleted_for_everyone) {
-        return "Message deleted";
-    }
-
-    if (message.content) {
-        return message.content;
-    }
-
-    if (message.attachments?.length) {
-        const attachment = message.attachments[0];
-        const kinds = {
-            image: "Photo",
-            voice: "Voice message",
-            audio: "Audio message",
-            video: "Video message",
-        };
-        return kinds[attachment.attachment_type] ||
-            attachment.original_name ||
-            "Attachment";
-    }
-
-    return "";
-
 }
 
 export default function ChatInput({

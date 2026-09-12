@@ -305,15 +305,40 @@ async def upload_thumbnail(
 # Get Thumbnail
 # ==========================================================
 
-@router.get("/{attachment_id}/thumbnail")
+@router.get(
+    "/{attachment_id}/thumbnail",
+    dependencies=[rate_limit("attachments.thumbnail", 60, 60)],
+)
 async def get_thumbnail(
     attachment_id: UUID,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     attachment_repository = AttachmentRepository(db)
     attachment = await attachment_repository.get_by_id(attachment_id)
     if attachment is None or not attachment.thumbnail_path:
         raise HTTPException(status_code=404, detail="Thumbnail not found.")
+
+    message = await MessageRepository(db).get_by_id(
+        attachment.message_id
+    )
+    if message is None:
+        raise HTTPException(status_code=404, detail="Thumbnail not found.")
+
+    participants = (
+        await ConversationRepository(db).get_participants(
+            message.conversation_id
+        )
+    )
+    allowed = any(
+        participant.user_id == current_user.id
+        for participant in participants
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied.",
+        )
 
     thumb_path = Path(attachment.thumbnail_path)
     if not thumb_path.exists():
@@ -322,7 +347,7 @@ async def get_thumbnail(
     return FileResponse(
         path=thumb_path,
         media_type="image/jpeg",
-        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+        headers={"Cache-Control": "private, max-age=31536000, immutable"},
     )
 
 

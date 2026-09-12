@@ -50,6 +50,8 @@ services:
     build: ./backend
     ports:
       - "8000:8000"
+    volumes:
+      - uploads:/app/uploads
     environment:
       DATABASE_URL: "postgresql+asyncpg://nexara:nexara_dev@postgres:5432/nexara"
       REDIS_URL: "redis://redis:6379/0"
@@ -66,7 +68,6 @@ services:
       SMTP_FROM_EMAIL: "${SMTP_FROM_EMAIL:-noreply@nexara.local}"
       SMTP_FROM_NAME: "${SMTP_FROM_NAME:-Nexara}"
       FRONTEND_URL: "http://localhost:5173"
-      MASTER_KEY: "${MASTER_KEY:-dev-master-key-change-in-production}"
       TURN_URLS: "turn:coturn:3478?transport=udp"
       TURN_USERNAME: "nexara"
       TURN_PASSWORD: "${TURN_SECRET:-dev-turn-secret-change-in-production}"
@@ -108,3 +109,4 @@ services:
 volumes:
   pgdata:
   pgbackups:
+  uploads:

@@ -126,6 +126,9 @@ async def search_users(
 @router.get(
     "/check-username",
     response_model=UsernameAvailabilityResponse,
+    dependencies=[
+        rate_limit("users.check-username", 30, 60),
+    ],
 )
 async def check_username(
     username: str = Query(

@@ -39,26 +39,11 @@ export class SessionError extends SignalProtocolError {}
 export class SessionNotFoundError extends SessionError {}
 
 // ==========================================================
-// Session Store Protocol
+// Session Store (in-memory, for tests)
 // ==========================================================
 
-export class SessionStore {
-    async get(ourDeviceId, remoteDeviceId, conversationId) {
-        throw new Error("Not implemented");
-    }
-
-    async save(ourDeviceId, remoteDeviceId, conversationId, state) {
-        throw new Error("Not implemented");
-    }
-
-    async delete(ourDeviceId, remoteDeviceId, conversationId) {
-        throw new Error("Not implemented");
-    }
-}
-
-export class InMemorySessionStore extends SessionStore {
+export class InMemorySessionStore {
     constructor() {
-        super();
         this._sessions = new Map();
     }
 

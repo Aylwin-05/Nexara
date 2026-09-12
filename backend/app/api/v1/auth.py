@@ -1,8 +1,8 @@
-import ipaddress
 import logging
 from uuid import UUID
 
 from app.core.config import settings
+from app.core.ip_utils import resolve_client_ip
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -80,18 +80,7 @@ def _clear_refresh_cookie(response: Response):
 
 
 def _client_ip(request: Request) -> str:
-    # Same rules as app/dependencies/rate_limit.py: the reverse
-    # proxy overwrites X-Forwarded-For with $remote_addr, so the
-    # header is only honored when it holds a valid IP literal.
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        candidate = forwarded.split(",")[0].strip()
-        try:
-            ipaddress.ip_address(candidate)
-            return candidate
-        except ValueError:
-            pass
-    return request.client.host if request.client else "unknown"
+    return resolve_client_ip(request)
 
 
 def _extract_refresh_token(
@@ -224,6 +213,7 @@ async def verify_otp(
     access_token = jwt.create_access_token(
         user_id=str(user.id),
         email=user.email,
+        ver=user.session_version,
     )
 
     # -- issue + persist refresh token (rotation-enabled) ---------
@@ -412,6 +402,7 @@ async def verify_two_fa(
     access_token = jwt.create_access_token(
         user_id=str(user.id),
         email=user.email,
+        ver=user.session_version,
     )
 
     refresh_service = RefreshTokenService(
@@ -478,6 +469,7 @@ async def reset_two_fa(
     access_token = jwt.create_access_token(
         user_id=str(user.id),
         email=user.email,
+        ver=user.session_version,
     )
 
     refresh_service = RefreshTokenService(
@@ -571,12 +563,13 @@ async def refresh_token(
 
         raise HTTPException(
             status_code=401,
-            detail="User not found.",
+            detail="Invalid or expired access token.",
         )
 
     access_token = jwt.create_access_token(
         user_id=str(user.id),
         email=user.email,
+        ver=user.session_version,
     )
 
     _set_refresh_cookie(response, new_token)
@@ -623,6 +616,25 @@ async def logout(
 
         await refresh_service.revoke_family(token)
 
+        # Bump the session generation so every outstanding access
+        # token for this account dies immediately (not up to 15 min
+        # later). Best-effort: a stale/unknown refresh token leaves
+        # the session version untouched.
+        try:
+            record = await RefreshTokenRepository(
+                db
+            ).get_by_token_hash(
+                RefreshTokenRepository.hash_token(token)
+            )
+            if record is not None:
+                auth_repo = AuthRepository(db)
+                user = await auth_repo.get_user_by_id(record.user_id)
+                if user is not None:
+                    user.session_version += 1
+                    await db.commit()
+        except Exception:
+            logger.exception("Logout session-version bump failed")
+
     _clear_refresh_cookie(response)
 
     return MessageResponse(
@@ -635,23 +647,18 @@ async def logout(
 # Account Deletion (GDPR)
 # ==========================================================
 
-from app.models.block import Block
-from app.models.call_log import CallLog
-from app.models.conversation_participant import ConversationParticipant
-from app.models.device import Device
-from app.models.friendship import Friendship
+from pathlib import Path
+
+from app.core.file_config import AVATAR_DIR
+from app.models.attachment import Attachment
 from app.models.message import Message
-from app.models.message_reaction import MessageReaction
-from app.models.message_star import MessageStar
 from app.models.otp import OTPCode
-from app.models.push_subscription import PushSubscription
-from app.models.refresh_token import RefreshToken
-from app.models.signal_session import SignalSession
-from app.models.story import Story, StoryView
-from app.models.story_reaction import StoryReaction
-from app.models.user_key import UserKey
+from app.models.story import Story
+from app.websocket.connection_manager import (
+    manager as ws_manager,
+)
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import or_, select
+from sqlalchemy import select
 
 
 @router.delete(
@@ -661,6 +668,7 @@ from sqlalchemy import or_, select
     ],
 )
 async def delete_account(
+    response: Response,
     confirm: str = "",
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -675,76 +683,70 @@ async def delete_account(
 
     uid = current_user.id
 
-    # 1. Wipe messages sent by this user (server only stores ciphertext)
-    await db.execute(
-        sa_delete(Message).where(Message.sender_id == uid)
+    # 1. Collect every on-disk blob BEFORE the rows go away: the
+    #    avatar, attachment ciphertext + thumbnails for messages this
+    #    user sent, and story media. Files cannot be cone by a DB
+    #    cascade, only the rows can.
+    files: list[Path] = list(AVATAR_DIR.glob(f"{uid}.*"))
+
+    attachment_rows = await db.execute(
+        select(
+            Attachment.storage_path,
+            Attachment.thumbnail_path,
+        )
+        .join(Message, Message.id == Attachment.message_id)
+        .where(Message.sender_id == uid)
     )
+    for storage_path, thumbnail_path in attachment_rows:
+        if storage_path:
+            files.append(Path(storage_path))
+        if thumbnail_path:
+            files.append(Path(thumbnail_path))
 
-    # 2. Remove user from all conversations
-    await db.execute(
-        sa_delete(ConversationParticipant).where(
-            ConversationParticipant.user_id == uid
-        )
+    story_paths = await db.scalars(
+        select(Story.storage_path).where(Story.user_id == uid)
     )
+    files.extend(Path(path) for path in story_paths)
 
-    # 3. Remove friendships
+    # 2. Hard-delete the user row. Every dependent row - devices,
+    #    signal sessions, keys, messages, attachments, stories,
+    #    reactions, friendships, blocks, refresh tokens, webauthn
+    #    credentials, identity-key pins, privacy settings - is
+    #    removed by the schema's ON DELETE CASCADE, so there is no
+    #    hand-grown delete list to drift out of sync with new tables.
     await db.execute(
-        sa_delete(Friendship).where(
-            (Friendship.sender_id == uid)
-            | (Friendship.receiver_id == uid)
-        )
+        sa_delete(OTPCode).where(OTPCode.email == current_user.email)
     )
-
-    # 4. Remove blocks
-    await db.execute(
-        sa_delete(Block).where(
-            (Block.blocker_id == uid) | (Block.blocked_id == uid)
-        )
-    )
-
-    # 5. Remove reactions, stars, OTPs, refresh tokens, stories
-    await db.execute(sa_delete(MessageReaction).where(MessageReaction.user_id == uid))
-    await db.execute(sa_delete(MessageStar).where(MessageStar.user_id == uid))
-    await db.execute(sa_delete(OTPCode).where(OTPCode.email == current_user.email))
-    await db.execute(sa_delete(RefreshToken).where(RefreshToken.user_id == uid))
-    await db.execute(sa_delete(Story).where(Story.user_id == uid))
-    await db.execute(sa_delete(StoryView).where(StoryView.user_id == uid))
-    await db.execute(sa_delete(StoryReaction).where(StoryReaction.user_id == uid))
-    await db.execute(sa_delete(CallLog).where((CallLog.caller_id == uid) | (CallLog.receiver_id == uid)))
-    await db.execute(sa_delete(PushSubscription).where(PushSubscription.user_id == uid))
-
-    # 6. Remove devices + sessions + identity keys
-    my_device_ids = (
-        await db.scalars(
-            select(Device.id).where(Device.user_id == uid)
-        )
-    ).all()
-    if my_device_ids:
-        await db.execute(
-            sa_delete(SignalSession).where(
-                or_(
-                    SignalSession.device_id.in_(my_device_ids),
-                    SignalSession.remote_device_id.in_(my_device_ids),
-                )
-            )
-        )
-    await db.execute(sa_delete(Device).where(Device.user_id == uid))
-    await db.execute(sa_delete(UserKey).where(UserKey.user_id == uid))
-
-    # 7. Anonymise & deactivate user (keep row for FK integrity)
-    anon_suffix = str(uid)[:8]
-    current_user.email = f"deleted_{anon_suffix}@nexara.deleted"
-    current_user.username = f"deleted_{anon_suffix}"
-    current_user.display_name = "Deleted User"
-    current_user.bio = None
-    current_user.avatar_url = None
-    current_user.is_active = False
-    current_user.two_fa_enabled = False
-    current_user.two_fa_secret = None
-    current_user.recovery_salt = None
-    current_user.recovery_wrapped_key = None
-
+    await db.delete(current_user)
     await db.commit()
+
+    # 3. Unlink the ciphertext blobs best-effort. A crash between
+    #    commit and unlink leaves only an orphan file, which the
+    #    periodic orphan sweep reclaims.
+    for path in files:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            logger.warning(
+                "Could not remove file during account deletion: %s",
+                path,
+            )
+
+    # 4. Drop this worker's sockets for the deleted account and tell
+    #    their conversation peers the user is gone. Sockets on other
+    #    workers close on their next authed write; a Redis-distributed
+    #    kick is marginal for a deleted account.
+    #    ponytail: local-only socket kick; add a bus event for a
+    #    distributed kick if accounts are deleted while many
+    #    multi-worker sockets stay connected.
+    await ws_manager.broadcast_presence(uid, False)
+    for websocket in list(ws_manager.user_connections.get(uid, [])):
+        try:
+            await websocket.close(code=1000)
+        except Exception:
+            pass
+
+    _clear_refresh_cookie(response)
 
     return MessageResponse(
         success=True,

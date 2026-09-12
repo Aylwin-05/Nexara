@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nexara // Graphical Memory HUD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#02060d; --panel:#071020; --line:#12314d; --cyan:#00d4ff; --cyan-d:#0a8fb0;
+    --magenta:#ff2d78; --green:#2dff8a; --amber:#ffc14d; --red:#ff4d4d; --violet:#8a6bff;
+    --text:#b7d4ea; --dim:#5f7d96;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:"Rajdhani",system-ui,sans-serif; overflow:hidden;
+  }
+  h1,h2,h3,.brand,.chip,.orb-label,.glyph,#hudHeader button,#search,#speedWrap{
+    font-family:"Orbitron",system-ui,sans-serif;
+  }
+  ::selection{background:rgba(0,212,255,.25);}
+  #bg{position:fixed; inset:0; z-index:0; pointer-events:none;}
+  #app{position:fixed; inset:0; z-index:1; display:grid;
+    grid-template-columns:minmax(560px,1fr) 460px; grid-template-rows:64px 1fr;}
+
+  /* ===== header ===== */
+  #hudHeader{
+    grid-column:1/3; display:flex; align-items:center; gap:14px; padding:0 18px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, rgba(9,22,40,.9), rgba(6,13,26,.6));
+    position:relative; z-index:5;
+  }
+  .brand{font-weight:900; font-size:17px; letter-spacing:4px; color:var(--cyan);
+    text-shadow:0 0 14px rgba(0,212,255,.6); white-space:nowrap;}
+  .brand small{display:block; font-family:"Rajdhani"; font-weight:600; font-size:10px;
+    letter-spacing:6px; color:var(--dim);}
+  .hud-spacer{flex:1;}
+  #search{background:#071322; border:1px solid var(--line); color:var(--text);
+    padding:7px 12px; width:230px; font-size:11px; letter-spacing:1px; outline:none; border-radius:2px;}
+  #search:focus{border-color:var(--cyan); box-shadow:0 0 10px rgba(0,212,255,.25);}
+  #hudHeader button{
+    background:transparent; border:1px solid var(--line); color:var(--cyan);
+    padding:7px 12px; font-size:10px; letter-spacing:2px; cursor:pointer; border-radius:2px;
+    transition:.2s;
+  }
+  #hudHeader button:hover{border-color:var(--cyan); box-shadow:0 0 10px rgba(0,212,255,.35);}
+  #hudHeader button.active{background:var(--cyan); color:#02121f;}
+  #speedWrap{display:flex; align-items:center; gap:4px; border:1px solid var(--line); padding:3px;}
+  #speedWrap b{font-size:9px; letter-spacing:2px; color:var(--dim); padding:0 6px; font-weight:600;}
+  #speedWrap button{border:none; padding:5px 8px;}
+  #speedWrap button.active{background:var(--cyan); color:#02121f;}
+  #hint{position:absolute; left:50%; transform:translateX(-50%); bottom:4px; font-size:10px;
+    letter-spacing:2px; color:var(--dim);}
+
+  /* ===== stage (left) ===== */
+  #stageWrap{position:relative; border-right:1px solid var(--line); overflow:hidden;
+    background:
+      radial-gradient(ellipse 60% 55% at 50% 46%, rgba(0,90,140,.16), transparent 70%),
+      linear-gradient(180deg, rgba(4,10,22,.4), transparent);
+  }
+  #stage{position:absolute; inset:0;}
+  #stageLinks{position:absolute; inset:0; width:100%; height:100%; overflow:visible;}
+  #stageLinks line{stroke:var(--line); stroke-width:1; opacity:.7;}
+  #core{
+    position:absolute; left:50%; top:50%; width:150px; height:150px; transform:translate(-50%,-50%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    border:1px solid rgba(0,212,255,.55); border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, rgba(0,212,255,.25), rgba(0,60,100,.12) 60%, transparent);
+    box-shadow:0 0 30px rgba(0,212,255,.35), inset 0 0 30px rgba(0,212,255,.15);
+    animation:corePulse 3s ease-in-out infinite;
+  }
+  @keyframes corePulse{0%,100%{box-shadow:0 0 22px rgba(0,212,255,.3), inset 0 0 22px rgba(0,212,255,.12);}
+    50%{box-shadow:0 0 44px rgba(0,212,255,.55), inset 0 0 40px rgba(0,212,255,.22);}}
+  #core .hex{width:56px; height:56px;}
+  #core .system{font-weight:900; letter-spacing:3px; font-size:13px; color:var(--cyan);
+    text-shadow:0 0 12px rgba(0,212,255,.8); margin-top:4px;}
+  #core .status{font-family:"Rajdhani"; font-size:9px; letter-spacing:3px; color:var(--dim);}
+  #core .status b{color:var(--green); font-weight:600;}
+
+  .ring{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    border:1px dashed rgba(0,212,255,.18); border-radius:50%;}
+  .ring.r1{width:340px; height:340px; animation:spinL 60s linear infinite;}
+  .ring.r2{width:500px; height:500px; border-style:solid; border-color:rgba(0,212,255,.08);
+    animation:spinR 90s linear infinite;}
+  .ring.r3{width:660px; height:660px; animation:spinL 130s linear infinite;}
+  @keyframes spinL{to{transform:translate(-50%,-50%) rotate(360deg);}}
+  @keyframes spinR{to{transform:translate(-50%,-50%) rotate(-360deg);}}
+
+  .orb{position:absolute; width:110px; text-align:center; cursor:pointer; user-select:none;
+    filter:drop-shadow(0 0 8px rgba(0,212,255,.25)); transition:filter .3s;}
+  .orb:hover{filter:drop-shadow(0 0 16px rgba(0,212,255,.6));}
+  .orb .badge{width:62px; height:62px; margin:0 auto; position:relative;}
+  .orb .hex{position:absolute; inset:0; transition:transform .25s;}
+  .orb:hover .hex{transform:scale(1.08);}
+  .orb .glyph{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:16px; font-weight:700; letter-spacing:1px; color:var(--c,#00d4ff);}
+  .orb-label{margin-top:2px; font-size:9px; letter-spacing:2px; color:var(--text);
+    text-shadow:0 0 6px rgba(0,0,0,.8);}
+  .orb.selected .hex{filter:drop-shadow(0 0 12px var(--c,#00d4ff));}
+  .orb.selected .orb-label{color:var(--c,#00d4ff);}
+  .orb .dot{position:absolute; top:-4px; left:50%; width:8px; height:8px; margin-left:-4px;
+    background:var(--c,#00d4ff); border-radius:50%; box-shadow:0 0 10px var(--c,#00d4ff);
+    opacity:0; transition:opacity .3s;}
+  .orb.selected .dot{opacity:1; animation:dotBlink 1.2s infinite;}
+  @keyframes dotBlink{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+  .hex{background:#060f1e; clip-path:polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+    stroke:var(--c,#00d4ff); stroke-width:1.5px; box-shadow:inset 0 0 16px rgba(0,212,255,.12);}
+  svg .hex{fill:none;}
+
+  /* ===== panel (right) ===== */
+  #panel{position:relative; display:flex; flex-direction:column; background:rgba(5,11,22,.7);
+    overflow:hidden; z-index:5;}
+  #panelHead{padding:14px 18px 10px; border-bottom:1px solid var(--line);
+    background:rgba(7,16,32,.9);}
+  #panelHead .kicker{font-size:9px; letter-spacing:4px; color:var(--dim);}
+  #panelHead h3{font-size:19px; letter-spacing:2px; color:var(--c,#00d4ff);
+    text-shadow:0 0 12px rgba(0,212,255,.45);}
+  #panelHead p{font-size:12.5px; line-height:1.5; color:var(--dim); margin-top:3px;}
+  #features{padding:10px 18px 6px; border-bottom:1px solid var(--line); max-height:150px; overflow:auto;}
+  #features h4{font-family:"Orbitron"; font-size:9px; letter-spacing:3px; color:var(--dim); margin-bottom:8px;}
+  .chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .chip{border:1px solid var(--line); color:var(--text); background:#081326; font-size:9.5px;
+    letter-spacing:1px; padding:5px 10px; cursor:pointer; border-radius:2px; transition:.2s;}
+  .chip:hover{border-color:var(--c,#00d4ff); color:var(--c,#00d4ff); box-shadow:0 0 8px rgba(0,212,255,.2);}
+  .chip.active{background:var(--c,#00d4ff); color:#02121f; border-color:var(--c); font-weight:700;}
+  #flowWrap{flex:1; overflow:auto; padding:16px 18px 30px;}
+  #flowHead{display:flex; align-items:baseline; gap:10px; margin-bottom:4px;}
+  #flowHead .fname{font-weight:700; font-size:15px; letter-spacing:1px; color:var(--text);}
+  #flowHead .fmeta{font-size:10px; letter-spacing:2px; color:var(--dim);}
+  #progressBar{height:2px; background:var(--line); margin:10px 0 18px; position:relative;}
+  #progressFill{height:100%; width:0; background:var(--c,#00d4ff);
+    box-shadow:0 0 10px var(--c,#00d4ff); transition:width .35s linear;}
+  #flowEmpty{color:var(--dim); font-size:12px; letter-spacing:1px; text-align:center; padding:40px 10px;}
+
+  .step{display:grid; grid-template-columns:54px 1fr; gap:14px; position:relative;
+    padding-bottom:22px; opacity:0; transform:translateY(10px);}
+  .step.in{animation:stepIn .5s forwards;}
+  @keyframes stepIn{to{opacity:1; transform:none;}}
+  .step::before{content:""; position:absolute; left:26px; top:34px; bottom:-2px; width:2px;
+    background:linear-gradient(180deg, var(--c,#00d4ff), rgba(0,212,255,.12));
+    box-shadow:0 0 8px rgba(0,212,255,.35); transform:scaleY(0); transform-origin:top;
+    transition:transform .3s linear;}
+  .step.in::before{transform:scaleY(1);}
+  .step:last-child::before{display:none;}
+  .step .node{width:52px; height:52px; margin-top:2px; position:relative;}
+  .step .node svg .hex{stroke-width:1.5;}
+  .step .node .glyph{font-size:13px; color:var(--c,#00d4ff); text-shadow:0 0 8px rgba(0,212,255,.6);}
+  .step .card{background:rgba(9,20,38,.85); border:1px solid var(--line); border-left:3px solid var(--c,#00d4ff);
+    padding:10px 12px; border-radius:2px;}
+  .step .card .t{font-weight:700; font-size:13.5px; letter-spacing:.5px; color:var(--c,#00d4ff);}
+  .step .card .d{font-size:12.5px; line-height:1.5; color:var(--text); margin-top:4px;}
+  .step .card .tag{display:inline-block; margin-top:6px; font-family:"Orbitron"; font-size:8px;
+    letter-spacing:2px; color:var(--dim); border:1px solid var(--line); padding:2px 6px; border-radius:2px;}
+
+  /* log console */
+  #console{margin-top:22px; border:1px solid var(--line); background:rgba(2,8,16,.9); padding:10px 12px;
+    border-radius:2px; min-height:110px; max-height:170px; overflow:hidden;}
+  #console .chead{font-family:"Orbitron"; font-size:8.5px; letter-spacing:3px; color:var(--dim); margin-bottom:6px;
+    display:flex; justify-content:space-between;}
+  #console .chead b{color:var(--green); font-weight:600;}
+  #console .cl{font-family:ui-monospace,Consolas,monospace; font-size:11px; line-height:1.7; color:var(--cyan-d);
+    white-space:pre-wrap; word-break:break-word;}
+  #console .cl .ts{color:var(--dim);}
+  #console .cl .ok{color:var(--green);}
+  #console .cl .warn{color:var(--amber);}
+
+  #dropdown{position:absolute; top:52px; left:18px; right:18px; z-index:20; display:none;
+    background:#071220; border:1px solid var(--cyan); box-shadow:0 8px 30px rgba(0,0,0,.6);}
+  #dropdown .r{padding:8px 12px; cursor:pointer; font-size:12px; border-bottom:1px solid var(--line);}
+  #dropdown .r:hover{background:rgba(0,212,255,.08);}
+  #dropdown .r b{color:var(--cyan); font-weight:600;}
+  #dropdown .r small{color:var(--dim); float:right; letter-spacing:1px;}
+
+  /* live telemetry rail */
+  #live{display:flex; align-items:center; gap:10px; border:1px solid var(--line); background:#060f1e;
+    padding:5px 10px; border-radius:2px;}
+  #live .led{width:8px; height:8px; border-radius:50%; background:var(--amber);
+    box-shadow:0 0 8px var(--amber); flex:none;}
+  #live.ok .led{background:var(--green); box-shadow:0 0 8px var(--green);}
+  #live.bad .led{background:var(--red); box-shadow:0 0 8px var(--red); animation:dotBlink 1s infinite;}
+  #live.dead{opacity:.35; pointer-events:none;}
+  #live .lv-grid{display:grid; grid-template-columns:auto auto; column-gap:12px; row-gap:3px;
+    font-size:9px; letter-spacing:1px; color:var(--dim); white-space:nowrap;}
+  #live .lv-k b{color:var(--text); font-weight:600; font-family:"Rajdhani";}
+  #live .lv-k b.err{color:var(--red);}
+  #liveTag{font-family:"Orbitron"; font-size:8px; letter-spacing:2px; color:var(--cyan);
+    border:1px solid var(--cyan); padding:3px 6px; border-radius:2px;}
+  #wsProbe{font-family:"Orbitron"; font-size:8px; letter-spacing:2px; padding:3px 6px; border-radius:2px;
+    border:1px solid var(--line); color:var(--dim); white-space:nowrap;}
+  #wsProbe.ok{color:var(--green); border-color:var(--green); box-shadow:0 0 8px rgba(45,255,138,.25);}
+  #wsProbe.bad{color:var(--red); border-color:var(--red); box-shadow:0 0 8px rgba(255,77,77,.35); animation:dotBlink 1s infinite;}
+  #issues{display:none; margin-top:18px; border:1px solid var(--red); background:rgba(255,77,77,.07); padding:8px 12px; border-radius:2px;}
+  #issues.show{display:block;}
+  #issues .ihead{font-family:"Orbitron"; font-size:8.5px; letter-spacing:3px; color:var(--red); margin-bottom:6px;}
+  #issueList{display:flex; flex-direction:column; gap:4px;}
+  #issueList .ir{font-family:ui-monospace,Consolas,monospace; font-size:10.5px; color:var(--text);}
+  #issueList .ir b{color:var(--red); font-weight:700;}
+  .orb.alarm .hex, .orb.alarm:hover{filter:drop-shadow(0 0 14px rgba(255,77,77,.8));}
+  .orb.alarm polygon{stroke:var(--red)!important;}
+  .orb.alarm text{fill:var(--red)!important;}
+  .orb.alarm .orb-label{color:var(--red);}
+  .orb.alarm .dot{opacity:1!important; background:var(--red); box-shadow:0 0 10px var(--red);}
+  .orb.deg polygon{stroke:var(--amber)!important;}
+  .orb.deg text{fill:var(--amber)!important;}
+  .orb.deg .orb-label{color:var(--amber);}
+
+  #toast{position:absolute; bottom:16px; right:16px; z-index:40; display:none;
+    background:#071327; border:1px solid var(--cyan); color:var(--text); padding:10px 16px;
+    font-size:12px; letter-spacing:1px; box-shadow:0 0 18px rgba(0,212,255,.3);}
+
+  ::-webkit-scrollbar{width:8px;} ::-webkit-scrollbar-thumb{background:#12314d;} ::-webkit-scrollbar-track{background:transparent;}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div id="app">
+  <header id="hudHeader">
+    <div class="brand">NEXARA<small>GRAPHICAL MEMORY · V1.0</small></div>
+    <input id="search" placeholder="SEARCH FEATURE…" autocomplete="off" />
+    <div id="dropdown"></div>
+    <div id="live" title="Live backend telemetry (polled every 3s)">
+      <span class="led"></span>
+      <div class="lv-grid">
+        <span class="lv-k">SYS <b id="lvSys">WAIT</b></span>
+        <span class="lv-k">UP <b id="lvUp">—</b></span>
+        <span class="lv-k">REQ <b id="lvReq">—</b></span>
+        <span class="lv-k">5XX <b id="lv5xx">—</b></span>
+        <span class="lv-k">WS <b id="lvWs">—</b></span>
+        <span class="lv-k">P95 <b id="lvLat">—</b></span>
+      </div>
+      <span id="liveTag">ENV</span>
+      <span id="wsProbe">WS···</span>
+    </div>
+    <div class="hud-spacer"></div>
+    <div id="speedWrap"><b>PLAYBACK</b>
+      <button data-s="1" class="active">1x</button><button data-s="2">2x</button><button data-s="4">4x</button>
+    </div>
+    <button id="tourBtn">AUTO · TOUR</button>
+    <button id="replayBtn" title="Replay current feature">REPLAY</button>
+    <div id="hint">SELECT A MODULE → CLICK A FEATURE → WATCH ITS FLOW</div>
+  </header>
+
+  <section id="stageWrap">
+    <div id="stage">
+      <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+      <svg id="stageLinks"></svg>
+      <div id="core">
+        <svg class="hex" viewBox="0 0 60 60"><polygon class="hex" points="30,1 51,13.5 51,46.5 30,59 9,46.5 9,13.5"/></svg>
+        <div class="system">NEXARA</div>
+        <div class="status">STATUS: <b>ONLINE</b> · E2EE</div>
+      </div>
+      <div id="orbs"></div>
+    </div>
+  </section>
+
+  <aside id="panel">
+    <div id="panelHead">
+      <div class="kicker">// MODULE</div>
+      <h3 id="mTitle">SYSTEM</h3>
+      <p id="mDesc">Select a module on the left to inspect it.</p>
+    </div>
+    <div id="features">
+      <h4>FEATURES &amp; FUNCTIONS</h4>
+      <div id="chips" class="chips"></div>
+    </div>
+    <div id="flowWrap">
+      <div id="flowHead">
+        <span class="fname" id="fName">—</span>
+        <span class="fmeta" id="fMeta"></span>
+      </div>
+      <div id="progressBar"><div id="progressFill"></div></div>
+      <div id="flow"></div>
+      <div id="issues">
+        <div class="ihead">// ROUTE FAULTS — 5XX</div>
+        <div id="issueList"></div>
+      </div>
+      <div id="console">
+        <div class="chead">SYSTEM.LOG <b id="logState">IDLE</b></div>
+        <div class="cl" id="logLines"></div>
+      </div>
+    </div>
+  </aside>
+</div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   NEXARA GRAPHICAL MEMORY — interactive HUD
+   Click any module, then any feature: an animated flow plays.
+   AUTO · TOUR walks the whole project start to finish.
+   ============================================================ */
+
+const $ = id => document.getElementById(id);
+
+/* ---------- module data ---------- */
+const DATA = [
+{ id:"shell", name:"APP SHELL", c:"#00d4ff", tagline:"Boot, routing and layout of the Nexara client.",
+  desc:"React SPA (Vite + PWA). Boots providers, lazy-loads routes, and renders the dashboard shell on web and the Capacitor Android build.",
+  features:[
+  { name:"App bootstrap", mbok:"main.jsx mounts", steps:[
+    {g:"HT", t:"index.html serves bundle", d:"Browser loads the Vite-built JS/CSS (and registers the service worker for push)."},
+    {g:"MX", t:"main.jsx mounts React", d:"React tree boots inside ErrorBoundary → BrowserRouter → AuthProvider."},
+    {g:"SE", t:"AuthProvider restores session", d:"In-memory access token or the HttpOnly refresh cookie decides Login vs Dashboard."},
+    {g:"SW", t:"Toaster + service worker online", d:"UI chrome ready; SW enables offline shell + Web Push, then routing takes over."}]},
+  { name:"Lazy routes & Splash", mbok:"code splitting", steps:[
+    {g:"RT", t:"Router resolves path", d:"AppRoutes maps /, /login, /otp, /recover, /dashboard, /calls, /settings."},
+    {g:"LZ", t:"React.lazy code-splits", d:"Each page chunk loads on demand instead of one big bundle."},
+    {g:"SP", t:"Suspense shows Splash", d:"Animated splash covers the chunk fetch; router gates private routes on the session."}]},
+  { name:"Dashboard shell", mbok:"3 providers wrap UI", steps:[
+    {g:"PV", t:"Providers mount", d:"ChatSocketProvider (live chats) → CallProvider (WebRTC) → DashboardInner."},
+    {g:"NAV", t:"Sidebar / MobileTabBar", d:"Desktop left rail or mobile bottom tab — same 5 destinations."},
+    {g:"TB", t:"Tabs switch features", d:"Chats · Status (Stories) · Friends · Calls · Settings each render their module."},
+    {g:"CW", t:"ChatWindow opens", d:"ConversationList hands a conversation to ChatWindow → message crypto + WS feed."}]},
+  { name:"Settings & preferences", mbok:"/settings", steps:[
+    {g:"PF", t:"Profile update", d:"Avatar + display info via users router (encrypted avatar URL)."},
+    {g:"NF", t:"Notifications", d:"Enable/disable push subscriptions and story/message notifications."},
+    {g:"LK", t:"App-lock PIN", d:"Optional lock-screen PIN stored locally in IndexedDB."},
+    {g:"CF", t:"Server config", d:"ServerConfig panel lets advanced users point the app at a custom API URL."},
+    {g:"SO", t:"Sign out", d:"Revokes session and clears local crypto stores."}]},
+]},
+
+{ id:"auth", name:"AUTH & SECURITY", c:"#ff2d78", tagline:"Identity, sessions, passkeys and recovery.",
+  desc:"OTP email login, rotating refresh tokens, optional 2FA PIN, WebAuthn passkeys, app locking and recovery-code account sync.",
+  features:[
+  { name:"OTP email login", mbok:"OTP verified", steps:[
+    {g:"EM", t:"Enter email", d:"Login page collects the account email."},
+    {g:"TL", t:"Turnstile + rate limit", d:"Robot check and a rate bucket protect /auth/otp/request."},
+    {g:"MX", t:"SMTP sends 6-digit code", d:"email_service delivers a short-lived OTP (stored hashed, one-time use)."},
+    {g:"VF", t:"Verify OTP", d:"/auth/otp/verify checks the code → creates a session."},
+    {g:"TK", t:"Tokens issued", d:"Short access token in memory + long refresh token as an HttpOnly cookie."}]},
+  { name:"Refresh rotation", mbok:"single-flight refresh", steps:[
+    {g:"RQ", t:"API call intercepted", d:"axios request interceptor injects the in-memory access token."},
+    {g:"EX", t:"Token near expiry", d:"Interceptors detect soon-to-expire access tokens."},
+    {g:"RF", t:"Single-flight refresh", d:"One refresh request at a time (promise shared by concurrent callers), cookie rotated."},
+    {g:"RQ", t:"Original request retried", d:"New access token applied, call proceeds — no 401 storms."}]},
+  { name:"2FA PIN gate", mbok:"PIN verified", steps:[
+    {g:"2F", t:"2FA enabled?", d:"After OTP success the server checks if the account has 2FA."},
+    {g:"PI", t:"Short-lived 2FA token", d:"A 10-minute 2FA-only token is minted — no full access yet."},
+    {g:"vf", t:"Enter 6-digit PIN", d:"Client shows the PIN prompt; verify returns the full access token."}]},
+  { name:"Passkeys (WebAuthn)", mbok:"biometric re-auth", steps:[
+    {g:"WK", t:"navigator.credentials.create", d:"Device-bound public key generated; credential stored server-side."},
+    {g:"WG", t:"navigator.credentials.get", d:"Biometric/security-key challenge verifies identity without OTP."},
+    {g:"OK", t:"Session linked", d:"Passkey check gates re-login with zero email round-trips."}]},
+  { name:"App lock / screen security", mbok:"device protected", steps:[
+    {g:"ID", t:"App backgrounds or times out", d:"useAppLifecycle detects idle/background."},
+    {g:"PN", t:"LockScreen overlay", d:"Glowing pin pad asks the local PIN (stored only on device)."},
+    {g:"SC", t:"Screen-secure hooks", d:"useScreenSecurity blocks screenshots/recording on the Android build."}]},
+  { name:"Recovery & account sync", mbok:"device re-keyed", steps:[
+    {g:"RC", t:"Recovery code entry", d:"RecoveryModal asks for the one-time account recovery secret."},
+    {g:"DC", t:"Derive sync secret", d:"recovery_service authenticates; account sync secret is derived — never stored on the server."},
+    {g:"KY", t:"Keys re-established", d:"syncCrypto re-derives identity + session keys so the device keeps its E2EE history."}]},
+]},
+
+{ id:"chat", name:"CHATS & MESSAGES", c:"#2dff8a", tagline:"Conversations, E2EE messages, media and controls.",
+  desc:"Full chat feature set: list, groups, encrypted messages, media, reactions, pins & stars, edit/delete, receipts, typing and disappearing messages. Server stores ciphertext only.",
+  features:[
+  { name:"Conversation list", mbok:"list loaded", steps:[
+    {g:"LD", t:"Fetch conversations", d:"GET /conversations → pinned/archived flags, unread counts, last message preview."},
+    {g:"WS", t:"WS events reorder live", d:"Incoming messages bubble a conversation to the top; unread pill updates."},
+    {g:"OP", t:"Open chat window", d:"Click loads full message history + creates the crypto session if needed."}]},
+  { name:"Send an E2EE message", mbok:"delivered", steps:[
+    {g:"CP", t:"Compose in ChatInput", d:"Text, media, voice or reply is prepared in the composer."},
+    {g:"EN", t:"Encrypt via double ratchet", d:"signalChatService encrypts; server will see only ciphertext + wrapped keys."},
+    {g:"PS", t:"POST /messages/send", d:"Message persisted with recipient-key envelope; a WS 'message' event fans out."},
+    {g:"RD", t:"Recipient decrypts", d:"Remote ratchet state decrypts → message renders → read receipt sent back."}]},
+  { name:"Groups & invite links", mbok:"member joined", steps:[
+    {g:"GC", t:"Create group", d:"GroupModal names the group, picks members, minted an invite link."},
+    {g:"JL", t:"Join via link", d:"JoinGroupModal resolves the group-invite-link and adds the participant."},
+    {g:"GE", t:"Group events over WS", d:"Member add/remove, avatar change and info edits broadcast to the whole group."}]},
+  { name:"Media & attachments", mbok:"E2EE media served", steps:[
+    {g:"PK", t:"Pick file", d:"ChatInput wraps file/voice; server never sees plaintext."},
+    {g:"EN", t:"Encrypt + chunked upload", d:"File keys wrapped per participant; bytes go to uploads/ via attachments router."},
+    {g:"TN", t:"Thumbnail + URL", d:"attachment_service serves thumbnail + encrypted blob URL."},
+    {g:"FT", t:"Recipient fetch & decrypt", d:"MediaGallery / ImageLightbox lazy-loads and decrypts locally."}]},
+  { name:"Reactions, pins & stars", mbok:"applied", steps:[
+    {g:"RE", t:"React to a message", d:"Emoji picker → message_reaction row → WS reaction event to all."},
+    {g:"PN", t:"Pin to conversation top", d:"PinnedMessages modal; pinned state synced through WS."},
+    {g:"ST", t:"Star for later", d:"StarredMessagesModal lists stars; client-side search stays fully E2EE (no plaintext index)."}]},
+  { name:"Edit, delete, forward", mbok:"history patched", steps:[
+    {g:"ED", t:"Edit a message", d:"Edit re-encrypts content and broadcasts the change."},
+    {g:"DM", t:"Delete for me / everyone", d:"By-me nulls locally; for-everyone purges ciphertext + keys server-wide."},
+    {g:"2P", t:"2-party delete", d:"Both sides consent via conversation_delete_* WS events → conversation wiped."},
+    {g:"FW", t:"Forward", d:"ForwardModal re-wraps the encrypted message into another session."}]},
+  { name:"Receipts & typing", mbok:"read at peer", steps:[
+    {g:"TP", t:"Typing pulses", d:"Typing state streams over WS; animated indicator in ChatWindow."},
+    {g:"DV", t:"Delivered", d:"Receipt marks ciphertext landed on recipient's rails."},
+    {g:"RD", t:"Read", d:"Read receipt bumps unread count and timestamps in MessageInfoPanel."}]},
+  { name:"Disappearing messages", mbok:"purged at TTL", steps:[
+    {g:"TM", t:"Set a timer", d:"Sender selects a disappearing timer per conversation."},
+    {g:"PL", t:"Purge loop (60s)", d:"A background task hard-deletes expired messages and broadcasts 'message_purged'."},
+    {g:"GH", t:"Traces removed", d:"Rows + recipient keys gone — nothing recoverable server-side."}]},
+]},
+
+{ id:"friends", name:"FRIENDS & BLOCKS", c:"#ffc14d", tagline:"Requests, search, and blocks.",
+  desc:"Friendship lifecycle: search, request, accept and manage, with block/unblock enforced across messaging, presence and stories.",
+  features:[
+  { name:"Send a friend request", mbok:"pending", steps:[
+    {g:"SR", t:"Search users", d:"AddFriendModal queries the users router by name/email."},
+    {g:"RQ", t:"Send request", d:"POST /friends/request → friendship pending; recipient gets a WS notification."},
+    {g:"WT", t:"Wait for reply", d:"FriendRequestCard shows accept/decline; request auto-expires if refused."}]},
+  { name:"Accept / decline", mbok:"friends now", steps:[
+    {g:"AC", t:"Accept", d:"Accept flips friendship active; both sides notified via WS."},
+    {g:"OP", t:"Auto-open chat", d:"FriendsPage can jump straight into a new 1:1 conversation."},
+    {g:"DC", t:"Decline or cancel", d:"Request removed for both parties; sender can retry later."}]},
+  { name:"Block / unblock", mbok:"isolated", steps:[
+    {g:"BK", t:"Block user", d:"POST /blocks → messaging, presence and story visibility cut on both ends."},
+    {g:"BL", t:"Block enforced", d:"Blocks router + repositories filter everywhere; blocks list in Settings."},
+    {g:"UB", t:"Unblock", d:"Removes the block; friend status restored if it existed."}]},
+]},
+
+{ id:"stories", name:"STORIES (STATUS)", c:"#8a6bff", tagline:"24-hour encrypted status updates.",
+  desc:"Temporary media stories: E2EE composer, 24h expiry, viewer tracking, reactions and replies.",
+  features:[
+  { name:"Post a story", mbok:"live 24h", steps:[
+    {g:"CM", t:"StoryComposer", d:"Pick/record media; encrypt with per-friend filenodes."},
+    {g:"UP", t:"Upload + 24h TTL", d:"stories router stores ciphertext with expiry = now + 24h."},
+    {g:"RN", t:"Ring updates", d:"WS 'story.new' refreshes the status ring on every friend's client."}]},
+  { name:"View, react, reply", mbok:"viewed", steps:[
+    {g:"VW", t:"StoryViewer plays", d:"Fullscreen viewer auto-advances; server records who viewed (only the owner sees)."},
+    {g:"RC", t:"React", d:"Story reactions via /stories/{id}/react over WS."},
+    {g:"RP", t:"Reply", d:"Reply opens a private chat with the author preloaded."}]},
+  { name:"Expiry & cleanup", mbok:"gone", steps:[
+    {g:"TT", t:"24h countdown", d:"Expired stories stop appearing; server purges rows + media."},
+    {g:"DL", t:"Manual delete / privacy", d:"'story.deleted' event clears it everywhere instantly; privacy settings control who sees the ring."}]},
+]},
+
+{ id:"realtime", name:"REAL-TIME CORE", c:"#00d4ff", tagline:"One live socket per user, every event.",
+  desc:"The /ws/me fan-in. A single authenticated WebSocket stream delivers messages, receipts, typing, presence, stories and group events; RedisBus fans out across workers.",
+  features:[
+  { name:"Connect & auth", mbok:"socket open", steps:[
+    {g:"TK", t:"Token-authenticated connect", d:"Client opens /ws/me with the access token; websocket_auth validates it."},
+    {g:"CM", t:"Member cache warm", d:"ConnectionManager caches the user's peer memberships for O(peers) routing."},
+    {g:"OK", t:"'connected' event", d:"UI reloads conversations so the sidebar starts live."}]},
+  { name:"Event routing", mbok:"dispatched to UI", steps:[
+    {g:"EV", t:"Event arrives", d:"messages, typing, receipts, edits, deletes, reactions, attachments, presence, stories, group events, conversation_delete_*."},
+    {g:"DS", t:"WebSocketService handlers", d:"One handler per event type — persists if needed, then dispatches."},
+    {g:"UI", t:"UI state bumps", d:"ChatSocketContext updates conversations, unread, presence dots, story rings."}]},
+  { name:"Presence", mbok:"presence sync", steps:[
+    {g:"ON", t:"Connect / disconnect", d:"Join/leave tracked per user in ConnectionManager."},
+    {g:"FX", t:"Broadcast snapshot", d:"Presence snapshot + deltas fanned out; green dots light peer lists."}]},
+  { name:"Multi-worker Redis bus", mbok:"fanned out", steps:[
+    {g:"PB", t:"Publish to RedisBus", d:"Events publish to Redis channels so every uvicorn worker sees them."},
+    {g:"SB", t:"Subscribe & deliver", d:"Each worker's local socket delivers to connected users."},
+    {g:"DB", t:"Single-writer DB", d:"One worker persists via short commit; no distributed locking."}]},
+  { name:"Resilience", mbok:"reconnected", steps:[
+    {g:"HB", t:"Heartbeat + backoff", d:"Clean reconnect schedule on drop; hooks keep the UI responsive."},
+    {g:"RB", t:"REST fallback", d:"Missed live events are reconciled the next time conversations reload."}]},
+]},
+
+{ id:"crypto", name:"E2EE CRYPTO", c:"#2dff8a", tagline:"Signal X3DH + double ratchet challenge-whisper style.",
+  desc:"The encryption engine: identity keys, signed prekeys, one-time prekey bundles, X3DH handshake, per-message ratchets, IndexedDB session store and group key wrapping. The server stores ciphertext only.",
+  features:[
+  { name:"Key bundles & devices", mbok:"bundle registered", steps:[
+    {g:"ID", t:"Identity keypair", d:"Each device generates a long-term identity key."},
+    {g:"SP", t:"Signed prekey", d:"Medium-term key signed by the identity key, rotated on schedule."},
+    {g:"OP", t:"One-time prekey pool", d:"A replenished pool of disposable keys is uploaded via keys + devices routers."},
+    {g:"RG", t:"Register device + keys", d:"Bundles are stored per device; other users fetch them to start sessions."}]},
+  { name:"X3DH handshake", mbok:"shared secret", steps:[
+    {g:"FT", t:"Fetch peer bundle", d:"GET devices/{peer}/bundle pulls identity + signed prekey + a one-time prekey."},
+    {g:"DH", t:"Triple-DH mix", d:"Initiator's identity+eph keys combine with responder's identity + signed prekey (+ OPK if present)."},
+    {g:"HK", t:"HKDF → ratchet root", d:"A symmetric root key initializes the double ratchet. Peer deletes the consumed OPK server-side."}]},
+  { name:"Double ratchet", mbok:"PFS per message", steps:[
+    {g:"RK", t:"Root ratchet", d:"DH ratchet steps move both directions' root keys."},
+    {g:"CK", t:"Chain ratchet", d:"KDF chain keys derive a fresh message key per message — past keys are unrecoverable."},
+    {g:"EG", t:"Envelope persisted", d:"Ciphertext + message key envelope (nonce, ratchet state) stored; nothing decrypts without the chain."}]},
+  { name:"Session store (IndexedDB)", mbok:"sessions cached", steps:[
+    {g:"SS", t:"sessionStore persists", d:"Ratchet states live in IndexedDB, not on the server."},
+    {g:"MS", t:"Multi-device sessions", d:"Each of your devices pairs symmetrically — sender wraps separate envelopes per device."}]},
+  { name:"Group key wrapping", mbok:"wrapped per member", steps:[
+    {g:"AK", t:"Fresh AES message key", d:"A per-message AES key encrypts the group payload once."},
+    {g:"WR", t:"Wrap per member", d:"The AES key is RSA-wrapped for every member's device; message_recipient_key rows store wrappers."}]},
+  { name:"Account sync", mbok:"keys restored", steps:[
+    {g:"SC", t:"Recovery secret derived", d:"Recovery code → account sync secret (never stored server-side)."},
+    {g:"EK", t:"Keys re-derived locally", d:"syncCrypto restores identity + sessions on a fresh device without a plaintext server backup."}]},
+]},
+
+{ id:"backend", name:"BACKEND & SERVICES", c:"#ffc14d", tagline:"FastAPI API surface, middleware and daemons.",
+  desc:"All /api/v1 routers with their middleware stack, auth dependencies, JWT service, push notifications, calls via coturn and email OTP delivery.",
+  features:[
+  { name:"API routers", mbok:"15 routers", steps:[
+    {g:"AR", t:"Router registry", d:"auth · users · devices · keys · friends · blocks · conversations · messages · attachments · stories · push · call · recovery · webauthn · metrics."},
+    {g:"SV", t:"Services <-> repositories", d:"Each router delegates to services → async SQLAlchemy repositories → models."}]},
+  { name:"Middleware pipeline", mbok:"request enriched", steps:[
+    {g:"RI", t:"Request-ID", d:"Trace id per request for log correlation."},
+    {g:"MX", t:"Metrics", d:"Prometheus-style counters per route / method."},
+    {g:"SH", t:"Security headers", d:"HSTS, CSP-oriented headers, clickjacking protection."},
+    {g:"BL", t:"Body-size limit", d:"Rejects oversized uploads at the edge."},
+    {g:"CO", t:"CORS + TrustedHost", d:"Allowed origins + strict host allowlist."}]},
+  { name:"Auth deps & rate limits", mbok:"call authorized", steps:[
+    {g:"AC", t:"Actor resolution", d:"Dependencies resolve the user + device from the access token for every route."},
+    {g:"RL", t:"Rate limit buckets", d:"OTP, friend requests and search have per-account/window limits."},
+    {g:"TS", t:"Turnstile check", d:"Bot protection on auth endpoints."}]},
+  { name:"JWT service", mbok:"tokens signed", steps:[
+    {g:"SG", t:"Signature", d:"HS256 locally, ES256 in production; access tokens short-lived."},
+    {g:"RT", t:"Refresh rotation", d:"refresh_token_service rotates cookies, revoking old ones — single-flight safe."}]},
+  { name:"Push notifications", mbok:"push sent", steps:[
+    {g:"SB", t:"Subscribe VAPID", d:"Web Push subscription saved per device (push router)."},
+    {g:"NT", t:"Notify", d:"Offline peers get a push; online ones already have live WS delivery."}]},
+  { name:"Calls (TURN/ICE)", mbok:"media encrypted", steps:[
+    {g:"IC", t:"ICE candidates via coturn", d:"STUN/TURN relays call media when NAT blocks direct peer-connect."},
+    {g:"FE", t:"Frame-encryption worker", d:"A web worker encrypts/decrypts video frames in real time."},
+    {g:"LG", t:"Call log", d:"Incoming/outgoing call history via the call router's logs endpoint."}]},
+]},
+
+{ id:"data", name:"DATA & INFRA", c:"#00d4ff", tagline:"Postgres, Redis, migrations, containers.",
+  desc:"Persistence, background tasks and deployment: async SQLAlchemy on Postgres 16, Redis bus, Alembic migrations, docker-compose, Sentry and the Capacitor/Android build pipeline.",
+  features:[
+  { name:"Schema & models", mbok:"~30 tables", steps:[
+    {g:"US", t:"Users", d:"users, devices, user_keys, user_privacy, otp, sessions, webauthn_credentials, identity_key_pin."},
+    {g:"CV", t:"Conversations", d:"conversations, conversation_participants, group_invite_links."},
+    {g:"MS", t:"Messages", d:"messages, message_recipient_keys, message_reactions, message_star, attachments, story/story_reaction, call_log."},
+    {g:"RL", t:"Relations", d:"friendships, blocks — all joined through async repositories."}]},
+  { name:"Alembic migrations", mbok:"schema synced", steps:[
+    {g:"RV", t:"Revisions", d:"Versioned schema changes under backend/alembic/versions."},
+    {g:"UP", t:"upgrade head", d:"Applies pending revisions (e.g. the client_message_id + dedupe index fix)."}]},
+  { name:"Docker stack", mbok:"compose up", steps:[
+    {g:"PG", t:"PostgreSQL 16", d:"Primary data store."},
+    {g:"RD", t:"Redis 7", d:"Multi-worker WS fan-out bus."},
+    {g:"TN", t:"coturn", d:"TURN/STUN for calls."},
+    {g:"BK", t:"Backend container", d:"uvicorn + FastAPI wired to the above."}]},
+  { name:"Background tasks", mbok:"loop running", steps:[
+    {g:"PG2", t:"Message purge (60s)", d:"Hard-deletes expired disappearing messages, broadcasts 'message_purged'."},
+    {g:"SW", t:"Boot file sweep", d:"Cleans stale temp uploads on startup."}]},
+  { name:"Observability", mbok:"healthy", steps:[
+    {g:"SE", t:"Sentry", d:"Error + performance tracing wired in main.py."},
+    {g:"MT", t:"/metrics", d:"Live request metrics endpoint."},
+    {g:"FS", t:"uploads/ storage", d:"Encrypted attachments, avatars and story media on disk."}]},
+  { name:"Mobile build pipeline", mbok:"APK ready", steps:[
+    {g:"CP", t:"Capacitor webview", d:"Android shell wraps the same PWA codebase."},
+    {g:"BD", t:"dev/prod build scripts", d:"dev-build.ps1 / prod-build.ps1 bake VITE_API_URL at build time."},
+    {g:"PS", t:"PWA + push on web", d:"Service worker keeps the web app installable and push-capable."}]},
+]},
+];
+
+/* ---------- state ---------- */
+const state = {
+  module: 0, feature: 0, speed: 1, tour: false, tourTimer: null, playing: null,
+};
+
+/* ---------- shared geometry helpers ---------- */
+const SVG_NS = "http://www.w3.org/2000/svg";
+function hexGlyph(color, glyph, size, neon){
+  const s = document.createElementNS(SVG_NS, "svg");
+  s.setAttribute("viewBox", "0 0 60 60"); s.setAttribute("class","hex");
+  const p = document.createElementNS(SVG_NS, "polygon");
+  p.setAttribute("class","hex"); p.setAttribute("points","30,1 51,13.5 51,46.5 30,59 9,46.5 9,13.5");
+  p.setAttribute("stroke", color); p.setAttribute("stroke-width","1.5");
+  s.appendChild(p);
+  const g = document.createElementNS(SVG_NS, "text");
+  g.setAttribute("text-anchor","middle"); g.setAttribute("y","34"); g.setAttribute("x","30");
+  g.setAttribute("fill", color);
+  g.style.fontFamily = "Orbitron, sans-serif"; g.style.fontSize = size; g.style.fontWeight = 700;
+  if (neon) g.style.filter = `drop-shadow(0 0 6px ${color})`;
+  g.textContent = glyph; s.appendChild(g);
+  return s;
+}
+
+/* ---------- backdrop canvas (particles + radar) ---------- */
+const canvas = $("bg"), ctx = canvas.getContext("2d");
+let W, H; let stars = [];
+function resizeBg(){ W = canvas.width = innerWidth; H = canvas.height = innerHeight;
+  stars = Array.from({length: 90}, () => ({ x:Math.random()*W, y:Math.random()*H, r:Math.random()*1.4+.3, s:Math.random()*.4+.1 })); }
+addEventListener("resize", resizeBg); resizeBg();
+let sweep = 0;
+function drawBg(){
+  ctx.clearRect(0,0,W,H);
+  const t = performance.now();
+  for (const st of stars){ ctx.beginPath(); ctx.arc(st.x, st.y, st.r, 0, 7);
+    ctx.fillStyle = `rgba(80,150,200,${.25 + .2*Math.sin(t/600 + st.x)})`; ctx.fill(); }
+  ctx.strokeStyle = "rgba(0,212,255,.06)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(W*.62, H*.5, Math.min(W,H)*.28, 0, 7); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W*.62, H*.5, Math.min(W,H)*.42, 0, 7); ctx.stroke();
+  sweep += .008;
+  const ax = W*.62 + Math.cos(sweep)*Math.min(W,H)*.28, ay = H*.5 + Math.sin(sweep)*Math.min(W,H)*.28;
+  ctx.beginPath(); ctx.moveTo(W*.62, H*.5); ctx.lineTo(ax, ay);
+  ctx.strokeStyle = "rgba(0,212,255,.18)"; ctx.lineWidth = 1; ctx.stroke();
+  requestAnimationFrame(drawBg);
+}
+drawBg();
+
+/* ---------- stage orbs + links ---------- */
+const stage = $("stage"), orbsEl = $("orbs"), linksSvg = $("stageLinks");
+const CENTER = { x:.5, y:.5 }, RADIUS = Math.min(innerWidth*.16, 300);
+function layout(){
+  const w = stage.clientWidth, h = stage.clientHeight;
+  const cx = w*CENTER.x, cy = h*CENTER.y;
+  const n = DATA.length;
+  const orbW = 110, orbH = 96;
+  linksSvg.innerHTML = "";
+  orbsEl.innerHTML = "";
+  DATA.forEach((m, i) => {
+    const ang = -Math.PI/2 + (i/n)*Math.PI*2;
+    const x = cx + Math.cos(ang)*RADIUS, y = cy + Math.sin(ang)*RADIUS;
+    const line = document.createElementNS(SVG_NS, "line");
+    line.setAttribute("x1", cx); line.setAttribute("y1", cy);
+    line.setAttribute("x2", x); line.setAttribute("y2", y);
+    line.style.stroke = m.c; line.style.opacity = .35;
+    linksSvg.appendChild(line);
+    const orb = document.createElement("div");
+    orb.className = "orb"; orb.style.left = (x - orbW/2) + "px"; orb.style.top = (y - orbH/2) + "px";
+    orb.style.setProperty("--c", m.c);
+    const badge = document.createElement("div"); badge.className = "badge";
+    const hex = document.createElement("div"); hex.className = "hex";
+    const g = hexGlyph(m.c, m.id === "realtime" ? "WS" : m.id === "friends" ? "F" : m.id === "stories" ? "ST" :
+                       m.id === "crypto" ? "K" : m.id.slice(0,1).toUpperCase(), 17, true);
+    hex.appendChild(g);
+    const gl = document.createElement("div"); gl.className = "glyph";
+    gl.style.color = m.c;
+    const dot = document.createElement("div"); dot.className = "dot";
+    badge.append(hex, gl);
+    const lab = document.createElement("div"); lab.className = "orb-label"; lab.textContent = m.name;
+    orb.append(badge, lab);
+    orb.title = m.name + " — " + m.tagline;
+    orb.addEventListener("click", () => selectModule(i));
+    orbsEl.appendChild(orb);
+  });
+}
+setTimeout(layout, 30); addEventListener("resize", layout);
+
+function selectModule(i, silent){
+  state.module = i; if (i !== undefined) state.feature = 0;
+  const m = DATA[i];
+  document.querySelectorAll(".orb").forEach((o, k) => o.classList.toggle("selected", k === i));
+  const ph = $("panelHead");
+  ph.style.setProperty("--c", m.c);
+  document.querySelectorAll("#panelHead h3").forEach(()=>{});
+  $("mTitle").textContent = m.name + "  //  " + m.id.toUpperCase();
+  $("mTitle").style.color = m.c; $("mTitle").style.textShadow = `0 0 12px ${m.c}66`;
+  $("mDesc").textContent = m.desc;
+  const chips = $("chips"); chips.innerHTML = "";
+  m.features.forEach((f, j) => {
+    const c = document.createElement("button"); c.className = "chip" + (j === state.feature ? " active" : "");
+    c.textContent = f.name; c.style.setProperty("--c", m.c);
+    c.addEventListener("click", () => selectFeature(j));
+    chips.appendChild(c);
+  });
+  $("flowWrap").style.setProperty("--c", m.c);
+  selectFeature(state.feature);
+  if (!silent) pulseLink(i);
+}
+
+function selectFeature(j){
+  state.feature = j;
+  const m = DATA[state.module], f = m.features[j];
+  document.querySelectorAll(".chip").forEach((c, k) => c.classList.toggle("active", k === j));
+  $("fName").textContent = "▸ " + f.name; $("fName").style.color = m.c;
+  $("fMeta").textContent = f.mbok + " · " + f.steps.length + " STEPS · MODULE " + m.id.toUpperCase();
+  playFlow(f);
+}
+
+function pulseLink(i){
+  const line = linksSvg.querySelectorAll("line")[i];
+  if (!line) return;
+  const cx = stage.clientWidth/2, cy = stage.clientHeight/2;
+  const x2 = +line.getAttribute("x2"), y2 = +line.getAttribute("y2");
+  const path = document.createElementNS(SVG_NS, "path");
+  path.setAttribute("d", `M ${cx} ${cy} L ${x2} ${y2}`);
+  path.setAttribute("fill","none"); path.setAttribute("stroke","none");
+  linksSvg.appendChild(path);
+  const c = document.createElementNS(SVG_NS, "circle"); c.setAttribute("r","3.5");
+  c.setAttribute("fill", DATA[i].c);
+  c.style.filter = `drop-shadow(0 0 6px ${DATA[i].c})`;
+  linksSvg.appendChild(c);
+  const anim = document.createElementNS(SVG_NS, "animateMotion");
+  anim.setAttribute("dur", "0.5s"); anim.setAttribute("repeatCount", "1"); anim.setAttribute("fill","freeze");
+  anim.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", "#x"); // no-op, motion uses path directly
+  const mp = document.createElementNS(SVG_NS, "mpath");
+  mp.appendChild(document.createElementNS(SVG_NS, "href")); mp.firstChild.setAttribute("xlink:href", "#" + path.id);
+  path.id = "p" + Date.now() + i;
+  mp.firstChild.setAttribute("xlink:href", "#" + path.id);
+  anim.appendChild(mp); c.appendChild(anim);
+  if (document.body.classList.contains("killed")) return;
+  setTimeout(() => { c.remove(); path.remove(); }, 650);
+}
+
+/* ---------- flow animation ---------- */
+const flowEl = $("flow"), logEl = $("logLines");
+function playFlow(f){
+  clearTimeout(state.flowT);
+  state.playing = f;
+  const m = DATA[state.module];
+  flowEl.innerHTML = "";
+  logEl.innerHTML = "";
+  const bar = $("progressFill");
+  bar.style.width = "0%";
+  $("logState").textContent = "RUNNING";
+  const steps = f.steps.map((s, i) => {
+    const st = document.createElement("div"); st.className = "step";
+    const node = document.createElement("div"); node.className = "node";
+    node.appendChild(hexGlyph(m.c, s.g, 12, false));
+    node.appendChild(Object.assign(document.createElement("div"), {className:"glyph", innerHTML:""}));
+    const card = document.createElement("div"); card.className = "card";
+    const t = document.createElement("div"); t.className = "t"; t.textContent = s.t;
+    const d = document.createElement("div"); d.className = "d"; d.textContent = s.d;
+    const tag = document.createElement("span"); tag.className = "tag"; tag.textContent = m.id + " · " + i;
+    card.append(t, d, tag); st.append(node, card);
+    flowEl.appendChild(st);
+    return st;
+  });
+  const base = 1150 / state.speed;
+  steps.forEach((st, i) => {
+    state.flowT = setTimeout(() => {
+      st.classList.add("in");
+      bar.style.width = ((i+1)/steps.length*100) + "%";
+      addLog(f.steps[i], i, m);
+      if (i === steps.length - 1){ setTimeout(() => $("logState").textContent = "COMPLETE", base); }
+    }, i * base);
+  });
+  state.flowT = setTimeout(() => {}, steps.length*base + 50);
+}
+
+function addLog(s, i, m){
+  const line = document.createElement("div");
+  const ts = new Date().toLocaleTimeString("en-GB");
+  line.innerHTML = `<span class="ts">[${ts}]</span> <span class="warn">${m.id.toUpperCase()}</span> :: ` +
+    `${String(i+1).padStart(2,"0")}. ${s.t} — ${s.d.slice(0, 68)}${s.d.length>68?"…":""} <span class="ok">OK</span>`;
+  logEl.prepend(line);
+  while (logEl.childNodes.length > 8) logEl.lastChild.remove();
+}
+
+/* ---------- auto tour ---------- */
+function tourNext(){
+  if (!state.tour) return;
+  const m = state.module, f = state.feature;
+  const nf = DATA[m].features.length;
+  if (f + 1 < nf){ selectFeature(f + 1); state.tourTimer = setTimeout(tourNext, 1500 + 2600/state.speed); return; }
+  if (m + 1 < DATA.length){ selectModule(m + 1); state.tourTimer = setTimeout(tourNext, 200); return; }
+  stopTour();
+  toast("TOUR COMPLETE — ENTIRE PROJECT EXPLORED");
+}
+function toggleTour(){
+  if (state.tour){ stopTour(); return; }
+  state.tour = true; $("tourBtn").classList.add("active"); $("tourBtn").textContent = "■ STOP TOUR";
+  selectModule(0);
+  state.tourTimer = setTimeout(tourNext, 1800 + 2600/state.speed);
+}
+function stopTour(){
+  state.tour = false; $("tourBtn").classList.remove("active"); $("tourBtn").textContent = "AUTO · TOUR";
+  clearTimeout(state.tourTimer);
+}
+
+/* ---------- search ---------- */
+const search = $("search"), drop = $("dropdown");
+search.addEventListener("input", () => {
+  const q = search.value.trim().toLowerCase();
+  if (!q){ drop.style.display = "none"; return; }
+  const hits = [];
+  DATA.forEach((m, mi) => m.features.forEach((f, fi) => {
+    if ((f.name + " " + m.name).toLowerCase().includes(q)) hits.push({mi, fi, f, m});
+  }));
+  if (!hits.length){ drop.style.display = "block"; drop.innerHTML = '<div class="r">NO MATCH</div>'; return; }
+  drop.innerHTML = "";
+  hits.slice(0,8).forEach(h => {
+    const r = document.createElement("div"); r.className = "r";
+    r.innerHTML = `<b>${h.f.name}</b> <small>${h.m.name}</small>`;
+    r.addEventListener("click", () => { selectModule(h.mi, true); selectFeature(h.fi); search.value=""; drop.style.display="none"; });
+    drop.appendChild(r);
+  });
+  drop.style.display = "block";
+});
+addEventListener("click", e => { if (!e.target.closest("#search")) drop.style.display = "none"; });
+
+/* ---------- controls ---------- */
+document.querySelectorAll("#speedWrap button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("#speedWrap button").forEach(x => x.classList.remove("active"));
+  b.classList.add("active");
+  state.speed = +b.dataset.s;
+  if (state.playing) playFlow(state.playing);
+}));
+$("replayBtn").addEventListener("click", () => state.playing && playFlow(state.playing));
+$("tourBtn").addEventListener("click", toggleTour);
+addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") selectFeature((state.feature+1) % DATA[state.module].features.length);
+  if (e.key === "ArrowLeft") selectFeature((state.feature-1+DATA[state.module].features.length) % DATA[state.module].features.length);
+  if (e.key === "ArrowDown") selectModule((state.module+1) % DATA.length);
+  if (e.key === "ArrowUp") selectModule((state.module-1+DATA.length) % DATA.length);
+  if (e.key === " " && !state.tour){ e.preventDefault(); toggleTour(); }
+});
+let tdiv = $("toast"), tm;
+function toast(msg){
+  tdiv.textContent = msg; tdiv.style.display = "block"; clearTimeout(tm);
+  tm = setTimeout(() => tdiv.style.display = "none", 2600);
+}
+addEventListener("resize", () => toast("VIEWPORT RESIZED — LAYOUT ADJUSTED"));
+
+/* ---------- live telemetry ---------- */
+const LIVE = {
+  base: null, wsUrl: null, ws: null, wsOk: false, wsTimer: null, wsRc: 0,
+  routeErrors: {}, prevRoute: {}, prev5xx: 0, prevWs: -1, timer: null,
+};
+function liveLog(tone, msg){
+  const line = document.createElement("div");
+  const ts = new Date().toLocaleTimeString("en-GB");
+  line.innerHTML = `<span class="ts">[${ts}]</span> LIVE :: ${msg} <span class="${tone === "warn" ? "warn" : "ok"}">●</span>`;
+  logEl.prepend(line);
+  while (logEl.childNodes.length > 8) logEl.lastChild.remove();
+}
+function setOrb(idx, cls){
+  const o = document.querySelectorAll(".orb")[idx];
+  if (o){ o.classList.remove("alarm","deg"); if (cls) o.classList.add(cls); }
+}
+function fmtUp(s){
+  const h = Math.floor(s/3600), m = Math.floor(s%3600/60), ss = Math.floor(s%60);
+  return String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0") + ":" + String(ss).padStart(2,"0");
+}
+function sum5xx(c){
+  let n = 0;
+  for (const k in c) if (k.startsWith("http_requests_") && +k.slice(15) >= 500) n += c[k];
+  return n;
+}
+function routeErrorsOf(c){
+  const out = {};
+  for (const k in c) if (k.startsWith("http_errors_route:")) out[k.replace("http_errors_route:","")] = c[k];
+  return out;
+}
+function fetchT(url, ms){
+  const opts = (typeof AbortSignal !== "undefined" && AbortSignal.timeout) ? { signal: AbortSignal.timeout(ms) } : undefined;
+  return fetch(url, opts).then(r => { if (!r.ok) throw new Error(); return r.json(); });
+}
+async function detectBase(){
+  const forced = new URLSearchParams(location.search).get("api");
+  if (forced) return forced.replace(/\/+$/, "");
+  if (location.protocol === "file:") return null;
+  try { await fetchT("/health", 1500); return ""; } catch(e){}
+  try { await fetchT("http://127.0.0.1:8000/health", 1500); return "http://127.0.0.1:8000"; } catch(e){}
+  return null;
+}
+function renderIssues(){
+  const box = $("issues"), list = $("issueList");
+  const entries = Object.entries(LIVE.routeErrors).filter(([,n]) => n > 0).sort((a,b) => b[1]-a[1]).slice(0,6);
+  if (!entries.length){ box.classList.remove("show"); return; }
+  list.innerHTML = "";
+  for (const [route, n] of entries){
+    const r = document.createElement("div"); r.className = "ir";
+    r.innerHTML = `<b>▸ ${n}×</b> ${route}`;
+    list.appendChild(r);
+  }
+  box.classList.add("show");
+}
+function wsDown(){
+  if (LIVE.wsOk) liveLog("warn", "REAL-TIME PROBE DOWN");
+  LIVE.wsOk = false;
+  if (LIVE.ws){ try { LIVE.ws.close(); } catch(e){} LIVE.ws = null; }
+  clearInterval(LIVE.wsTimer);
+  const t = $("wsProbe");
+  t.className = "bad"; t.textContent = "WS:DOWN";
+  setTimeout(wsConnect, 4000);
+}
+function wsConnect(){
+  if (!LIVE.wsUrl) return;
+  const t = $("wsProbe");
+  try { LIVE.ws = new WebSocket(LIVE.wsUrl); } catch(e){ wsDown(); return; }
+  LIVE.ws.onopen = () => {
+    LIVE.wsOk = true; LIVE.wsRc = 0;
+    t.className = "ok"; t.textContent = "WS:LINK";
+    liveLog("ok", "REAL-TIME PROBE ONLINE (" + LIVE.wsUrl.replace("ws","").replace("://","") + ")");
+  };
+  LIVE.ws.onmessage = e => { if (e.data === "pong") LIVE.wsRc = 0; };
+  LIVE.ws.onerror = () => wsDown();
+  LIVE.ws.onclose = () => { if (LIVE.wsOk) wsDown(); };
+  clearInterval(LIVE.wsTimer);
+  LIVE.wsTimer = setInterval(() => {
+    if (LIVE.ws && LIVE.ws.readyState === 1){
+      try { LIVE.ws.send("ping"); } catch(e){}
+    }
+  }, 8000);
+}
+async function livePoll(){
+  if (!LIVE.base) return;
+  try {
+    const h = await fetchT(LIVE.base + "/health", 3000);
+    const m = await fetchT(LIVE.base + "/api/v1/metrics", 3000);
+    const o = await fetchT(LIVE.base + "/metrics", 3000);
+    const c = m.counters || {};
+    const cur5xx = sum5xx(c);
+    const wsGauge = (m.gauges && m.gauges.active_ws_connections) || 0;
+    LIVE.routeErrors = routeErrorsOf(c);
+    renderIssues();
+    const sys = h.status === "healthy" ? "GOOD" : h.status.toUpperCase();
+    $("lvSys").textContent = sys; $("lvSys").className = h.status === "healthy" ? "" : "err";
+    $("lvUp").textContent = fmtUp(h.uptime_seconds || 0);
+    $("lvReq").textContent = (c.http_requests_total || 0).toLocaleString();
+    $("lv5xx").textContent = cur5xx.toLocaleString();
+    $("lv5xx").className = cur5xx > 0 ? "err" : "";
+    $("lvWs").textContent = wsGauge.toLocaleString();
+    $("lvLat").textContent = (o.latency && o.latency.p95_ms != null) ? Math.round(o.latency.p95_ms) + "ms" : "—";
+    $("liveTag").textContent = (h.environment || "env").toUpperCase();
+    const liveEl = $("live");
+    liveEl.classList.remove("dead","bad","ok");
+    liveEl.classList.add(h.status === "healthy" ? "ok" : "bad");
+    setOrb(8, h.database === "connected" ? null : "alarm");
+    setOrb(5, h.redis === "connected" ? null : (h.redis === "not_configured" ? "deg" : "alarm"));
+    if (cur5xx > LIVE.prev5xx){ setOrb(7, "alarm"); } else { setOrb(7, null); }
+    LIVE.prev5xx = cur5xx;
+    for (const k in LIVE.routeErrors){
+      const prev = LIVE.prevRoute[k] || 0;
+      if (LIVE.routeErrors[k] > prev) liveLog("warn", "FAIL @ " + k + " +" + (LIVE.routeErrors[k] - prev));
+    }
+    LIVE.prevRoute = { ...LIVE.routeErrors };
+    if (LIVE.prevWs > 0 && wsGauge === 0) liveLog("warn", "REAL-TIME FEED EMPTY — all user sockets closed");
+    LIVE.prevWs = wsGauge;
+  } catch (e) {
+    $("live").classList.add("bad"); $("live").classList.remove("ok");
+    $("lvSys").textContent = "OFF"; $("lvSys").className = "err";
+    $("lvUp").textContent = "—"; $("lvReq").textContent = "—"; $("lv5xx").textContent = "—";
+    $("lvWs").textContent = "—"; $("lvLat").textContent = "—";
+    setOrb(5, "alarm"); setOrb(7, "alarm"); setOrb(8, "alarm");
+  }
+  clearTimeout(LIVE.timer); LIVE.timer = setTimeout(livePoll, 3000);
+}
+async function liveInit(){
+  LIVE.base = await detectBase();
+  if (LIVE.base === null){
+    $("live").classList.add("dead");
+    const t = $("wsProbe"); t.className = "bad"; t.textContent = "WS:N/A";
+    if (!LIVE.warned){
+      LIVE.warned = true;
+      toast("BACKEND NOT REACHABLE — retrying… (add ?api=http://host:8000 to force the API origin)");
+    }
+    setTimeout(liveInit, 5000);
+    return;
+  }
+  LIVE.warned = false;
+  const proto = LIVE.base === "" ? location.protocol === "https:" ? "wss" : "ws"
+    : (LIVE.base.startsWith("https") ? "wss" : "ws");
+  const host = LIVE.base === "" ? location.host : LIVE.base.split("://")[1];
+  LIVE.wsUrl = proto + "://" + host + "/ws/ping";
+  wsConnect();
+  livePoll();
+}
+
+/* ---------- boot ---------- */
+selectModule(0);
+liveInit();
+toast("SYSTEMS ONLINE · " + DATA.length + " MODULES · 47 FEATURES · LIVE TELEMETRY ACTIVE");
+</script>
+</body>
+</html>

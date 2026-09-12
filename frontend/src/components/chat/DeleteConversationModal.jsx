@@ -1,6 +1,7 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
 
+import { getApiErrorDetail } from "../../utils/errors";
 import { useAuth } from "../../context/AuthContext";
 import { useChatSocket } from "../../context/ChatSocketContext";
 import { useModalAnimation } from "../../hooks/useModalAnimation";
@@ -116,10 +117,7 @@ export default function DeleteConversationModal({
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to request deletion."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to request deletion."));
 
         }
         finally {
@@ -154,10 +152,7 @@ export default function DeleteConversationModal({
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to delete this chat."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to delete this chat."));
 
         }
         finally {
@@ -187,10 +182,7 @@ export default function DeleteConversationModal({
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to dismiss the request."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to dismiss the request."));
 
         }
         finally {
@@ -220,10 +212,7 @@ export default function DeleteConversationModal({
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to cancel the request."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to cancel the request."));
 
         }
         finally {

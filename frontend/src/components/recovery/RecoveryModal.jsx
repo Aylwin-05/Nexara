@@ -6,6 +6,17 @@ import { useAuth } from "../../context/AuthContext";
 
 import "./RecoveryModal.css";
 
+// The recovery code is stored raw (24 chars, no dashes). Display
+// it in the same XXXXXX-XXXXXX-XXXXXX-XXXXXX form the recovery
+// re-issue flow uses, so a code copied from either place matches
+// visually. Normalization on input strips the dashes anyway.
+function formatRecoveryCode(code) {
+    const cleaned = String(code)
+        .replace(/[^A-Z0-9]/gi, "")
+        .toUpperCase();
+    return cleaned.match(/.{1,6}/g)?.join("-") ?? cleaned;
+}
+
 // ==========================================================
 // Recovery code modal (two modes)
 //
@@ -105,7 +116,7 @@ export default function RecoveryModal({
                         </p>
 
                         <div className="recovery-code-box">
-                            {recoveryCode}
+                            {formatRecoveryCode(recoveryCode)}
                         </div>
 
                         <p className="recovery-hint">

@@ -279,6 +279,15 @@ class PushService:
 
             async with AsyncSessionLocal() as db:
 
+                if db.bind.dialect.name == "postgresql":
+                    from sqlalchemy import text
+
+                    await db.execute(
+                        text(
+                            "SELECT set_config('app.current_user_id', 'system', true)"
+                        )
+                    )
+
                 from app.models.conversation_participant import (
                     ConversationParticipant,
                 )
@@ -354,6 +363,16 @@ class PushService:
 
         try:
             async with AsyncSessionLocal() as db:
+
+                if db.bind.dialect.name == "postgresql":
+                    from sqlalchemy import text
+
+                    await db.execute(
+                        text(
+                            "SELECT set_config('app.current_user_id', 'system', true)"
+                        )
+                    )
+
                 from app.models.conversation_participant import (
                     ConversationParticipant,
                 )

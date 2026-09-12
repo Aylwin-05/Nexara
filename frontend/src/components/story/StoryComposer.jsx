@@ -4,6 +4,7 @@ import "./StoryComposer.css";
 
 import { useAuth } from "../../context/AuthContext";
 import { useChatSocket } from "../../context/ChatSocketContext";
+import { getApiErrorDetail } from "../../utils/errors";
 
 const ACCEPTED =
     "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm";
@@ -90,10 +91,7 @@ export default function StoryComposer({ onClose, onPosted }) {
                 caught
             );
 
-            setError(
-                caught?.response?.data?.detail ??
-                "Could not post your status. Try again."
-            );
+            setError(getApiErrorDetail(caught, "Could not post your status. Try again."));
 
             setPosting(false);
 

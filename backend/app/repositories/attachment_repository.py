@@ -1,3 +1,4 @@
+from pathlib import Path
 from uuid import UUID
 
 from app.models.attachment import Attachment
@@ -23,6 +24,20 @@ class AttachmentRepository(BaseRepository):
         return await self.create(
             attachment
         )
+
+    async def get_all_storage_filenames(
+        self,
+    ) -> set[str]:
+        """Basenames of every attachment file the DB knows about."""
+
+        result = await self.execute(
+            select(Attachment.storage_path)
+        )
+
+        return {
+            Path(path).name
+            for (path,) in result.all()
+        }
 
     # ==========================================================
     # Get By ID
@@ -78,3 +93,30 @@ class AttachmentRepository(BaseRepository):
         await self.delete(
             attachment
         )
+
+    async def delete_attachments_for_message(
+        self,
+        message_id: UUID,
+    ) -> list[tuple[str | None, str | None]]:
+        """Hard-delete every attachment row of a message IN THE SAME
+        TRANSACTION as the message deletion.
+
+        Returns (storage_path, thumbnail_path) pairs so the caller
+        can unlink the physical files AFTER the transaction commits
+        (file loss on a rolled-back delete would corrupt a message
+        that survived).
+        """
+
+        attachments = await self.get_by_message(message_id)
+
+        paths = [
+            (attachment.storage_path, attachment.thumbnail_path)
+            for attachment in attachments
+        ]
+
+        for attachment in attachments:
+            await self.db.delete(attachment)
+
+        await self.db.flush()
+
+        return paths

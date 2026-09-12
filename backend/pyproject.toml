@@ -48,3 +48,13 @@ asyncio_mode = "auto"
 testpaths = ["."]
 python_files = "test_*.py"
 python_functions = "test_*"
+
+# aiosqlite GC artifact: connections opened in throwaway asyncio.run()
+# loops (and inside TestClient's portal) leave a speculative
+# Connection._cancel coroutine that is never awaited after the loop
+# closes. Test-harness only; production connections live in the app's
+# single event loop. Remove if the harness moves to a persistent loop.
+filterwarnings = [
+  "ignore:coroutine 'Connection._cancel' was never awaited:RuntimeWarning",
+  "ignore::pytest.PytestUnraisableExceptionWarning",
+]

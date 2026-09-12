@@ -937,7 +937,8 @@ class WebSocketService:
             from sqlalchemy import select
 
             member_ids = await manager._member_ids(
-                conversation_id
+                conversation_id,
+                user_id=current_user.id,
             )
 
             result = await self.db.execute(
@@ -993,7 +994,8 @@ class WebSocketService:
             from sqlalchemy import select
 
             member_ids = await manager._member_ids(
-                conversation_id
+                conversation_id,
+                user_id=current_user.id,
             )
 
             connected = await manager.connected_user_ids()

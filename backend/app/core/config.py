@@ -33,9 +33,6 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     SENTRY_DSN: str = ""
 
-    HOST: str = "127.0.0.1"
-    PORT: int = 8000
-
     # ======================================================
     # Database
     # ======================================================
@@ -61,7 +58,7 @@ class Settings(BaseSettings):
     # ======================================================
 
     COOKIE_SECURE: bool = False
-    COOKIE_SAMESITE: str = "lax"
+    COOKIE_SAMESITE: str = "strict"
     COOKIE_DOMAIN: str | None = None
 
     # ======================================================
@@ -84,12 +81,6 @@ class Settings(BaseSettings):
     # ======================================================
 
     REDIS_URL: str | None = None
-
-    # ======================================================
-    # Master key (sync-secret / recovery encryption)
-    # ======================================================
-
-    MASTER_KEY: str = ""
 
     # ======================================================
     # Cloudflare Turnstile (CAPTCHA on auth endpoints)
@@ -124,6 +115,12 @@ class Settings(BaseSettings):
     TURN_USERNAME: str = ""
     TURN_PASSWORD: str = ""
 
+    # When set, /call/config mints short-lived per-user TURN
+    # credentials (coturn REST / HMAC with `use-auth-secret`) instead
+    # of handing every authenticated user the shared static pair.
+    # Overrides TURN_USERNAME/TURN_PASSWORD for the minted users.
+    TURN_SECRET: str = ""
+
     # ======================================================
     # Request body limit (bytes)
     #
@@ -143,7 +140,6 @@ class Settings(BaseSettings):
 
     WEBAUTHN_RP_ID: str = "localhost"
     WEBAUTHN_RP_NAME: str = "Nexara"
-    WEBAUTHN_ORIGIN: str = "http://localhost:5173"
 
 
 @lru_cache
@@ -186,12 +182,6 @@ def get_settings():
             problems.append(
                 "COOKIE_SECURE must be true in production "
                 "(HTTPS only)"
-            )
-
-        if not instance.MASTER_KEY:
-            problems.append(
-                "MASTER_KEY is required in production for "
-                "sync-secret encryption"
             )
 
         if not all([

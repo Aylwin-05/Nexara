@@ -1,3 +1,4 @@
+from pathlib import Path
 from uuid import UUID
 
 from app.database.session import get_db
@@ -205,17 +206,18 @@ async def send_message(
     try:
 
         message = await service.send_message(
-            current_user=current_user,
-            conversation_id=request.conversation_id,
-            ciphertext=request.ciphertext,
-            encrypted_key_sender=request.encrypted_key_sender,
-            encrypted_key_receiver=request.encrypted_key_receiver,
-            nonce=request.nonce,
-            message_type=request.message_type,
-            reply_to_id=request.reply_to_id,
-            is_forwarded=request.is_forwarded,
-            forwarded_count=request.forwarded_count,
-            recipient_keys=[
+                current_user=current_user,
+                conversation_id=request.conversation_id,
+                ciphertext=request.ciphertext,
+                encrypted_key_sender=request.encrypted_key_sender,
+                encrypted_key_receiver=request.encrypted_key_receiver,
+                nonce=request.nonce,
+                message_type=request.message_type,
+                reply_to_id=request.reply_to_id,
+                is_forwarded=request.is_forwarded,
+                forwarded_count=request.forwarded_count,
+                client_message_id=request.client_message_id,
+                recipient_keys=[
                 (key.user_id, key.encrypted_key)
                 for key in request.recipient_keys
             ]
@@ -617,6 +619,8 @@ async def get_messages(
     conversation_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    limit: int = 50,
+    before: UUID | None = None,
 ):
 
     message_repository = MessageRepository(db)
@@ -639,6 +643,8 @@ async def get_messages(
         messages = await service.get_messages(
             current_user=current_user,
             conversation_id=conversation_id,
+            limit=min(limit, 200) if limit > 0 else None,
+            before=before,
         )
 
         return [
@@ -756,7 +762,7 @@ async def delete_for_everyone(
 
     try:
 
-        await service.delete_for_everyone(
+        _, attachment_paths = await service.delete_for_everyone(
             current_user=current_user,
             message_id=message_id,
         )
@@ -771,6 +777,16 @@ async def delete_for_everyone(
             status_code=400,
             detail=str(e),
         )
+
+    # Attachment rows are gone: only the physical files remain.
+    # Unlink AFTER the commit so a rolled-back delete keeps its
+    # files (and a lost unlink leaves a file, not a broken row).
+    for file_path, thumb_path in attachment_paths:
+
+        for path in (file_path, thumb_path):
+
+            if path:
+                Path(path).unlink(missing_ok=True)
 
 
 # ==========================================================
@@ -850,7 +866,7 @@ async def search_messages(
         )
         .where(
             Message.conversation_id == conversation_id,
-            not Message.deleted_for_everyone,
+            Message.deleted_for_everyone.is_(False),
             or_(
                 Message.ciphertext.ilike(f"%{q}%"),
                 Message.message_type.ilike(f"%{q}%"),
@@ -951,7 +967,7 @@ async def get_pinned_messages(
         .where(
             Message.conversation_id == conversation_id,
             Message.is_pinned,
-            not Message.deleted_for_everyone,
+            Message.deleted_for_everyone.is_(False),
         )
         .order_by(Message.created_at.desc())
         .limit(50)

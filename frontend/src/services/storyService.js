@@ -1,6 +1,6 @@
 import api from "../api/api";
 import { getPrivateKey, getPublicKey } from "../crypto/keyStorage";
-import { arrayBufferToBase64, base64ToArrayBuffer } from "../crypto/base64";
+import { arrayBufferToBase64, base64ToArrayBuffer } from "../crypto/signal/bytes";
 import {
     decryptFile,
     encryptFile,
@@ -258,11 +258,6 @@ const storyService = {
         const { data } = await api.post(`/stories/${storyId}/react`, {
             emoji,
         });
-        return data;
-    },
-
-    async removeStoryReaction(storyId) {
-        const { data } = await api.delete(`/stories/${storyId}/react`);
         return data;
     },
 

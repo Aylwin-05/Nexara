@@ -8,6 +8,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Index,
+    Integer,
     String,
     Text,
     Uuid,
@@ -99,6 +100,18 @@ class User(Base, TimestampMixin):
         default=True,
         nullable=False,
         comment="Whether the account is active.",
+    )
+
+    # Bumped on logout / deactivation / deletion. The value is
+    # embedded in issued access tokens ("ver" claim), so bumping
+    # invalidates every previously issued access token instantly
+    # instead of leaving it valid until expiry.
+    session_version: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
+        server_default="0",
+        comment="Session generation; access tokens must match it.",
     )
 
     online_status: Mapped[str] = mapped_column(

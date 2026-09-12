@@ -21,8 +21,6 @@ Generated mechanically with AST deduplication:
   #   push = tests/test_push.py
   #   reci = tests/test_recovery_reissue.py
   #   recs = tests/test_recovery_sync.py
-  #   sigp = tests/test_signal_protocol.py
-  #   sigs = tests/test_signal_session.py
   #   star = tests/test_stars.py
   #   stor = tests/test_stories.py
   #   tfa = tests/test_two_fa.py
@@ -44,46 +42,11 @@ import app.services.email_service as email_module
 import app.websocket.connection_manager as conn_mgr
 import app.websocket.ws as ws_module
 import pytest
-from app.core.rate_limit import reset_limiter
-from app.crypto.signal.double_ratchet import (
-    Chain,
-    DHKeyPair,
-    DoubleRatchetCore,
-    RatchetState,
-    derive_message_keys,
-    kdf_chain_key_step,
-    kdf_root_chain_step,
-)
-from app.crypto.signal.message import (
-    EnvelopeError,
-    SignalEnvelope,
-    build_prekey_message,
-    parse_prekey_message,
-)
-from app.crypto.signal.primitives import (
-    aes_gcm_decrypt,
-    aes_gcm_encrypt,
-    b64encode,
-    ed25519_private_to_bytes,
-    ed25519_public_to_bytes,
-    ed25519_sign,
-    ed25519_verify,
-    generate_ed25519_keypair,
-    generate_nonce,
-    generate_symmetric_key,
-    generate_x25519_keypair,
-    kdf_chain_key,
-    kdf_root_chain,
-    x25519_dh,
-    x25519_private_to_bytes,
-    x25519_public_to_bytes,
-)
-from app.crypto.signal.session import InMemorySessionStore, SignalSessionManager
-from app.crypto.signal.x3dh import create_key_bundle, derive_x25519_from_ed25519
+from app.core.rate_limit import _RedisStore, reset_limiter
 from app.database.base import Base
 from app.database.session import get_db
 from app.dependencies.auth import get_current_user
-from app.dependencies.rate_limit import _client_ip as limiter_client_ip
+from app.core.ip_utils import resolve_client_ip as limiter_client_ip
 from app.main import app as app_instance
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
@@ -91,11 +54,52 @@ from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.services.recovery_service import recovery_token_store, unlock_sync_secret
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from fastapi.testclient import TestClient
 from http_ece import decrypt as ece_decrypt
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
+
+
+def generate_ed25519_keypair():
+    priv = Ed25519PrivateKey.generate()
+    return priv, priv.public_key()
+
+
+def generate_x25519_keypair():
+    priv = X25519PrivateKey.generate()
+    return priv, priv.public_key()
+
+
+def b64encode(data: bytes) -> str:
+    return base64.b64encode(data).decode()
+
+
+def _enable_foreign_keys(engine):
+    """SQLite skips FK enforcement by default; prod Postgres enforces
+    ON DELETE CASCADE. Turn it on so hard-deletes behave like prod."""
+
+    from sqlalchemy import event
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _fk_pragma(dbapi_conn, _record):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+
+def ed25519_public_to_bytes(pub) -> bytes:
+    return pub.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+
+
+def ed25519_sign(priv, data: bytes) -> bytes:
+    return priv.sign(data)
+
+
+def x25519_public_to_bytes(pub) -> bytes:
+    return pub.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
 
 # ======================================================================
 # source: tests/test_admin_moderation.py
@@ -116,6 +120,8 @@ def api_client(monkeypatch):
     EmailRecorder.sent = []
     reset_limiter()
     engine = create_async_engine('sqlite+aiosqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
+    _enable_foreign_keys(engine)
+    _enable_foreign_keys(engine)
     TestingSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     monkeypatch.setattr(conn_mgr, 'AsyncSessionLocal', TestingSessionLocal)
     monkeypatch.setattr(db_session_module, 'AsyncSessionLocal', TestingSessionLocal)
@@ -243,6 +249,115 @@ def test_send_encrypted_message_and_history(api_client):
     conversations = client.get('/api/v1/conversations/', headers=_auth(token_b)).json()
     conv_b = next(c for c in conversations if c['id'] == str(conversation_id))
     assert conv_b['unread_count'] == 1
+def test_message_history_pagination_limit_and_cursor(api_client):
+    client = api_client
+    (token_a, user_a) = _register(client, EMAIL_A)
+    (token_b, user_b) = _register(client, EMAIL_B)
+    conversation_id = _friend_and_conversation(client, token_a, user_b['id'], token_b)
+    for i in range(5):
+        _send_message(client, conversation_id, token_a)
+    first = client.get(f'/api/v1/messages/{conversation_id}?limit=2', headers=_auth(token_b)).json()
+    assert len(first) == 2
+    oldest = first[0]['id']
+    before = client.get(f'/api/v1/messages/{conversation_id}?limit=2&before={oldest}', headers=_auth(token_b)).json()
+    assert len(before) == 2
+    assert before[0]['id'] not in {m['id'] for m in first}
+    assert before[1]['id'] not in {m['id'] for m in first}
+    oldest_before = before[0]['id']
+    tail = client.get(f'/api/v1/messages/{conversation_id}?limit=2&before={oldest_before}', headers=_auth(token_b)).json()
+    assert len(tail) == 1
+    all_ids = [m['id'] for m in first + before + tail]
+    assert len(set(all_ids)) == 5
+    full = client.get(f'/api/v1/messages/{conversation_id}?limit=0', headers=_auth(token_b)).json()
+    assert len(full) == 5
+    assert full[0]['id'] == tail[0]['id']
+    assert [m['id'] for m in full] == [m['id'] for m in (tail + before + first)]
+def test_send_message_idempotent_replay(api_client):
+    client = api_client
+    (token_a, _user_a) = _register(client, EMAIL_A)
+    (token_b, user_b) = _register(client, EMAIL_B)
+    conversation_id = _friend_and_conversation(client, token_a, user_b['id'], token_b)
+    payload = {'conversation_id': str(conversation_id), 'ciphertext': 'same-blob', 'encrypted_key_sender': 'k1', 'encrypted_key_receiver': 'k2', 'nonce': 'n', 'client_message_id': 'client-uuid-42'}
+    first = client.post('/api/v1/messages/send', json=payload, headers=_auth(token_a))
+    assert first.status_code == 200, first.text
+    first_id = first.json()['id']
+    replay = client.post('/api/v1/messages/send', json=payload, headers=_auth(token_a))
+    assert replay.status_code == 200, replay.text
+    assert replay.json()['id'] == first_id
+    history = client.get(f'/api/v1/messages/{conversation_id}', headers=_auth(token_b)).json()
+    assert len(history) == 1
+    different = client.post('/api/v1/messages/send', json={**payload, 'client_message_id': 'client-uuid-43', 'ciphertext': 'new-blob'}, headers=_auth(token_a))
+    assert different.status_code == 200, different.text
+    assert different.json()['id'] != first_id
+    history = client.get(f'/api/v1/messages/{conversation_id}', headers=_auth(token_b)).json()
+    assert len(history) == 2
+def test_delete_for_everyone_removes_attachments(api_client):
+    client = api_client
+    (token_a, _user_a) = _register(client, EMAIL_A)
+    (token_b, user_b) = _register(client, EMAIL_B)
+    conversation_id = _friend_and_conversation(client, token_a, user_b['id'], token_b)
+    sent = _send(client, conversation_id, token_a, content='attach me')
+    message_id = sent.json()['id']
+    upload = _upload_attachment(client, message_id, token_a)
+    assert upload.status_code == 200, upload.text
+    attachment_id = upload.json()['attachment']['id']
+    before = client.get(f'/api/v1/attachments/{attachment_id}', headers=_auth(token_b))
+    assert before.status_code == 200, before.text
+    deleted = client.delete(f'/api/v1/messages/{message_id}', headers=_auth(token_a))
+    assert deleted.status_code == 204, deleted.text
+    after = client.get(f'/api/v1/attachments/{attachment_id}', headers=_auth(token_a))
+    assert after.status_code == 404
+    history = client.get(f'/api/v1/messages/{conversation_id}', headers=_auth(token_b)).json()
+    assert history and history[0]['deleted_for_everyone'] is True
+    assert history[0]['attachments'] == []
+def test_ws_connection_cap_drops_oldest(monkeypatch):
+    import app.websocket.connection_manager as conn_mgr
+
+    monkeypatch.setattr(conn_mgr.redis_bus, 'active', False)
+    monkeypatch.setattr('app.metrics.set_gauge', lambda *args: None)
+
+    class FakeWS:
+        def __init__(self):
+            self.closed = None
+
+        async def close(self, code=1000):
+            self.closed = code
+
+    mgr = conn_mgr.ConnectionManager()
+    uid = uuid.uuid4()
+    sockets = [FakeWS() for _ in range(6)]
+    for ws in sockets:
+        asyncio.run(mgr.connect_user(uid, ws))
+
+    assert len(mgr.user_connections[uid]) == 5
+    assert sockets[0].closed == 1000
+    assert sockets[1].closed is None
+def test_orphaned_attachment_sweep_removes_dangling_files(monkeypatch, tmp_path):
+    import os
+    import app.services.attachment_service as att_svc
+    from app.services.attachment_service import AttachmentService
+
+    monkeypatch.setattr(att_svc.AttachmentService, 'ATTACHMENT_DIRS', (tmp_path,))
+
+    legit = tmp_path / 'legit.bin'
+    legit.write_bytes(b'data')
+    orphan = tmp_path / 'orphan.bin'
+    orphan.write_bytes(b'data')
+    os.utime(orphan, (0, 0))
+
+    class FakeRepo:
+        async def get_all_storage_filenames(self):
+            return {'legit.bin'}
+
+    removed = asyncio.run(
+        AttachmentService(FakeRepo()).sweep_orphaned_files(
+            min_age_seconds=0
+        )
+    )
+
+    assert removed == 1
+    assert legit.exists()
+    assert not orphan.exists()
 def test_mark_all_read_clears_unread_count(api_client):
     client = api_client
     (token_a, _user_a) = _register(client, EMAIL_A)
@@ -353,6 +468,7 @@ def auth_client(monkeypatch):
     EmailRecorder__auth.sent = []
     reset_limiter()
     engine = create_async_engine('sqlite+aiosqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
+    _enable_foreign_keys(engine)
     TestingSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
     async def override_get_db():
@@ -435,6 +551,53 @@ def test_send_otp_rate_limited_per_email(auth_client):
         assert resp.status_code == 200, resp.text
     resp = client.post('/api/v1/auth/send-otp', json={'email': 'bob@example.com'})
     assert resp.status_code == 429
+
+async def test_rate_limiter_redis_down_falls_back_to_memory():
+    store = _RedisStore()
+    count = await store.incr_with_ttl("rl:test", 60)
+    assert count == 1
+    count = await store.incr_with_ttl("rl:test", 60)
+    assert count == 2
+    seen, ttl = await store.peek_with_ttl("rl:test", 60)
+    assert seen == 2
+    assert ttl >= 1
+
+def test_account_deletion_requires_confirmation(api_client):
+    client = api_client
+    token = _register(client, EMAIL_A)[0]
+    resp = client.delete('/api/v1/auth/account', headers=_auth(token))
+    assert resp.status_code == 400
+    resp = client.get('/api/v1/users/me', headers=_auth(token))
+    assert resp.status_code == 200
+
+def test_account_deletion_hard_deletes_user_and_data(api_client):
+    client = api_client
+    token_a, user_a = _register(client, EMAIL_A)
+    token_b, user_b = _register(client, EMAIL_B)
+
+    conv = client.post('/api/v1/conversations/private',
+                       json={'user_id': str(user_b['id'])}, headers=_auth(token_a))
+    assert conv.status_code == 200, conv.text
+    conv_id = conv.json()['id']
+
+    sent = client.post('/api/v1/messages/send',
+                       json={'conversation_id': str(conv_id), 'ciphertext': 'x',
+                             'encrypted_key_sender': 'k1',
+                             'encrypted_key_receiver': 'k2', 'nonce': 'n'},
+                       headers=_auth(token_a))
+    assert sent.status_code == 200, sent.text
+
+    resp = client.delete('/api/v1/auth/account?confirm=YES_DELETE', headers=_auth(token_a))
+    assert resp.status_code == 200, resp.text
+
+    # Old access token is dead; the user row and their messages are gone.
+    resp = client.get('/api/v1/users/me', headers=_auth(token_a))
+    assert resp.status_code == 401
+
+    # The friend's account still works and sees the empty history.
+    resp = client.get(f'/api/v1/messages/{conv_id}', headers=_auth(token_b))
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == []
 
 # ======================================================================
 # source: tests/test_blocks.py
@@ -968,6 +1131,7 @@ def test_invalid_conversation_id_rejected(api_client):
 @pytest.fixture
 def client(monkeypatch):
     engine = create_async_engine('sqlite+aiosqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
+    _enable_foreign_keys(engine)
     TestingSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
     async def override_get_db():
@@ -996,7 +1160,7 @@ _USER_ID = uuid.UUID('abcdef12-3456-7890-abcd-ef1234567890')
 def make_key_material(client_store_password: bytes=b'pass', opk_count: int=3) -> dict:
     """Simulate client-side generation of Signal identity/prekeys."""
     (identity_priv, identity_pub) = generate_ed25519_keypair()
-    identity_x25519 = derive_x25519_from_ed25519(identity_priv)
+    identity_x25519, _ = generate_x25519_keypair()
     identity_x25519_pub = identity_x25519.public_key()
     (_spk_priv, spk_pub) = generate_x25519_keypair()
     spk_pub_bytes = x25519_public_to_bytes(spk_pub)
@@ -1157,8 +1321,9 @@ def test_messages_receive_expires_at_when_timer_on(api_client):
     for token in (token_a, token_b):
         history = client.get(f'/api/v1/messages/{conv}', headers=_auth(token)).json()
         assert len(history) == 2
-        assert history[0]['expires_at'] is None
-        assert history[1]['expires_at'] is not None
+        by_ciphertext = {m['ciphertext']: m for m in history}
+        assert by_ciphertext['persistent-msg']['expires_at'] is None
+        assert by_ciphertext['vanishing-msg']['expires_at'] is not None
 def test_expired_message_is_purged_from_history(api_client):
     client = api_client
     (token_a, _) = _register(client, EMAIL_A)
@@ -1903,6 +2068,7 @@ def api_env(monkeypatch):
     EmailRecorder.sent = []
     reset_limiter()
     engine = create_async_engine('sqlite+aiosqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
+    _enable_foreign_keys(engine)
     TestingSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     monkeypatch.setattr(conn_mgr, 'AsyncSessionLocal', TestingSessionLocal)
 
@@ -1941,7 +2107,7 @@ def _device_key_material(opk_count: int=2, opk_start: int=1) -> dict:
     """Simulate client-side Signal key material (mirrors the
     payload the real client uploads)."""
     (identity_priv, identity_pub) = generate_ed25519_keypair()
-    identity_x25519 = derive_x25519_from_ed25519(identity_priv)
+    identity_x25519, _ = generate_x25519_keypair()
     identity_x25519_pub = identity_x25519.public_key()
     (_spk_priv, spk_pub) = generate_x25519_keypair()
     spk_pub_bytes = x25519_public_to_bytes(spk_pub)
@@ -2048,9 +2214,13 @@ class _FakeRequest:
         self.headers = headers
         self.client = _FakeClient(client_host)
 def test_client_ip_only_honors_valid_xff():
+    # Trusted proxy (private peer): a valid XFF header is honored,
+    # garbage is discarded, and a spoofed public-peer request
+    # (direct internet client) cannot fake XFF.
     assert limiter_client_ip(_FakeRequest({'x-forwarded-for': '203.0.113.9'}, '10.0.0.2')) == '203.0.113.9'
     assert limiter_client_ip(_FakeRequest({'x-forwarded-for': 'garbage'}, '10.0.0.2')) == '10.0.0.2'
     assert limiter_client_ip(_FakeRequest({}, '10.0.0.2')) == '10.0.0.2'
+    assert limiter_client_ip(_FakeRequest({'x-forwarded-for': '203.0.113.9'}, '8.8.8.8')) == '8.8.8.8'
 
 # ======================================================================
 # source: tests/test_push.py
@@ -2062,6 +2232,7 @@ def api_client__push(monkeypatch):
     EmailRecorder.sent = []
     reset_limiter()
     engine = create_async_engine('sqlite+aiosqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
+    _enable_foreign_keys(engine)
     TestingSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     monkeypatch.setattr(conn_mgr, 'AsyncSessionLocal', TestingSessionLocal)
     monkeypatch.setattr(db_session_module, 'AsyncSessionLocal', TestingSessionLocal)
@@ -2204,6 +2375,7 @@ def api_client__reci(monkeypatch):
     asyncio.run(recovery_token_store.clear())
     reset_limiter()
     engine = create_async_engine('sqlite+aiosqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
+    _enable_foreign_keys(engine)
     TestingSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     monkeypatch.setattr(conn_mgr, 'AsyncSessionLocal', TestingSessionLocal)
 
@@ -2228,7 +2400,7 @@ def _register__reci(client, email):
     return (data['access_token'], data['user'])
 def make_key_material__reci() -> dict:
     (identity_priv, identity_pub) = generate_ed25519_keypair()
-    identity_x25519 = derive_x25519_from_ed25519(identity_priv)
+    identity_x25519, _ = generate_x25519_keypair()
     identity_x25519_pub = identity_x25519.public_key()
     (_spk_priv, spk_pub) = generate_x25519_keypair()
     spk_pub_bytes = x25519_public_to_bytes(spk_pub)
@@ -2379,7 +2551,7 @@ def test_recovery_verify_consumes_otp_once(api_client__reci):
 'Tests for the account recovery code + sync copies feature.'
 def make_key_material__recs() -> dict:
     (identity_priv, identity_pub) = generate_ed25519_keypair()
-    identity_x25519 = derive_x25519_from_ed25519(identity_priv)
+    identity_x25519, _ = generate_x25519_keypair()
     identity_x25519_pub = identity_x25519.public_key()
     (_spk_priv, spk_pub) = generate_x25519_keypair()
     spk_pub_bytes = x25519_public_to_bytes(spk_pub)
@@ -2479,193 +2651,6 @@ def test_sync_blob_upsert_and_fetch(api_client):
     assert resp.json()['sync_blob'] == {'nonce': 'abc', 'data': 'def'}
     history = api_client.get(f"/api/v1/messages/{conversation['id']}", headers=_auth(token_a)).json()
     assert history[0]['attachments'][0]['sync_blob'] == {'nonce': 'abc', 'data': 'def'}
-
-# ======================================================================
-# source: tests/test_signal_protocol.py
-# ======================================================================
-'\nSignal Protocol unit tests: primitives, X3DH, double ratchet, envelope.\nRun: pytest tests/test_signal_protocol.py -v\n'
-class TestPrimitives:
-
-    def test_x25519_dh_matches(self):
-        (_pa, _) = generate_x25519_keypair()
-        (_pb, _) = generate_x25519_keypair()
-        (a, A) = generate_x25519_keypair()
-        (b, B) = generate_x25519_keypair()
-        assert x25519_dh(a, B) == x25519_dh(b, A)
-
-    def test_ed25519_sign_verify(self):
-        (p, pub) = generate_ed25519_keypair()
-        sig = ed25519_sign(p, b'hello')
-        assert ed25519_verify(pub, sig, b'hello') is True
-        assert ed25519_verify(pub, sig, b'tampered') is False
-
-    def test_kdf_root_chain(self):
-        root = b'R' * 32
-        dh = b'D' * 32
-        (new_root, chain) = kdf_root_chain(root, dh)
-        assert len(new_root) == 32
-        assert len(chain) == 32
-
-    def test_kdf_chain_key(self):
-        ck = b'C' * 32
-        (next_ck, mk) = kdf_chain_key(ck)
-        assert len(next_ck) == 32
-        assert len(mk) == 32
-        assert next_ck != mk
-
-    def test_aes_gcm_roundtrip(self):
-        key = generate_symmetric_key()
-        nonce = generate_nonce()
-        ad = b'AD'
-        (ct, used_nonce) = aes_gcm_encrypt(key, b'secret', ad, nonce)
-        assert aes_gcm_decrypt(key, ct, ad, used_nonce) == b'secret'
-
-    def test_aes_gcm_tamper_fails(self):
-        key = generate_symmetric_key()
-        nonce = generate_nonce()
-        (ct, used) = aes_gcm_encrypt(key, b'secret', b'AD', nonce)
-        tampered = ct[:-1] + bytes([ct[-1] ^ 1])
-        with pytest.raises(Exception):
-            aes_gcm_decrypt(key, tampered, b'AD', used)
-class TestDoubleRatchetCore:
-
-    def test_kdf_steps_lengths(self):
-        (new_root, ck) = kdf_root_chain_step(b'R' * 32, b'D' * 32)
-        assert len(new_root) == 32
-        assert len(ck) == 32
-        (next_ck, mk) = kdf_chain_key_step(ck)
-        assert len(next_ck) == 32
-        assert len(mk) == 32
-
-    def test_message_key_derivation_deterministic(self):
-        (e1, a1, n1) = derive_message_keys(b'MK' * 16)
-        (e2, a2, n2) = derive_message_keys(b'MK' * 16)
-        assert e1 == e2
-        assert a1 == a2
-        assert (n1 == n2)
-        assert len(e1) == 32
-        assert len(a1) == 32
-
-    def test_state_roundtrip(self):
-        state = RatchetState(root_key=b'R' * 32, our_dh_pair=DHKeyPair.new(), their_dh_public=b'T' * 32, sending_chain=Chain(key=b'S' * 32, index=5), receiving_chain=Chain(key=b'C' * 32, index=3), skipped_message_keys={}, associated_data=b'AD' * 8)
-        state2 = RatchetState.from_dict(state.to_dict())
-        assert state2.root_key == state.root_key
-        assert state2.our_dh_pair.public_raw == state.our_dh_pair.public_raw
-        assert state2.sending_chain.index == 5
-
-    def test_bidirectional_ratchet(self):
-        shared = b'S' * 32
-        ad = b'AD' * 8
-        alice = DoubleRatchetCore(shared, ad)
-        bob = DoubleRatchetCore(shared, ad)
-        alice.their_dh_public = bob.our_dh_pair.public_raw
-        alice.initialize_initiator()
-        (h1, p1) = alice.encrypt_message(b'Hello')
-        assert bob.decrypt_message(h1, p1) == b'Hello'
-        (h2, p2) = bob.encrypt_message(b'Hi')
-        assert alice.decrypt_message(h2, p2) == b'Hi'
-        for i in range(20):
-            (h, p) = alice.encrypt_message(f'A{i}'.encode())
-            assert bob.decrypt_message(h, p) == f'A{i}'.encode()
-            (h, p) = bob.encrypt_message(f'B{i}'.encode())
-            assert alice.decrypt_message(h, p) == f'B{i}'.encode()
-
-    def test_out_of_order(self):
-        shared = b'S' * 32
-        ad = b'AD' * 8
-        alice = DoubleRatchetCore(shared, ad)
-        bob = DoubleRatchetCore(shared, ad)
-        alice.their_dh_public = bob.our_dh_pair.public_raw
-        alice.initialize_initiator()
-        msgs = []
-        for i in range(5):
-            (h, p) = alice.encrypt_message(f'M{i}'.encode())
-            msgs.append((h, p))
-        for i in [2, 0, 1, 4, 3]:
-            assert bob.decrypt_message(*msgs[i]) == f'M{i}'.encode()
-        with pytest.raises(ValueError):
-            bob.decrypt_message(*msgs[0])
-
-    def test_state_save_restore(self):
-        ad = b'AD' * 8
-        alice = DoubleRatchetCore(b'S' * 32, ad)
-        bob = DoubleRatchetCore(b'S' * 32, ad)
-        alice.their_dh_public = bob.our_dh_pair.public_raw
-        alice.initialize_initiator()
-        for i in range(3):
-            (h, p) = alice.encrypt_message(f'M{i}'.encode())
-            bob.decrypt_message(h, p)
-        restored = DoubleRatchetCore.from_state(RatchetState.from_dict(alice.state().to_dict()))
-        (h, p) = restored.encrypt_message(b'M3')
-        assert bob.decrypt_message(h, p) == b'M3'
-class TestEnvelope:
-
-    def test_prekey_roundtrip(self):
-        (ik, _) = generate_ed25519_keypair()
-        (ek, _) = generate_x25519_keypair()
-        env = build_prekey_message(device_id='d1', sender_id='u1', our_identity_private=ik, our_ephemeral_private=ek, ratchet_header={'pn': 0, 'n': 0, 'dh': 'ab' * 32}, ciphertext=b'\x01\x02', signed_prekey_id=1, one_time_prekey_id=3)
-        env2 = SignalEnvelope.from_json(env.to_json())
-        info = parse_prekey_message(env2)
-        assert info['signed_prekey_id'] == 1
-        assert info['one_time_prekey_id'] == 3
-
-    def test_malformed_rejected(self):
-        with pytest.raises(EnvelopeError):
-            SignalEnvelope.from_json('not json')
-        with pytest.raises(EnvelopeError):
-            SignalEnvelope.from_json('{"type":"data","version":99,"device_id":"d","sender_id":"s","ratchet":{},"ciphertext":""}')
-
-# ======================================================================
-# source: tests/test_signal_session.py
-# ======================================================================
-'\nSession manager integration tests (X3DH handshake + double ratchet).\nRun: pytest tests/test_signal_session.py -v\n'
-@pytest.mark.asyncio
-async def test_full_session_flow():
-    (bob_ik, _) = generate_ed25519_keypair()
-    (bob_spk, _) = generate_x25519_keypair()
-    (bob_opk, _) = generate_x25519_keypair()
-    bundle = create_key_bundle(device_id='bob-device-1', identity_private=bob_ik, signed_prekey_private=bob_spk, signed_prekey_id=1, one_time_prekeys=[(7, bob_opk)]).to_dict()
-    (alice_ik, _) = generate_ed25519_keypair()
-    alice = SignalSessionManager(InMemorySessionStore())
-    bob = SignalSessionManager(InMemorySessionStore())
-    env1 = await alice.encrypt_first(our_device_id='alice-device-1', our_user_id='user-alice', our_identity_private=ed25519_private_to_bytes(alice_ik), their_device_id='bob-device-1', their_bundle=bundle, conversation_id='conv-1', plaintext=b'Hello Bob, this is Alice!')
-    assert env1.type == 'prekey'
-    res1 = await bob.decrypt_first(envelope=env1, our_device_id='bob-device-1', our_user_id='user-bob', our_identity_private=ed25519_private_to_bytes(bob_ik), signed_prekey={'key_id': 1, 'private_key': b64encode(x25519_private_to_bytes(bob_spk))}, one_time_prekey={'key_id': 7, 'private_key': b64encode(x25519_private_to_bytes(bob_opk))}, conversation_id='conv-1')
-    assert res1.plaintext == b'Hello Bob, this is Alice!'
-    assert res1.new_session is True
-    env2 = await bob.encrypt(our_device_id='bob-device-1', our_user_id='user-bob', remote_device_id='alice-device-1', conversation_id='conv-1', plaintext=b'Hello Alice, message received!')
-    res2 = await alice.decrypt(envelope=env2, our_device_id='alice-device-1', conversation_id='conv-1')
-    assert res2.plaintext == b'Hello Alice, message received!'
-    for i in range(10):
-        env = await alice.encrypt(our_device_id='alice-device-1', our_user_id='user-alice', remote_device_id='bob-device-1', conversation_id='conv-1', plaintext=f'A{i}'.encode())
-        assert (await bob.decrypt(envelope=env, our_device_id='bob-device-1', conversation_id='conv-1')).plaintext == f'A{i}'.encode()
-        env = await bob.encrypt(our_device_id='bob-device-1', our_user_id='user-bob', remote_device_id='alice-device-1', conversation_id='conv-1', plaintext=f'B{i}'.encode())
-        assert (await alice.decrypt(envelope=env, our_device_id='alice-device-1', conversation_id='conv-1')).plaintext == f'B{i}'.encode()
-@pytest.mark.asyncio
-async def test_session_state_persistence():
-    (bob_ik, _) = generate_ed25519_keypair()
-    (bob_spk, _) = generate_x25519_keypair()
-    (bob_opk, _) = generate_x25519_keypair()
-    (alice_ik, _) = generate_ed25519_keypair()
-    bundle = create_key_bundle(device_id='bob-device-1', identity_private=bob_ik, signed_prekey_private=bob_spk, signed_prekey_id=1, one_time_prekeys=[(1, bob_opk)]).to_dict()
-    alice_store = InMemorySessionStore()
-    bob_store = InMemorySessionStore()
-    alice = SignalSessionManager(alice_store)
-    bob = SignalSessionManager(bob_store)
-    env1 = await alice.encrypt_first(our_device_id='a-1', our_user_id='u-a', our_identity_private=ed25519_private_to_bytes(alice_ik), their_device_id='b-1', their_bundle=bundle, conversation_id='c-1', plaintext=b'first')
-    await bob.decrypt_first(envelope=env1, our_device_id='b-1', our_user_id='u-b', our_identity_private=ed25519_private_to_bytes(bob_ik), signed_prekey={'key_id': 1, 'private_key': b64encode(x25519_private_to_bytes(bob_spk))}, one_time_prekey={'key_id': 1, 'private_key': b64encode(x25519_private_to_bytes(bob_opk))}, conversation_id='c-1')
-    saved = await alice_store.get('a-1', 'b-1', 'c-1')
-    data = saved.to_dict()
-    restored = RatchetState.from_dict(data)
-    assert restored.root_key == saved.root_key
-    env = await alice.encrypt(our_device_id='a-1', our_user_id='u-a', remote_device_id='b-1', conversation_id='c-1', plaintext=b'after restart')
-    res = await bob.decrypt(envelope=env, our_device_id='b-1', conversation_id='c-1')
-    assert res.plaintext == b'after restart'
-@pytest.mark.asyncio
-async def test_no_session_raises():
-    mgr = SignalSessionManager(InMemorySessionStore())
-    with pytest.raises(Exception):
-        await mgr.encrypt(our_device_id='a', our_user_id='u1', remote_device_id='b-1', conversation_id='c-1', plaintext=b'hi')
 
 # ======================================================================
 # source: tests/test_stars.py
@@ -2922,6 +2907,7 @@ def auth_client__tfa(monkeypatch):
     EmailRecorder.sent = []
     reset_limiter()
     engine = create_async_engine('sqlite+aiosqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
+    _enable_foreign_keys(engine)
     TestingSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
     async def override_get_db():
@@ -3166,6 +3152,7 @@ def api_client__ws(monkeypatch, tmp_path):
     EmailRecorder__ws.sent = []
     reset_limiter()
     engine = create_async_engine('sqlite+aiosqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
+    _enable_foreign_keys(engine)
     TestingSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     monkeypatch.setattr(conn_mgr, 'AsyncSessionLocal', TestingSessionLocal)
     monkeypatch.setattr(db_session_module, 'AsyncSessionLocal', TestingSessionLocal)

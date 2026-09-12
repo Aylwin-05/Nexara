@@ -32,7 +32,7 @@ import { logger } from "../utils/logger";
 import keyService from "../services/keyService";
 import {
     arrayBufferToBase64,
-} from "../crypto/base64";
+} from "../crypto/signal/bytes";
 import {
     DM_AAD_PREFIX,
     decryptMessage,
@@ -109,6 +109,12 @@ export default function useMessages(
         useState([]);
 
     const [loading, setLoading] =
+        useState(false);
+
+    const [hasMore, setHasMore] =
+        useState(false);
+
+    const [loadingOlder, setLoadingOlder] =
         useState(false);
 
     const [error, setError] =
@@ -1520,8 +1526,11 @@ try {
 
             const history =
                 await messageService.getMessages(
-                    conversation.id
+                    conversation.id,
+                    { limit: 50 }
                 );
+
+            setHasMore(history.length === 50);
 
             //--------------------------------------------------
             // Decrypt every message
@@ -1701,6 +1710,105 @@ try {
         finally {
 
             setLoading(false);
+
+        }
+
+    }
+
+    //------------------------------------------------------
+    // Load older messages (scroll-to-top pagination)
+    //------------------------------------------------------
+
+    async function loadOlder() {
+
+        if (!hasMore || loadingOlder || loading) return;
+
+        const oldest = messages[0];
+
+        if (!oldest) return;
+
+        setLoadingOlder(true);
+
+        try {
+
+            const history =
+                await messageService.getMessages(
+                    conversation.id,
+                    {
+                        limit: 50,
+                        before: oldest.id,
+                    }
+                );
+
+            const decrypted =
+                await Promise.all(
+                    history.map(
+                        async (message) => {
+
+                            try {
+
+                                const plaintext =
+                                    await decryptIncoming(message);
+
+                                return {
+
+                                    ...message,
+
+                                    content: plaintext,
+
+                                };
+
+                            }
+
+                            catch {
+
+                                return {
+
+                                    ...message,
+
+                                    content:
+                                        "[Unable to decrypt]",
+
+                                };
+
+                            }
+
+                        }
+                    )
+                );
+
+            if (decrypted.length) {
+
+                setMessages(previous => {
+
+                    const existing = new Set(
+                        previous.map(message => message.id)
+                    );
+
+                    return [
+                        ...decrypted.filter(
+                            message => !existing.has(message.id)
+                        ),
+                        ...previous,
+                    ];
+
+                });
+
+            }
+
+            setHasMore(history.length === 50);
+
+        }
+
+        catch (err) {
+
+            logger.error(err);
+
+        }
+
+        finally {
+
+            setLoadingOlder(false);
 
         }
 
@@ -3082,9 +3190,10 @@ try {
 
         try {
 
-            const history =
-                await messageService.getStarredMessages(
-                    conversation.id
+const history =
+                await messageService.getMessages(
+                    conversation.id,
+                    { limit: 0 }
                 );
 
             const decrypted =
@@ -3151,6 +3260,12 @@ try {
         typingUsers,
 
         loading,
+
+        hasMore,
+
+        loadingOlder,
+
+        loadOlder,
 
         error,
         sendMessage,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-
+import { getApiErrorDetail } from "../utils/errors";
 import friendService from "../services/friendService";
 
 export default function useFriends() {
@@ -65,10 +65,7 @@ export default function useFriends() {
 
             setError(err);
 
-            toast.error(
-                err.response?.data?.detail ??
-                "Unable to load friends."
-            );
+            toast.error(getApiErrorDetail(err, "Unable to load friends."));
 
         }
 
@@ -111,10 +108,7 @@ export default function useFriends() {
 
             setSearchResults([]);
 
-            toast.error(
-                err.response?.data?.detail ??
-                "Unable to search users."
-            );
+            toast.error(getApiErrorDetail(err, "Unable to search users."));
 
         }
 
@@ -154,10 +148,7 @@ export default function useFriends() {
 
             console.error(error);
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Failed to send friend request."
-            );
+            toast.error(getApiErrorDetail(error, "Failed to send friend request."));
 
         }
 
@@ -189,10 +180,7 @@ export default function useFriends() {
 
             console.error(error);
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to accept request."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to accept request."));
 
         }
 
@@ -224,10 +212,7 @@ export default function useFriends() {
 
             console.error(error);
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to reject request."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to reject request."));
 
         }
 
@@ -259,10 +244,7 @@ export default function useFriends() {
 
             console.error(error);
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to remove friend."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to remove friend."));
 
         }
 

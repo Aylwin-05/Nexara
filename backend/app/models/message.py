@@ -11,6 +11,9 @@ from sqlalchemy import (
     TypeDecorator,
     func,
 )
+from sqlalchemy import (
+    text as sa_text,
+)
 from sqlalchemy.dialects.postgresql import (
     ARRAY,
     UUID,
@@ -84,6 +87,19 @@ class Message(Base):
             "ix_messages_conv_created",
             "conversation_id",
             "created_at",
+        ),
+        Index(
+            "uq_messages_client_dedupe",
+            "conversation_id",
+            "sender_id",
+            "client_message_id",
+            unique=True,
+            sqlite_where=sa_text(
+                "client_message_id IS NOT NULL"
+            ),
+            postgresql_where=sa_text(
+                "client_message_id IS NOT NULL"
+            ),
         ),
     )
 
@@ -183,6 +199,11 @@ class Message(Base):
     crypto_version: Mapped[int] = mapped_column(
         default=1,
         nullable=False,
+    )
+
+    client_message_id: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
     )
 
     reply_to_id: Mapped[UUID | None] = mapped_column(

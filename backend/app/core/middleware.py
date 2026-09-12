@@ -213,6 +213,9 @@ class MetricsMiddleware:
         inc_counter(f"http_requests_{status_code}")
         if status_code >= 400:
             inc_counter("http_errors_total")
+            if status_code >= 500:
+                route = getattr(scope.get("route"), "path", None) or scope.get("path", "unknown")
+                inc_counter(f"http_errors_route:{route}")
 
 
 def get_metrics():

@@ -8,7 +8,7 @@ from app.models.message_recipient_key import MessageRecipientKey
 from app.models.message_star import MessageStar
 from app.models.signal_session import SignalSession
 from app.repositories.base_repository import BaseRepository
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.orm import selectinload
 
 
@@ -47,6 +47,23 @@ class MessageRepository(BaseRepository):
     ) -> Message:
 
         return await self.create(message)
+
+    async def find_by_client_message_id(
+        self,
+        conversation_id: UUID,
+        sender_id: UUID,
+        client_message_id: str,
+    ) -> Message | None:
+
+        result = await self.db.execute(
+            select(Message).where(
+                Message.conversation_id == conversation_id,
+                Message.sender_id == sender_id,
+                Message.client_message_id == client_message_id,
+            )
+        )
+
+        return result.scalar_one_or_none()
 
     # ==========================================================
     # DISAPPEARING MESSAGES
@@ -148,12 +165,20 @@ class MessageRepository(BaseRepository):
         self,
         conversation_id: UUID,
         user_id: UUID | None = None,
+        limit: int | None = None,
+        before: UUID | None = None,
     ) -> list[Message]:
+        """Messages in a conversation, oldest first.
+
+        `limit`/`before` page newer→older: the `limit` newest
+        messages that are strictly older than the cursor message.
+        `limit=None`/`0` returns the whole conversation (used by
+        the E2EE client-side search, which needs everything).
+        """
 
         await self.purge_expired()
 
-        result = await self.execute(
-
+        stmt = (
             select(Message)
             .options(
                 *_message_options()
@@ -161,13 +186,50 @@ class MessageRepository(BaseRepository):
             .where(
                 Message.conversation_id == conversation_id
             )
-            .order_by(
-                Message.created_at.asc()
-            )
-
         )
 
-        messages = result.scalars().all()
+        if before is not None:
+
+            cursor_created_at = select(Message.created_at).where(
+                Message.id == before
+            ).scalar_subquery()
+
+            # created_at DESC with the id as a tiebreaker, so a
+            # page boundary is stable even for same-timestamp
+            # bursts (e.g. bulk-imported history).
+            stmt = stmt.where(
+                or_(
+                    Message.created_at < cursor_created_at,
+                    and_(
+                        Message.created_at == cursor_created_at,
+                        Message.id < before,
+                    ),
+                )
+            )
+
+        if limit:
+
+            result = await self.execute(
+                stmt.order_by(
+                    Message.created_at.desc(),
+                    Message.id.desc(),
+                ).limit(limit)
+            )
+
+            messages = list(result.scalars().all())
+
+            messages.reverse()
+
+        else:
+
+            result = await self.execute(
+                stmt.order_by(
+                    Message.created_at.asc(),
+                    Message.id.asc(),
+                )
+            )
+
+            messages = list(result.scalars().all())
 
         # "Delete for me": hide messages the user removed
         if user_id is not None:
@@ -222,6 +284,83 @@ class MessageRepository(BaseRepository):
             ]
 
         return messages[0] if messages else None
+
+    # ==========================================================
+    # DELIVERY
+    # ==========================================================
+
+    async def get_last_messages_for_user(
+        self,
+        conversation_ids: list[UUID],
+        user_id: UUID,
+    ) -> dict[UUID, Message | None]:
+        """Newest message per conversation, one query.
+
+        Same semantics as get_last_message: skips messages the
+        user deleted-for-themselves. The skip is re-applied here
+        instead of in SQL (the "deleted_for" list lives in a JSON
+        column with no portable contains-operator), so only
+        conversations whose NEWEST message is deleted-for-me take
+        the per-conversation fallback query -- rare in practice.
+        """
+
+        if not conversation_ids:
+            return {}
+
+        await self.purge_expired()
+
+        newest_row = (
+            select(
+                Message.id.label("message_id"),
+                func.row_number()
+                .over(
+                    partition_by=Message.conversation_id,
+                    order_by=Message.created_at.desc(),
+                )
+                .label("rank"),
+            )
+            .where(Message.conversation_id.in_(conversation_ids))
+            .subquery()
+        )
+
+        result = await self.execute(
+            select(Message)
+            .options(*_message_options())
+            .where(
+                Message.id.in_(
+                    select(newest_row.c.message_id).where(
+                        newest_row.c.rank == 1
+                    )
+                )
+            )
+        )
+
+        by_conversation = {
+            message.conversation_id: message
+            for message in result.scalars().all()
+        }
+
+        for conversation_id, message in list(by_conversation.items()):
+
+            if (
+                message is not None
+                and str(user_id) in (message.deleted_for or [])
+            ):
+
+                # ponytail: exact-match fallback, rare (only when
+                # the newest message was deleted-for-me); batch it
+                # if sidebars ever serve users who delete a lot.
+                by_conversation[conversation_id] = (
+                    await self.get_last_message(
+                        conversation_id,
+                        user_id,
+                    )
+                )
+
+        return {
+            conversation_id: by_conversation.get(conversation_id)
+            for conversation_id in conversation_ids
+        }
 
     # ==========================================================
     # DELIVERY
@@ -309,6 +448,38 @@ class MessageRepository(BaseRepository):
         )
 
         return int(result.scalar_one() or 0)
+
+    # ==========================================================
+    # DELIVERY
+    # ==========================================================
+
+    async def count_unread_by_conversation(
+        self,
+        conversation_ids: list[UUID],
+        user_id: UUID,
+    ) -> dict[UUID, int]:
+        """Map conversation_id -> unread count (same filter as
+        count_unread, batched with one GROUP BY query)."""
+
+        if not conversation_ids:
+            return {}
+
+        await self.purge_expired()
+
+        result = await self.execute(
+            select(
+                Message.conversation_id,
+                func.count(Message.id),
+            )
+            .where(
+                Message.conversation_id.in_(conversation_ids),
+                Message.sender_id != user_id,
+                Message.is_read.is_(False),
+            )
+            .group_by(Message.conversation_id)
+        )
+
+        return dict(result.all())
 
     # ==========================================================
     # DELETE

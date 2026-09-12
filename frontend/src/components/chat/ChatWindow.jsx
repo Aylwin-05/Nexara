@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
+import { getApiErrorDetail } from "../../utils/errors";
 import useMessages from "../../hooks/useMessages";
 
 import ChatInput from "./ChatInput";
@@ -110,6 +111,9 @@ export default function ChatWindow({
         messages,
         typingUsers,
         loading,
+        hasMore,
+        loadingOlder,
+        loadOlder,
         error,
         sendMessage,
         editMessage,
@@ -334,10 +338,7 @@ export default function ChatWindow({
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to change disappearing messages."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to change disappearing messages."));
 
         }
 
@@ -457,10 +458,7 @@ export default function ChatWindow({
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to update block status."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to update block status."));
 
         }
         finally {
@@ -1488,6 +1486,9 @@ export default function ChatWindow({
             <MessageList
                 messages={messages}
                 loading={loading}
+                hasMore={hasMore}
+                loadingOlder={loadingOlder}
+                onLoadOlder={loadOlder}
                 onDelete={deleteMessage}
                 onReply={handleReply}
                 onEdit={handleEdit}

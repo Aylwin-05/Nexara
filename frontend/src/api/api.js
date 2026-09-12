@@ -1,5 +1,7 @@
 import axios from "axios";
 
+import { logger } from "../utils/logger.js";
+
 // Absolute server origin when running outside a normal browser
 // origin (Capacitor/WebView builds). Empty in the web app, which
 // keeps every URL relative exactly as before.
@@ -303,11 +305,31 @@ api.interceptors.response.use(
         }
 
         if (error.response?.status !== 404) {
-            console.error(
+            logger.error(
                 "API Error:",
                 error.response?.data ||
                 error.message
             );
+        }
+
+        //------------------------------------------------------
+        // Idempotent network retry. No response at all = the
+        // request may or may not have landed. A retry is only
+        // safe with a client_message_id so the server replays
+        // the original instead of duplicating it.
+        //------------------------------------------------------
+
+        if (
+            !error.response &&
+            originalRequest?.method?.toLowerCase() === "post" &&
+            originalRequest?.data?.client_message_id &&
+            !originalRequest._retry
+        ) {
+
+            originalRequest._retry = true;
+
+            return api(originalRequest);
+
         }
 
         return Promise.reject(error);

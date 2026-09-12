@@ -1,4 +1,4 @@
-import { animate, stagger } from "animejs";
+import { animate } from "animejs";
 
 // ==========================================================
 // Central animation helpers for Nexara.
@@ -38,30 +38,6 @@ export function animateSendPulse(el) {
 }
 
 /**
- * Animate a modal entering the viewport.
- * Returns a timeline that can be reversed for close.
- */
-export function animateModalOpen(contentEl, overlayEl) {
-    if (REDUCED || !contentEl) return null;
-
-    const tl = animate({
-        targets: overlayEl,
-        opacity: [0, 1],
-        duration: 200,
-        ease: "outQuad",
-    });
-
-    animate(contentEl, {
-        opacity: [0, 1],
-        scale: [0.95, 1],
-        duration: 220,
-        ease: "outQuad",
-    });
-
-    return tl;
-}
-
-/**
  * Pop + bounce animation for a reaction chip.
  */
 export function animateReactionPop(el) {
@@ -70,21 +46,5 @@ export function animateReactionPop(el) {
         scale: [0, 1.3, 1],
         duration: 300,
         ease: "outElastic(1, 0.5)",
-    });
-}
-
-/**
- * Staggered entrance for a list of elements.
- * Used for conversation items, reaction chips, etc.
- */
-export function animateStaggeredList(elements, opts = {}) {
-    if (REDUCED || !elements?.length) return;
-    animate(elements, {
-        opacity: [0, 1],
-        y: [8, 0],
-        delay: stagger(30),
-        duration: 200,
-        ease: "outQuad",
-        ...opts,
     });
 }

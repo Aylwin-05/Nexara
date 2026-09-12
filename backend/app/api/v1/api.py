@@ -18,9 +18,6 @@ from app.api.v1.push import router as push_router
 from app.api.v1.recovery import router as recovery_router
 from app.api.v1.stories import router as stories_router
 from app.api.v1.users import router as users_router
-from app.api.v1.webauthn import (
-    router as webauthn_router,
-)
 from fastapi import APIRouter
 
 api_router = APIRouter()
@@ -108,9 +105,3 @@ api_router.include_router(call_router)
 # ==========================================================
 
 api_router.include_router(metrics_router)
-
-# ==========================================================
-# WebAuthn (Passkeys)
-# ==========================================================
-
-api_router.include_router(webauthn_router)

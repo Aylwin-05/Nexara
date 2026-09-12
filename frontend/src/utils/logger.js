@@ -39,12 +39,3 @@ export const logger = {
         }
     },
 };
-
-// For crypto debugging - completely silent in production
-export const cryptoLogger = {
-    log: (...args) => {
-        if (isDevelopment) {
-            console.log(...args);
-        }
-    },
-};

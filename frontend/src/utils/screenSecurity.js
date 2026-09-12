@@ -16,8 +16,6 @@
 
 const PRIVACY_BLUR_KEY = "nexara.screenSecurity.privacyBlur";
 
-const NOTIFY_KEY = "nexara.screenSecurity.notifySnapshots";
-
 export const screenSecurity = {
 
     isPrivacyBlurEnabled() {
@@ -42,35 +40,4 @@ export const screenSecurity = {
         }
     },
 
-    isNotifySnapshotsEnabled() {
-        try {
-            return (
-                localStorage.getItem(NOTIFY_KEY) === "1"
-            );
-        } catch {
-            return false;
-        }
-    },
-
-    setNotifySnapshotsEnabled(enabled) {
-        try {
-            localStorage.setItem(
-                NOTIFY_KEY,
-                enabled ? "1" : "0",
-            );
-        } catch {
-            // ignore
-        }
-    },
-
 };
-
-// The app is considered "visible" only when it BOTH has focus
-// and the tab is visible. When it is not, privacy blur kicks in.
-export function isAppVisible() {
-    return (
-        typeof document !== "undefined" &&
-        !document.hidden &&
-        document.hasFocus()
-    );
-}

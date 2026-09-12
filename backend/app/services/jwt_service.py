@@ -47,6 +47,8 @@ class JWTService:
         self,
         user_id: str,
         email: str,
+        *,
+        ver: int = 0,
     ) -> str:
 
         expire = datetime.now(timezone.utc) + timedelta(
@@ -57,6 +59,7 @@ class JWTService:
             "sub": user_id,
             "email": email,
             "type": "access",
+            "ver": ver,
             "exp": expire,
         }
 

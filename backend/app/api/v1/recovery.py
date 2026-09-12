@@ -9,6 +9,7 @@ from app.core.rate_limit import (
 from app.database.session import get_db
 from app.dependencies.auth import get_current_user
 from app.dependencies.rate_limit import rate_limit
+from app.models.conversation_participant import ConversationParticipant
 from app.models.message import Message
 from app.models.user import User
 from app.repositories.auth_repository import AuthRepository
@@ -143,9 +144,11 @@ async def request_recovery_code(
     # copy this account has already written — those copies can only
     # be decrypted with the OLD secret, which is lost the moment the
     # blob is replaced. This is safe only when there is no history
-    # to orphan. If the account has sent any message with a sync
-    # copy, refuse the fresh mint unless the user explicitly opts
-    # in (force_new=true).
+    # to orphan. If any message in this account's conversations
+    # carries a sync copy (sent OR received — received copies are
+    # also re-encrypted under this account's secret when read), the
+    # fresh mint is refused unless the user explicitly opts in
+    # (force_new=true).
     # ----------------------------------------------------------
     if not request_body.secret_b64 and not request_body.force_new:
 
@@ -153,9 +156,16 @@ async def request_recovery_code(
             await db.scalar(
                 select(func.count())
                 .select_from(Message)
+                .where(Message.sync_envelope.is_not(None))
                 .where(
-                    Message.sender_id == current_user.id,
-                    Message.sync_envelope.is_not(None),
+                    Message.conversation_id.in_(
+                        select(
+                            ConversationParticipant.conversation_id
+                        ).where(
+                            ConversationParticipant.user_id
+                            == current_user.id
+                        )
+                    )
                 )
             )
         ) or 0

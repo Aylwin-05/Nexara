@@ -8,13 +8,14 @@ services:
     restart: always
     deploy:
       replicas: 2
+    volumes:
+      - uploads:/app/uploads
     environment:
       APP_ENV: "production"
       DEBUG: "false"
       COOKIE_SECURE: "true"
       ALLOWED_HOSTS: "${ALLOWED_HOSTS:?Set ALLOWED_HOSTS in production}"
       SECRET_KEY: "${SECRET_KEY:?Set SECRET_KEY in production}"
-      MASTER_KEY: "${MASTER_KEY:?Set MASTER_KEY in production}"
       FRONTEND_URL: "${FRONTEND_URL:?Set FRONTEND_URL in production}"
       SMTP_HOST: "${SMTP_HOST:?Set SMTP_HOST in production}"
       SMTP_PORT: "${SMTP_PORT:-587}"
@@ -50,15 +51,17 @@ services:
       PGUSER: "${POSTGRES_USER:-nexara}"
       PGPASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in production}"
       PGDATABASE: "${POSTGRES_DB:-nexara}"
+      BACKUP_PASSPHRASE: "${BACKUP_PASSPHRASE:?Set BACKUP_PASSPHRASE in production (backups are encrypted, fail-closed)}"
     volumes:
       - pgbackups:/backups
     entrypoint: >
       sh -c '
-        apk add --no-cache bash findutils > /dev/null 2>&1;
+        apk add --no-cache bash findutils openssl > /dev/null 2>&1;
         echo "#!/bin/bash
+        set -euo pipefail
         TIMESTAMP=$$(date +%Y%m%d_%H%M%S)
-        pg_dump -Fc | gzip > /backups/nexara_$$TIMESTAMP.sql.gz
-        find /backups -name "nexara_*.sql.gz" -mtime +30 -delete 2>/dev/null
+        pg_dump -Fc | gzip | openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt -pass env:BACKUP_PASSPHRASE > /backups/nexara_$$TIMESTAMP.sql.gz.enc
+        find /backups -name "nexara_*.sql.gz.enc" -mtime +30 -delete 2>/dev/null
         " > /backup.sh && chmod +x /backup.sh;
         trap exit TERM;
         while :; do
@@ -77,3 +80,4 @@ volumes:
   pgbackups:
   certbot-www:
   certbot-conf:
+  uploads:

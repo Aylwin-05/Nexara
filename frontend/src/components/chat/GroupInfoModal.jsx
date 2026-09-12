@@ -4,6 +4,7 @@ import {
     useState,
 } from "react";
 import toast from "react-hot-toast";
+import { getApiErrorDetail } from "../../utils/errors";
 import { useAuth } from "../../context/AuthContext";
 
 import UserAvatar from "../UserAvatar";
@@ -211,10 +212,7 @@ export default function GroupInfoModal({
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to update group."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to update group."));
 
         }
         finally {
@@ -248,10 +246,7 @@ export default function GroupInfoModal({
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to upload group photo."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to upload group photo."));
 
         }
         finally {
@@ -291,10 +286,7 @@ export default function GroupInfoModal({
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to add members."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to add members."));
 
         }
         finally {
@@ -329,10 +321,7 @@ export default function GroupInfoModal({
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to remove member."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to remove member."));
 
         }
         finally {
@@ -366,10 +355,7 @@ export default function GroupInfoModal({
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to change admin role."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to change admin role."));
 
         }
         finally {
@@ -412,10 +398,7 @@ export default function GroupInfoModal({
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to create invite link."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to create invite link."));
 
         }
         finally {
@@ -450,10 +433,7 @@ export default function GroupInfoModal({
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to revoke invite link."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to revoke invite link."));
 
         }
         finally {
@@ -508,10 +488,7 @@ export default function GroupInfoModal({
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to leave the group."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to leave the group."));
 
         }
         finally {

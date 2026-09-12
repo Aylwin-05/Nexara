@@ -14,10 +14,13 @@ Usage (FastAPI):
 """
 
 import asyncio
+import logging
 import time
 from collections import defaultdict, deque
 
 from app.core.config import settings
+
+logger = logging.getLogger("app.core.rate_limit")
 
 # ==========================================================
 # Exceptions
@@ -79,6 +82,12 @@ class _MemoryStore:
 class _RedisStore:
     def __init__(self):
         self._client = None
+        # In-process sliding window used when Redis is unreachable:
+        # rate limiting degrades to per-worker instead of taking the
+        # whole app down with 500s on every protected route. A single
+        # Redis blip no longer disables limiting silently.
+        self._memory_fallback = _MemoryStore()
+        self._warned = False
 
     async def _get_client(self):
         # Use the shared, pooled Redis client so rate limiting and
@@ -90,30 +99,55 @@ class _RedisStore:
             self._client = await get_redis_client()
         return self._client
 
+    def _degraded(self, key: str) -> bool:
+        if not self._warned:
+            self._warned = True
+            logger.error(
+                "Redis unreachable: rate limiting degraded to "
+                "in-process (per-worker) store for key=%r until "
+                "Redis recovers.",
+                key,
+            )
+        return True
+
     async def incr_with_ttl(
         self,
         key: str,
         ttl_seconds: int,
     ) -> int:
-        client = await self._get_client()
-        count = await client.incr(key)
-        if count == 1:
-            await client.expire(key, ttl_seconds)
-        return count
+        try:
+            client = await self._get_client()
+            count = await client.incr(key)
+            if count == 1:
+                await client.expire(key, ttl_seconds)
+            return count
+        except Exception:
+            self._degraded(key)
+            return await self._memory_fallback.incr_with_ttl(
+                key,
+                ttl_seconds,
+            )
 
     async def peek_with_ttl(
         self,
         key: str,
         ttl_seconds: int,
     ) -> tuple[int, int]:
-        client = await self._get_client()
-        count = await client.get(key)
-        if count is None:
-            return 0, ttl_seconds
-        ttl = await client.ttl(key)
-        if ttl < 0:
-            ttl = ttl_seconds
-        return int(count), max(1, ttl)
+        try:
+            client = await self._get_client()
+            count = await client.get(key)
+            if count is None:
+                return 0, ttl_seconds
+            ttl = await client.ttl(key)
+            if ttl < 0:
+                ttl = ttl_seconds
+            return int(count), max(1, ttl)
+        except Exception:
+            self._degraded(key)
+            return await self._memory_fallback.peek_with_ttl(
+                key,
+                ttl_seconds,
+            )
 
 
 # ==========================================================

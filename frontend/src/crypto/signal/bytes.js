@@ -23,6 +23,14 @@ export function b64decode(b64) {
     return bytes;
 }
 
+export function arrayBufferToBase64(buffer) {
+    return b64encode(new Uint8Array(buffer));
+}
+
+export function base64ToArrayBuffer(base64) {
+    return b64decode(base64).buffer;
+}
+
 // ==========================================================
 // Uint8Array <-> Hex
 // ==========================================================

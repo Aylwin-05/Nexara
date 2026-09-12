@@ -15,6 +15,7 @@ from app.repositories.message_repository import (
 from app.services.attachment_service import (
     AttachmentService,
 )
+from sqlalchemy.exc import IntegrityError
 
 
 class MessageService:
@@ -160,7 +161,24 @@ class MessageService:
         attachment_ids: list[UUID] | None = None,
         recipient_keys: list[tuple[UUID, str]] | None = None,
         envelopes: list[dict] | None = None,
+        client_message_id: str | None = None,
     ) -> Message:
+
+        # Idempotent replay: a client retry of a send that already
+        # committed returns the ORIGINAL message instead of a
+        # duplicate. Any later body is ignored.
+        if client_message_id:
+
+            existing = (
+                await self.message_repository.find_by_client_message_id(
+                    conversation_id,
+                    current_user.id,
+                    client_message_id,
+                )
+            )
+
+            if existing is not None:
+                return existing
 
         await self._validate_participant(
             current_user,
@@ -227,12 +245,35 @@ class MessageService:
 
             expires_at=expires_at,
 
+            client_message_id=client_message_id,
+
             envelopes=envelopes,
         )
 
-        message = await self.message_repository.create_message(
-            message
-        )
+        try:
+
+            message = await self.message_repository.create_message(
+                message
+            )
+
+        except IntegrityError:
+
+            # Two racing retries of the same send: the dedupe
+            # index won the race. Replay the winner.
+            await self.message_repository.db.rollback()
+
+            existing = (
+                await self.message_repository.find_by_client_message_id(
+                    conversation_id,
+                    current_user.id,
+                    client_message_id,
+                )
+            )
+
+            if existing is None:
+                raise
+
+            message = existing
 
         # Group E2EE: the fresh AES key was wrapped for EVERY
         # member at send time; store each wrapped copy.
@@ -291,6 +332,8 @@ class MessageService:
         self,
         current_user: User,
         conversation_id: UUID,
+        limit: int | None = None,
+        before: UUID | None = None,
     ):
 
         await self._validate_participant(
@@ -301,6 +344,8 @@ class MessageService:
         messages = await self.message_repository.get_conversation_messages(
             conversation_id,
             current_user.id,
+            limit=limit,
+            before=before,
         )
 
         # Personal star flags for this user
@@ -675,9 +720,22 @@ class MessageService:
         # sync copy behind.
         message.sync_envelope = None
 
-        return await self.message_repository.delete_for_everyone(
-            message
+        # Attachment rows die with the message in this same
+        # transaction; the physical files are unlinked by the caller
+        # only after the commit.
+        attachment_paths = (
+            await self.attachment_service.delete_attachments_for_message(
+                message.id
+            )
         )
+
+        deleted = (
+            await self.message_repository.delete_for_everyone(
+                message
+            )
+        )
+
+        return deleted, attachment_paths
 
     # ==========================================================
     # DELETE FOR ME

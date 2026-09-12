@@ -266,13 +266,27 @@ class ConnectionManager:
     async def _member_ids(
         self,
         conversation_id: UUID,
+        user_id: UUID | None = None,
     ):
         from app.models.conversation_participant import (
             ConversationParticipant,
         )
         from sqlalchemy import select
+        from sqlalchemy import text
 
+        # Enumerate peers from the caller's perspective. With no
+        # user in hand (broadcast fan-out from system tasks) the
+        # session runs in the maintenance 'system' scope the RLS
+        # policies admit.
         async with AsyncSessionLocal() as db:
+            if db.bind.dialect.name == "postgresql":
+                await db.execute(
+                    text(
+                        "SELECT set_config('app.current_user_id', :uid, true)"
+                    ),
+                    {"uid": str(user_id) if user_id else "system"},
+                )
+
             result = await db.execute(
                 select(
                     ConversationParticipant.user_id
@@ -292,8 +306,17 @@ class ConnectionManager:
             ConversationParticipant,
         )
         from sqlalchemy import select
+        from sqlalchemy import text
 
         async with AsyncSessionLocal() as db:
+            if db.bind.dialect.name == "postgresql":
+                await db.execute(
+                    text(
+                        "SELECT set_config('app.current_user_id', :uid, true)"
+                    ),
+                    {"uid": str(user_id)},
+                )
+
             result = await db.execute(
                 select(
                     ConversationParticipant.conversation_id
@@ -483,7 +506,8 @@ class ConnectionManager:
 
             for entry in entries:
                 members = await self._member_ids(
-                    UUID(entry["conversation_id"])
+                    UUID(entry["conversation_id"]),
+                    user_id=user_id,
                 )
 
                 if user_id in members:
@@ -502,7 +526,8 @@ class ConnectionManager:
         for _call_id, pending in list(self.pending_calls.items()):
 
             members = await self._member_ids(
-                UUID(pending["conversation_id"])
+                UUID(pending["conversation_id"]),
+                user_id=user_id,
             )
 
             if user_id in members:

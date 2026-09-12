@@ -1,7 +1,7 @@
 import {
     arrayBufferToBase64,
     base64ToArrayBuffer,
-} from "../crypto/base64";
+} from "../crypto/signal/bytes";
 
 import {
     generateFileKey,

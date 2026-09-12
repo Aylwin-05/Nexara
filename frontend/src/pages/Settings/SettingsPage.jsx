@@ -6,6 +6,7 @@ import {
 
 import toast from "react-hot-toast";
 
+import { getApiErrorDetail } from "../../utils/errors";
 import UserAvatar, {
     bustAvatarCache,
 } from "../../components/UserAvatar";
@@ -243,10 +244,7 @@ export default function SettingsPage() {
 
             setPrivacy(previous);
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to update privacy settings."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to update privacy settings."));
 
         }
         finally {
@@ -276,10 +274,7 @@ export default function SettingsPage() {
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to unblock this user."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to unblock this user."));
 
         }
         finally {
@@ -346,10 +341,7 @@ export default function SettingsPage() {
         }
         catch (error) {
 
-            setTwoFAError(
-                error.response?.data?.detail ??
-                "Unable to enable two-step verification."
-            );
+            setTwoFAError(getApiErrorDetail(error, "Unable to enable two-step verification."));
 
         }
         finally {
@@ -403,10 +395,7 @@ export default function SettingsPage() {
         }
         catch (error) {
 
-            setTwoFAError(
-                error.response?.data?.detail ??
-                "Unable to disable two-step verification."
-            );
+            setTwoFAError(getApiErrorDetail(error, "Unable to disable two-step verification."));
 
         }
         finally {
@@ -840,9 +829,7 @@ export default function SettingsPage() {
             toast.success("Profile updated.");
         }
         catch (error) {
-            const detail =
-                error.response?.data?.detail ??
-                "Unable to update profile.";
+            const detail = getApiErrorDetail(error, "Unable to update profile.");
 
             toast.error(detail);
         }
@@ -885,9 +872,7 @@ export default function SettingsPage() {
             toast.success("Avatar updated.");
         }
         catch (error) {
-            const detail =
-                error.response?.data?.detail ??
-                "Unable to upload avatar.";
+            const detail = getApiErrorDetail(error, "Unable to upload avatar.");
 
             toast.error(detail);
         }
@@ -930,10 +915,7 @@ export default function SettingsPage() {
             toast.success("Account deleted.");
             logout();
         } catch (err) {
-            toast.error(
-                err.response?.data?.detail ||
-                "Failed to delete account."
-            );
+            toast.error(getApiErrorDetail(err, "Failed to delete account."));
         }
     }
 

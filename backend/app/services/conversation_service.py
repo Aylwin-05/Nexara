@@ -72,6 +72,7 @@ class ConversationService:
 
             conversation = Conversation(
                 conversation_key=conversation_key,
+                created_by=current_user.id,
             )
 
             conversation = (
@@ -246,29 +247,62 @@ class ConversationService:
             )
         )
 
+        conversation_ids = [
+            conversation.id
+            for conversation in conversations
+        ]
+
+        # Batched lookups: a fixed handful of queries instead of
+        # 3-5 per conversation (N+1 on the hot sidebar path).
+        participants_by_conversation = (
+            await self.conversation_repository.get_participants_for_user(
+                conversation_ids,
+                current_user.id,
+            )
+        )
+        last_messages_by_conversation = (
+            await self.message_repository.get_last_messages_for_user(
+                conversation_ids,
+                current_user.id,
+            )
+        )
+        unread_by_conversation = (
+            await self.message_repository.count_unread_by_conversation(
+                conversation_ids,
+                current_user.id,
+            )
+        )
+        participant_counts_by_conversation = (
+            await self.conversation_repository.get_participant_counts(
+                [
+                    conversation.id
+                    for conversation in conversations
+                    if conversation.conversation_type == "group"
+                ]
+            )
+        )
+        other_users_by_conversation = (
+            await self.conversation_repository.get_other_users(
+                conversation_ids,
+                current_user.id,
+            )
+        )
+
         response = []
 
         for conversation in conversations:
 
-            participant = (
-                await self.conversation_repository.get_participant(
-                    conversation.id,
-                    current_user.id,
-                )
+            participant = participants_by_conversation.get(
+                conversation.id
             )
 
-            last_message = (
-                await self.message_repository.get_last_message(
-                    conversation.id,
-                    current_user.id,
-                )
+            last_message = last_messages_by_conversation.get(
+                conversation.id
             )
 
-            unread_count = (
-                await self.message_repository.count_unread(
-                    conversation.id,
-                    current_user.id,
-                )
+            unread_count = unread_by_conversation.get(
+                conversation.id,
+                0,
             )
 
             muted = False
@@ -323,18 +357,14 @@ class ConversationService:
 
             if conversation.conversation_type == "group":
                 payload["participant_count"] = (
-                    await self.conversation_repository
-                    .get_participant_count(
+                    participant_counts_by_conversation.get(
                         conversation.id
                     )
                 )
 
             else:
-                other_user = (
-                    await self.conversation_repository.get_other_user(
-                        conversation.id,
-                        current_user.id,
-                    )
+                other_user = other_users_by_conversation.get(
+                    conversation.id
                 )
 
                 if other_user is not None:

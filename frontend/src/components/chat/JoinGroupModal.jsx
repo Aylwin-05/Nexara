@@ -1,6 +1,7 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
 
+import { getApiErrorDetail } from "../../utils/errors";
 import conversationService from "../../services/conversationService";
 
 import "./GroupModal.css";
@@ -78,10 +79,7 @@ export default function JoinGroupModal({
         }
         catch (error) {
 
-            toast.error(
-                error.response?.data?.detail ??
-                "Unable to join the group."
-            );
+            toast.error(getApiErrorDetail(error, "Unable to join the group."));
 
         }
         finally {

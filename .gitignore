@@ -103,6 +103,18 @@ frontend/dist/
 frontend/build/
 
 # ==========================================================
+# Frontend tooling / test artifacts
+# ==========================================================
+
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/.vite/
+frontend/coverage/
+*.tsbuildinfo
+.eslintcache
+
+# ==========================================================
 # Backend
 # ==========================================================
 

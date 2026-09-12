@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import time
 from uuid import UUID
 
 from app.core.config import settings
@@ -57,8 +58,8 @@ async def call_config(
         ice_servers.append(
             {
                 "urls": turn_urls,
-                "username": settings.TURN_USERNAME,
-                "credential": settings.TURN_PASSWORD,
+                "username": _turn_username(current_user),
+                "credential": _turn_credential(current_user),
             }
         )
 
@@ -66,6 +67,36 @@ async def call_config(
         "ice_servers": ice_servers,
         "e2ee_supported": True,
     }
+
+
+def _turn_username(user) -> str:
+    """Per-user (or shared static) TURN username.
+
+    With a TURN_SECRET configured coturn runs in REST mode
+    (`use-auth-secret`), where the username embeds the expiry and no
+    reversible password is ever issued. Without it, the shared static
+    pair from settings is used, matching the classic long-term
+    credentials setup.
+    """
+    if settings.TURN_SECRET:
+        return f"{int(time.time()) + 3600}:{user.id}"
+    return settings.TURN_USERNAME
+
+
+def _turn_credential(user) -> str:
+    import base64
+    import hashlib
+    import hmac
+
+    if settings.TURN_SECRET:
+        uname = _turn_username(user)
+        digest = hmac.new(
+            settings.TURN_SECRET.encode(),
+            uname.encode(),
+            hashlib.sha1,
+        ).digest()
+        return base64.b64encode(digest).decode()
+    return settings.TURN_PASSWORD
 
 
 # ==========================================================

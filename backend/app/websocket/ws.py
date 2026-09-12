@@ -10,6 +10,7 @@ from app.repositories.auth_repository import AuthRepository
 from app.websocket.connection_manager import manager
 from app.websocket.websocket_service import WebSocketService
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from sqlalchemy import text
 
 logger = logging.getLogger("app.websocket.ws")
 
@@ -61,6 +62,27 @@ async def websocket_endpoint(
         if current_user is None:
             await websocket.close(code=1008)
             return
+
+        # Match the HTTP path: a deactivated account is not allowed
+        # to keep an event stream open even though its token is valid.
+        if not current_user.is_active:
+            await websocket.close(code=1008)
+            return
+
+        # Match the HTTP path: a token issued before the last logout /
+        # deactivation is rejected even though it has not expired yet.
+        if current_user.session_version != payload.get("ver"):
+            await websocket.close(code=1008)
+            return
+
+        # Publish the user to the transaction-local GUC so Row-Level
+        # Security policies scope reads in this socket's session (RLS
+        # migration); a no-op under the superuser role and on SQLite.
+        if db.bind.dialect.name == "postgresql":
+            await db.execute(
+                text("SELECT set_config('app.current_user_id', :uid, true)"),
+                {"uid": str(user_id)},
+            )
 
         # Plain snapshots: a rollback in the error handlers expires
         # every ORM object in the session, so touching current_user
@@ -286,3 +308,27 @@ async def websocket_endpoint(
             except asyncio.CancelledError:
 
                 pass
+
+
+@router.websocket("/ws/ping")
+async def websocket_ping(
+    websocket: WebSocket,
+):
+    """
+    Unauthenticated health probe for the real-time layer.
+
+    The HUD keeps this socket open and sends ``ping``; the server
+    answers ``pong``.  It verifies end-to-end that uvicorn can
+    accept and service websockets without requiring a user session.
+    """
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
+            elif data in ("quit", "close"):
+                await websocket.close(code=1000)
+                return
+    except WebSocketDisconnect:
+        pass

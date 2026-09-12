@@ -1,6 +1,6 @@
 import api, { getConfiguredServer } from "../api/api";
 import { getPrivateKey } from "../crypto/keyStorage";
-import { base64ToArrayBuffer } from "../crypto/base64";
+import { base64ToArrayBuffer } from "../crypto/signal/bytes";
 import {
     signalKeyStore,
 } from "../crypto/signal/keyStore";

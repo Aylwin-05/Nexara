@@ -39,9 +39,9 @@ class OTPCode(Base, TimestampMixin):
     )
 
     otp_hash: Mapped[str] = mapped_column(
-        String(64),
+        String(512),
         nullable=False,
-        comment="SHA-256 hash of the OTP.",
+        comment="scrypt hash of the OTP.",
     )
 
     expires_at: Mapped[datetime] = mapped_column(

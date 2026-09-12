@@ -65,6 +65,9 @@ function isSameDay(a, b) {
 export default function MessageList({
     messages,
     loading,
+    hasMore = false,
+    loadingOlder = false,
+    onLoadOlder = null,
     onDelete,
     onReply,
     onEdit,
@@ -179,6 +182,18 @@ export default function MessageList({
 
         pinnedRef.current =
             distanceFromBottom < PIN_THRESHOLD;
+
+        if (
+            hasMore &&
+            !loadingOlder &&
+            !loading &&
+            onLoadOlder &&
+            container.scrollTop <= 80
+        ) {
+
+            onLoadOlder();
+
+        }
 
     }
 

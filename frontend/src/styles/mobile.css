@@ -182,6 +182,113 @@
         color: var(--accent-2);
     }
 
+    /* Per-icon click animations, matching the desktop rail. Each
+       tab's icon plays its own motion when clicked (active moves). */
+    .mobile-tab-btn:nth-child(1).active svg circle {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: mtab-dot 0.5s ease-in-out;
+    }
+
+    .mobile-tab-btn:nth-child(2).active svg circle:first-child {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: mtab-ring 0.8s cubic-bezier(0.5, 0, 0.5, 1);
+    }
+
+    .mobile-tab-btn:nth-child(3).active svg circle {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: mtab-nod 0.6s ease-in-out;
+    }
+
+    .mobile-tab-btn:nth-child(4).active svg path:first-child {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: mtab-sway 0.6s ease-in-out;
+    }
+
+    .mobile-tab-btn:nth-child(5).active svg {
+        animation: mtab-gear 0.6s var(--ease);
+    }
+
+    @keyframes mtab-dot {
+        0%, 100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        40% {
+            opacity: 0.35;
+            transform: translateY(-2.5px);
+        }
+
+        70% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes mtab-ring {
+        from {
+            transform: rotate(0deg);
+        }
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @keyframes mtab-nod {
+        0%, 100% {
+            transform: translateY(0);
+        }
+
+        40% {
+            transform: translateY(-2px);
+        }
+
+        70% {
+            transform: translateY(-1px);
+        }
+    }
+
+    @keyframes mtab-sway {
+        0%, 100% {
+            transform: rotate(0deg);
+        }
+
+        25% {
+            transform: rotate(8deg);
+        }
+
+        50% {
+            transform: rotate(-8deg);
+        }
+
+        75% {
+            transform: rotate(4deg);
+        }
+    }
+
+    @keyframes mtab-gear {
+        from {
+            transform: rotate(0deg);
+        }
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .mobile-tab-btn.active svg,
+        .mobile-tab-btn.active svg circle,
+        .mobile-tab-btn.active svg path:first-child {
+            animation: none;
+        }
+    }
+
     .mobile-tab-badge {
         position: absolute;
         top: 3px;

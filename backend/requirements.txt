@@ -28,9 +28,9 @@ email-validator==2.3.0
 
 httpx==0.28.1
 
-python-multipart==0.0.22
+python-multipart==0.0.32
 
-cryptography==45.0.7
+cryptography==50.0.1
 hkdf==0.0.3
 
 # Observability

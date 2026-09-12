@@ -6,7 +6,6 @@ from contextlib import asynccontextmanager
 import sentry_sdk
 from app.api.v1.api import api_router
 from app.core.config import settings
-from app.core.exceptions import NexaraException
 from app.core.logging import setup_logging
 from app.core.middleware import (
     MetricsMiddleware,
@@ -16,6 +15,7 @@ from app.core.middleware import (
     get_metrics,
 )
 from app.database.session import AsyncSessionLocal, get_db
+from app.dependencies.auth import get_current_user
 from app.websocket.redis_bus import bus
 from app.websocket.ws import router as websocket_router
 from fastapi import Depends, FastAPI, Request
@@ -75,8 +75,22 @@ async def _disappearing_messages_loop():
 
     async def _tick():
         async with AsyncSessionLocal() as db:
+
+            # Maintenance session: runs across ALL users' expiry
+            # rows, so it adopts the 'system' scope the RLS
+            # policies admit (see the RLS migration).
+            if db.bind.dialect.name == "postgresql":
+                from sqlalchemy import text
+
+                await db.execute(
+                    text(
+                        "SELECT set_config('app.current_user_id', 'system', true)"
+                    )
+                )
+
             repo = MessageRepository(db)
             purged = await repo.purge_expired()
+
             await db.commit()
 
         if purged and bus.active:
@@ -139,6 +153,51 @@ async def lifespan(app: FastAPI):
     purge_task = asyncio.create_task(
         _disappearing_messages_loop()
     )
+
+    # Reclaim files orphaned by uploads that died between the disk
+    # write and the DB commit (client abort / crash). Runs once at
+    # boot and never in a hot loop: the boot has no concurrent
+    # requests, and a moving background sweep risks racing active
+    # uploads on a shared connection. Quarantine-cron style runs
+    # should go in an external scheduler, not the app process.
+    # ponytail: boot-only reclaim; add an external periodic job if
+    # a single process runs for months and uploads abort often.
+    try:
+        from app.repositories.attachment_repository import (
+            AttachmentRepository,
+        )
+        from app.services.attachment_service import (
+            AttachmentService,
+        )
+
+        async with AsyncSessionLocal() as db:
+
+            if db.bind.dialect.name == "postgresql":
+                from sqlalchemy import text
+
+                await db.execute(
+                    text(
+                        "SELECT set_config('app.current_user_id', 'system', true)"
+                    )
+                )
+
+            orphaned = (
+                await AttachmentService(
+                    AttachmentRepository(db)
+                ).sweep_orphaned_files()
+            )
+
+        if orphaned:
+            logger.info(
+                "Startup attachment sweep: removed "
+                "%d orphaned files",
+                orphaned,
+            )
+
+    except Exception:
+        logger.exception(
+            "Startup attachment sweep failed"
+        )
 
     try:
         yield
@@ -269,24 +328,6 @@ async def validation_exception_handler(
     )
 
 
-@app.exception_handler(NexaraException)
-async def nexara_exception_handler(
-    request: Request,
-    exc: NexaraException,
-):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "detail": exc.detail,
-            "request_id": getattr(
-                request.state,
-                "request_id",
-                None,
-            ),
-        },
-    )
-
-
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(
     request: Request,
@@ -313,20 +354,6 @@ async def unhandled_exception_handler(
             ),
         },
     )
-
-    if settings.DEBUG:
-        error_response = JSONResponse(
-            status_code=500,
-            content={
-                "detail": "Internal server error.",
-                "error": repr(exc),
-                "request_id": getattr(
-                    request.state,
-                    "request_id",
-                    None,
-                ),
-            },
-        )
     return error_response
 
 # ==========================================================
@@ -351,7 +378,15 @@ async def health_check():
     )
 
 
-@app.get("/metrics", tags=["ops"])
+@app.get(
+    "/metrics",
+    tags=["ops"],
+    dependencies=(
+        []
+        if settings.APP_ENV == "development"
+        else [Depends(get_current_user)]
+    ),
+)
 async def metrics():
     return get_metrics()
 

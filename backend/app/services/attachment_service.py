@@ -1,5 +1,6 @@
 import mimetypes
 import shutil
+import time
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -380,6 +381,83 @@ class AttachmentService:
                     path.unlink()
 
             raise
+
+    # ==========================================================
+    # Sweep Orphaned Files
+    # ==========================================================
+
+    ATTACHMENT_DIRS = (
+        IMAGE_DIR,
+        VIDEO_DIR,
+        AUDIO_DIR,
+        VOICE_DIR,
+        DOCUMENT_DIR,
+        ARCHIVE_DIR,
+        ENCRYPTED_DIR,
+    )
+
+    async def sweep_orphaned_files(
+        self,
+        min_age_seconds: int = 3600,
+    ) -> int:
+        """Delete files in upload dirs with no Attachment row.
+
+        Covers uploads abandoned between the disk write and the DB
+        commit (client abort, crash, killed process). ``min_age``
+        keeps a freshly-written file whose row is about to commit
+        out of harm's way: the sweep only touches files older than
+        the threshold, and the commit happens well within a second
+        of the write.
+        """
+
+        known = await self.repository.get_all_storage_filenames()
+
+        removed = 0
+
+        now = time.time()
+
+        for directory in self.ATTACHMENT_DIRS:
+
+            if not directory.is_dir():
+                continue
+
+            for path in directory.iterdir():
+
+                if not path.is_file():
+                    continue
+
+                try:
+                    is_stale = (
+                        path.stat().st_mtime
+                        < now - min_age_seconds
+                    )
+                except OSError:
+                    continue
+
+                if is_stale and path.name not in known:
+
+                    try:
+                        path.unlink()
+                    except OSError:
+                        continue
+
+                    removed += 1
+
+        return removed
+
+    async def delete_attachments_for_message(
+        self,
+        message_id: UUID,
+    ) -> list[tuple[str | None, str | None]]:
+        """Hard-delete a message's attachment rows (same txn as the
+        message delete) and hand the file paths to the caller for
+        post-commit unlink."""
+
+        return (
+            await self.repository.delete_attachments_for_message(
+                message_id
+            )
+        )
 
     # ==========================================================
     # Get Attachment
