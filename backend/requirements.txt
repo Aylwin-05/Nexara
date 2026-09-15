@@ -34,7 +34,7 @@ cryptography==50.0.1
 hkdf==0.0.3
 
 # Observability
-sentry-sdk[fastapi]==2.19.2
+sentry-sdk[fastapi]==2.69.1
 
 # Tests
 pytest==9.1.1
