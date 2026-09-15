@@ -62,16 +62,6 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
-
     steps:
       - uses: actions/checkout@v4
 
@@ -109,7 +99,6 @@ jobs:
         working-directory: backend
         env:
           DATABASE_URL: "postgresql+asyncpg://nexara:test@localhost:5432/nexara_test"
-          REDIS_URL: "redis://localhost:6379/0"
           SECRET_KEY: "test-key-do-not-use-in-production"
           SMTP_HOST: "localhost"
           SMTP_PORT: "587"
