@@ -38,10 +38,7 @@ class UUIDStringArray(TypeDecorator):
     def load_dialect_impl(self, dialect):
 
         if dialect.name == "postgresql":
-
-            return dialect.type_descriptor(
-                ARRAY(UUID(as_uuid=True))
-            )
+            return dialect.type_descriptor(ARRAY(UUID(as_uuid=True)))
 
         return dialect.type_descriptor(JSON())
 
@@ -52,11 +49,9 @@ class UUIDStringArray(TypeDecorator):
     def process_result_value(self, value, dialect):
 
         if value is None:
-
             return value
 
         if dialect.name == "postgresql":
-
             return [str(item) for item in value]
 
         return value
@@ -94,12 +89,8 @@ class Message(Base):
             "sender_id",
             "client_message_id",
             unique=True,
-            sqlite_where=sa_text(
-                "client_message_id IS NOT NULL"
-            ),
-            postgresql_where=sa_text(
-                "client_message_id IS NOT NULL"
-            ),
+            sqlite_where=sa_text("client_message_id IS NOT NULL"),
+            postgresql_where=sa_text("client_message_id IS NOT NULL"),
         ),
     )
 

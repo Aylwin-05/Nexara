@@ -29,20 +29,18 @@ TwoFAPin = Annotated[
 # Requests
 # ==========================================================
 
-class SendOTPRequest(BaseModel):
 
+class SendOTPRequest(BaseModel):
     email: EmailStr
 
 
 class VerifyOTPRequest(BaseModel):
-
     email: EmailStr
 
     otp: OTPCode
 
 
 class RefreshTokenRequest(BaseModel):
-
     refresh_token: str = Field(max_length=500)
 
 
@@ -50,34 +48,30 @@ class RefreshTokenRequest(BaseModel):
 # Two-Step Verification (2FA PIN)
 # ==========================================================
 
-class EnableTwoFARequest(BaseModel):
 
+class EnableTwoFARequest(BaseModel):
     pin: TwoFAPin
 
     confirm_pin: TwoFAPin
 
 
 class DisableTwoFARequest(BaseModel):
-
     pin: TwoFAPin
 
 
 class VerifyTwoFARequest(BaseModel):
-
     two_fa_token: str = Field(max_length=500)
 
     pin: TwoFAPin
 
 
 class ResetTwoFARequest(BaseModel):
-
     email: EmailStr
 
     otp: OTPCode
 
 
 class TwoFAStatusResponse(BaseModel):
-
     two_fa_enabled: bool
 
 
@@ -99,8 +93,8 @@ class TwoFAChallengeResponse(BaseModel):
 # User Response
 # ==========================================================
 
-class UserResponse(BaseModel):
 
+class UserResponse(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
     )
@@ -134,8 +128,8 @@ class UserResponse(BaseModel):
 # Generic Responses
 # ==========================================================
 
-class MessageResponse(BaseModel):
 
+class MessageResponse(BaseModel):
     success: bool
 
     message: str
@@ -149,12 +143,12 @@ class SendOTPResponse(MessageResponse):
 # Login Response
 # ==========================================================
 
-class TokenResponse(BaseModel):
 
+class TokenResponse(BaseModel):
     access_token: str
 
     refresh_token: str
 
-    token_type: str = "Bearer"
+    token_type: str = "Bearer"  # noqa: S105 - OAuth token_type field
 
     user: UserResponse

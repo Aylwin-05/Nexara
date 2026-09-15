@@ -1,6 +1,14 @@
 import logging
 from uuid import UUID
 
+from app.database.session import get_db
+from app.dependencies.auth import get_current_user
+from app.dependencies.rate_limit import rate_limit
+from app.models.story_reaction import StoryReaction
+from app.models.user import User
+from app.repositories.friend_repository import FriendRepository
+from app.repositories.story_repository import StoryRepository
+from app.services.story_service import StoryService
 from fastapi import (
     APIRouter,
     Depends,
@@ -16,14 +24,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
-from app.database.session import get_db
-from app.dependencies.auth import get_current_user
-from app.dependencies.rate_limit import rate_limit
-from app.models.story_reaction import StoryReaction
-from app.models.user import User
-from app.repositories.friend_repository import FriendRepository
-from app.repositories.story_repository import StoryRepository
-from app.services.story_service import StoryService
 
 router = APIRouter(
     prefix="/stories",
@@ -49,6 +49,7 @@ def _service(db: AsyncSession) -> StoryService:
 # ==========================================================
 # Create Story (24h status update, E2EE media)
 # ==========================================================
+
 
 @router.post(
     "/",
@@ -98,6 +99,7 @@ async def create_story(
 # ==========================================================
 # Story Reactions
 # ==========================================================
+
 
 class StoryReactionRequest(BaseModel):
     emoji: str
@@ -181,6 +183,7 @@ async def remove_story_reaction(
 # Story Replies
 # ==========================================================
 
+
 class StoryReplyRequest(BaseModel):
     ciphertext: str
     encrypted_key_sender: str
@@ -245,6 +248,7 @@ async def reply_to_story(
 # Feed (my stories + friends' active stories)
 # ==========================================================
 
+
 @router.get(
     "/feed",
     dependencies=[
@@ -261,6 +265,7 @@ async def story_feed(
 # ==========================================================
 # Mark Viewed
 # ==========================================================
+
 
 @router.post(
     "/{story_id}/view",
@@ -296,6 +301,7 @@ async def mark_viewed(
 # Story Media (owner + friends only)
 # ==========================================================
 
+
 @router.get("/{story_id}/media")
 async def story_media(
     story_id: str,
@@ -323,6 +329,7 @@ async def story_media(
 # ==========================================================
 # Delete Story (owner only)
 # ==========================================================
+
 
 @router.delete(
     "/{story_id}",

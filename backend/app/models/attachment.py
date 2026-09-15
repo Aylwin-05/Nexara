@@ -199,7 +199,7 @@ class Attachment(Base):
     # SQLAlchemy Relationships
     # ==========================================================
 
-    message: Mapped["Message"] = relationship(
+    message: Mapped["Message"] = relationship(  # noqa: F821 - SQLAlchemy forward ref
         "Message",
         backref="attachments",
     )
@@ -210,9 +210,5 @@ class Attachment(Base):
 
     def __repr__(self) -> str:
         return (
-            f"<Attachment("
-            f"id={self.id}, "
-            f"type={self.attachment_type}, "
-            f"filename='{self.filename}'"
-            f")>"
+            f"<Attachment(id={self.id}, type={self.attachment_type}, filename='{self.filename}')>"
         )

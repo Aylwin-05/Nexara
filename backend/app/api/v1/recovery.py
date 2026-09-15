@@ -50,6 +50,7 @@ router = APIRouter(
 # server never sees the code or the secret in plaintext.
 # ==========================================================
 
+
 @router.get(
     "/unlock",
 )
@@ -59,7 +60,6 @@ async def get_recovery_unlock_material(
     """Return the code-wrapped sync secret for this account."""
 
     if current_user.recovery_salt is None or current_user.recovery_wrapped_key is None:
-
         raise HTTPException(
             status_code=404,
             detail="No recovery key for this account.",
@@ -85,6 +85,7 @@ async def get_recovery_unlock_material(
 # render the 3/600s timer.
 # ==========================================================
 
+
 @router.post(
     "/request",
     dependencies=[
@@ -100,7 +101,6 @@ async def request_recovery_code(
     email_key = f"recovery.request.{current_user.email.lower()}"
 
     try:
-
         await get_limiter().check(
             email_key,
             3,
@@ -108,33 +108,28 @@ async def request_recovery_code(
         )
 
     except RateLimitExceeded as exc:
-
         raise HTTPException(
             status_code=429,
             detail="Too many requests. Try again later.",
             headers={"Retry-After": str(exc.retry_after)},
-        )
+        ) from exc
 
     # Re-wrap the SAME secret when the browser still has it
     # (lossless: every existing sync copy stays valid), otherwise
     # mint a fresh account key.
     try:
-
         if request_body.secret_b64:
-            recovery = rewrap_existing_secret(
-                request_body.secret_b64
-            )
+            recovery = rewrap_existing_secret(request_body.secret_b64)
             mode = "same_secret"
         else:
             recovery = create_recovery_key()
             mode = "new_secret"
 
     except ValueError as exc:
-
         raise HTTPException(
             status_code=400,
             detail=str(exc),
-        )
+        ) from exc
 
     # ----------------------------------------------------------
     # Fresh-mint safety guard
@@ -151,7 +146,6 @@ async def request_recovery_code(
     # (force_new=true).
     # ----------------------------------------------------------
     if not request_body.secret_b64 and not request_body.force_new:
-
         orphaned_count = (
             await db.scalar(
                 select(func.count())
@@ -159,11 +153,8 @@ async def request_recovery_code(
                 .where(Message.sync_envelope.is_not(None))
                 .where(
                     Message.conversation_id.in_(
-                        select(
-                            ConversationParticipant.conversation_id
-                        ).where(
-                            ConversationParticipant.user_id
-                            == current_user.id
+                        select(ConversationParticipant.conversation_id).where(
+                            ConversationParticipant.user_id == current_user.id
                         )
                     )
                 )
@@ -171,7 +162,6 @@ async def request_recovery_code(
         ) or 0
 
         if orphaned_count > 0:
-
             raise HTTPException(
                 status_code=409,
                 detail=(
@@ -191,13 +181,10 @@ async def request_recovery_code(
             )
 
     user_row = (
-        await db.execute(
-            select(User).where(User.id == current_user.id)
-        )
+        await db.execute(select(User).where(User.id == current_user.id))
     ).scalar_one_or_none()
 
     if user_row is None:
-
         raise HTTPException(
             status_code=404,
             detail="Account not found.",
@@ -219,12 +206,9 @@ async def request_recovery_code(
         code_display=recovery["code_display"],
     )
 
-    link_url = (
-        f"{settings.FRONTEND_URL}/recover?token={token}"
-    )
+    link_url = f"{settings.FRONTEND_URL}/recover?token={token}"
 
     if settings.DEBUG and settings.APP_ENV == "development":
-
         logger.warning(
             "[DEV] Recovery re-issue for %s: %s",
             user_row.email,
@@ -232,14 +216,12 @@ async def request_recovery_code(
         )
 
     try:
-
         await EmailService().send_recovery_link_email(
             recipient_email=user_row.email,
             link_url=link_url,
         )
 
     except Exception as exc:
-
         logger.warning(
             "Recovery link email failed for %s: %s",
             user_row.email,
@@ -271,6 +253,7 @@ async def request_recovery_code(
 # and returns the fresh recovery code.
 # ==========================================================
 
+
 @router.post(
     "/verify",
     dependencies=[
@@ -282,20 +265,16 @@ async def verify_recovery_otp(
     db: AsyncSession = Depends(get_db),
 ):
 
-    entry = await recovery_token_store.take(
-        request_body.token
-    )
+    entry = await recovery_token_store.take(request_body.token)
 
     if entry is None:
-
         raise HTTPException(
             status_code=404,
             detail="Recovery link is invalid or expired. "
-                   "Request a new one from Settings > Support.",
+            "Request a new one from Settings > Support.",
         )
 
     if entry["email"] != request_body.email.lower():
-
         # The link belongs to another account. Never reveal the
         # code; do not even confirm the token was valid.
         raise HTTPException(
@@ -303,9 +282,7 @@ async def verify_recovery_otp(
             detail="This link belongs to a different account.",
         )
 
-    service = AuthService(
-        AuthRepository(db)
-    )
+    service = AuthService(AuthRepository(db))
 
     result = await service.verify_otp(
         request_body.email,
@@ -313,18 +290,13 @@ async def verify_recovery_otp(
     )
 
     if result is None:
-
         raise HTTPException(
             status_code=400,
             detail="Invalid or expired OTP.",
         )
 
     user_row = (
-        await db.execute(
-            select(User).where(
-                User.id == uuid.UUID(entry["user_id"])
-            )
-        )
+        await db.execute(select(User).where(User.id == uuid.UUID(entry["user_id"])))
     ).scalar_one_or_none()
 
     if user_row is None:

@@ -65,6 +65,6 @@ class MessageRecipientKey(Base):
         nullable=False,
     )
 
-    message: Mapped["Message"] = relationship(
+    message: Mapped["Message"] = relationship(  # noqa: F821 - SQLAlchemy forward ref
         backref="recipient_keys",
     )

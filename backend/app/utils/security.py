@@ -68,10 +68,7 @@ class SecurityUtils:
             dklen=SecurityUtils.SCRYPT_DKLEN,
         )
 
-        return (
-            f"scrypt${salt.hex()}$"
-            f"{digest.hex()}"
-        )
+        return f"scrypt${salt.hex()}${digest.hex()}"
 
     @staticmethod
     def verify_pin(pin: str, stored: str | None) -> bool:
@@ -84,10 +81,7 @@ class SecurityUtils:
             return False
 
         try:
-
-            scheme, salt_hex, hash_hex = (
-                stored.split("$", 2)
-            )
+            scheme, salt_hex, hash_hex = stored.split("$", 2)
 
             if scheme != "scrypt":
                 return False
@@ -109,5 +103,4 @@ class SecurityUtils:
             )
 
         except (ValueError, TypeError):
-
             return False

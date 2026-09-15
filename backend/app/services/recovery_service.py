@@ -1,4 +1,5 @@
 import base64
+import json
 import logging
 import os
 import secrets
@@ -49,18 +50,14 @@ def _unb64(text: str) -> bytes:
 
 def format_code(code: str) -> str:
     """XXXXXX-XXXXXX-XXXXXX-XXXXXX display form."""
-    groups = [
-        code[i : i + RECOVERY_GROUP_LEN]
-        for i in range(0, len(code), RECOVERY_GROUP_LEN)
-    ]
+    groups = [code[i : i + RECOVERY_GROUP_LEN] for i in range(0, len(code), RECOVERY_GROUP_LEN)]
     return "-".join(groups)
 
 
 def generate_recovery_code() -> str:
     """Random 24-char code over an unambiguous alphabet."""
     return "".join(
-        secrets.choice(RECOVERY_ALPHABET)
-        for _ in range(RECOVERY_GROUPS * RECOVERY_GROUP_LEN)
+        secrets.choice(RECOVERY_ALPHABET) for _ in range(RECOVERY_GROUPS * RECOVERY_GROUP_LEN)
     )
 
 
@@ -119,7 +116,7 @@ def rewrap_existing_secret(secret_b64: str) -> dict:
     try:
         secret = base64.b64decode(secret_b64, validate=True)
     except Exception:
-        raise ValueError("Invalid sync secret encoding.")
+        raise ValueError("Invalid sync secret encoding.") from None
     if len(secret) != SYNC_SECRET_BYTES:
         raise ValueError("Invalid sync secret length.")
 
@@ -171,8 +168,6 @@ def unlock_sync_secret(code: str, salt_hex: str, wrapped_key: dict) -> str | Non
 # is used (single-worker fallback).
 # ==========================================================
 
-import json
-
 
 class _RedisTokenStore:
     """Redis-backed recovery token store."""
@@ -188,6 +183,7 @@ class _RedisTokenStore:
         if self._client is None:
             import redis.asyncio as aioredis
             from app.core.config import settings
+
             self._client = aioredis.from_url(
                 settings.REDIS_URL,
                 encoding="utf-8",
@@ -204,12 +200,14 @@ class _RedisTokenStore:
     ) -> str:
         token = secrets.token_urlsafe(32)
         client = self._get_client()
-        entry = json.dumps({
-            "user_id": str(user_id),
-            "email": email.lower(),
-            "code": code,
-            "code_display": code_display,
-        })
+        entry = json.dumps(
+            {
+                "user_id": str(user_id),
+                "email": email.lower(),
+                "code": code,
+                "code_display": code_display,
+            }
+        )
         pipe = client.pipeline()
         pipe.set(
             f"{self._PREFIX}{token}",
@@ -226,9 +224,7 @@ class _RedisTokenStore:
 
     async def revoke_for_user(self, user_id: str) -> None:
         client = self._get_client()
-        previous = await client.get(
-            f"{self._USER_PREFIX}{user_id}"
-        )
+        previous = await client.get(f"{self._USER_PREFIX}{user_id}")
         if previous is not None:
             pipe = client.pipeline()
             pipe.delete(f"{self._PREFIX}{previous}")
@@ -251,13 +247,9 @@ class _RedisTokenStore:
     async def clear(self) -> None:
         client = self._get_client()
         keys = []
-        async for key in client.scan_iter(
-            f"{self._PREFIX}*"
-        ):
+        async for key in client.scan_iter(f"{self._PREFIX}*"):
             keys.append(key)
-        async for key in client.scan_iter(
-            f"{self._USER_PREFIX}*"
-        ):
+        async for key in client.scan_iter(f"{self._USER_PREFIX}*"):
             keys.append(key)
         if keys:
             await client.delete(*keys)
@@ -316,6 +308,7 @@ class _MemoryTokenStore:
 
 def _create_store():
     from app.core.config import settings
+
     if settings.REDIS_URL:
         return _RedisTokenStore()
     return _MemoryTokenStore()

@@ -5,7 +5,7 @@ from app.core.config import settings
 from app.database.base import Base
 
 # Import all models here so Alembic can discover them
-from app.models import *
+from app.models import *  # noqa: F403 - Alembic model discovery
 from sqlalchemy import engine_from_config, pool
 
 config = context.config

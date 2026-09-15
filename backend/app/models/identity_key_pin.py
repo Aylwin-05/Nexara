@@ -18,9 +18,7 @@ class IdentityKeyPin(Base):
 
     __tablename__ = "identity_key_pins"
 
-    __table_args__ = (
-        UniqueConstraint("user_id", "contact_user_id", name="uq_user_contact_pin"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "contact_user_id", name="uq_user_contact_pin"),)
 
     id: Mapped[UUID] = mapped_column(
         PGUUID,

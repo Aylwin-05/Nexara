@@ -1,19 +1,10 @@
 import logging
+from pathlib import Path
 from uuid import UUID
 
 from app.core.config import settings
+from app.core.file_config import AVATAR_DIR
 from app.core.ip_utils import resolve_client_ip
-from fastapi import (
-    APIRouter,
-    BackgroundTasks,
-    Depends,
-    HTTPException,
-    Request,
-    Response,
-)
-from sqlalchemy.ext.asyncio import AsyncSession
-
-logger = logging.getLogger(__name__)
 from app.core.rate_limit import (
     RateLimitExceeded,
     get_limiter,
@@ -22,6 +13,10 @@ from app.database.session import get_db
 from app.dependencies.auth import get_current_user
 from app.dependencies.rate_limit import rate_limit
 from app.dependencies.turnstile import verify_turnstile
+from app.models.attachment import Attachment
+from app.models.message import Message
+from app.models.otp import OTPCode
+from app.models.story import Story
 from app.models.user import User
 from app.repositories.auth_repository import AuthRepository
 from app.repositories.refresh_token_repository import (
@@ -42,6 +37,22 @@ from app.schemas.auth import (
 from app.services.auth_service import AuthService
 from app.services.jwt_service import JWTService
 from app.services.refresh_token_service import RefreshTokenService
+from app.websocket.connection_manager import (
+    manager as ws_manager,
+)
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+)
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/auth",
@@ -97,6 +108,7 @@ def _extract_refresh_token(
 # Send OTP
 # ==========================================================
 
+
 @router.post(
     "/send-otp",
     response_model=MessageResponse,
@@ -119,7 +131,6 @@ async def send_otp(
     # Per-email throttle: an attacker must not burn an account's
     # inbox (or the DB row) faster than the IP can.
     try:
-
         await get_limiter().check(
             f"otp.send.{request_body.email.lower()}",
             3,
@@ -127,12 +138,11 @@ async def send_otp(
         )
 
     except RateLimitExceeded as exc:
-
         raise HTTPException(
             status_code=429,
             detail="Too many requests. Try again later.",
             headers={"Retry-After": str(exc.retry_after)},
-        )
+        ) from exc
 
     await service.send_otp(
         request_body.email,
@@ -149,6 +159,7 @@ async def send_otp(
 # ==========================================================
 # Verify OTP
 # ==========================================================
+
 
 @router.post(
     "/verify-otp",
@@ -174,7 +185,6 @@ async def verify_otp(
     )
 
     if result is None:
-
         raise HTTPException(
             status_code=400,
             detail="Invalid or expired OTP.",
@@ -194,7 +204,6 @@ async def verify_otp(
     # ----------------------------------------------------------
 
     if user.two_fa_enabled:
-
         jwt = JWTService()
 
         two_fa_token = jwt.create_two_fa_token(
@@ -217,9 +226,7 @@ async def verify_otp(
     )
 
     # -- issue + persist refresh token (rotation-enabled) ---------
-    refresh_service = RefreshTokenService(
-        RefreshTokenRepository(db)
-    )
+    refresh_service = RefreshTokenService(RefreshTokenRepository(db))
 
     refresh_token = await refresh_service.issue(
         user.id,
@@ -240,6 +247,7 @@ async def verify_otp(
 # 2FA: Status
 # ==========================================================
 
+
 @router.get(
     "/two-fa/status",
     response_model=TwoFAStatusResponse,
@@ -248,15 +256,14 @@ async def two_fa_status(
     current_user=Depends(get_current_user),
 ):
     return {
-        "two_fa_enabled": bool(
-            current_user.two_fa_enabled
-        ),
+        "two_fa_enabled": bool(current_user.two_fa_enabled),
     }
 
 
 # ==========================================================
 # 2FA: Enable (set the 6-digit PIN)
 # ==========================================================
+
 
 @router.put(
     "/two-fa",
@@ -272,7 +279,6 @@ async def enable_two_fa(
 ):
 
     if request_body.pin != request_body.confirm_pin:
-
         raise HTTPException(
             status_code=400,
             detail="The PINs do not match.",
@@ -292,6 +298,7 @@ async def enable_two_fa(
 # 2FA: Disable (requires the current PIN)
 # ==========================================================
 
+
 @router.delete(
     "/two-fa",
     response_model=TwoFAStatusResponse,
@@ -310,14 +317,12 @@ async def disable_two_fa(
     service = AuthService(repository)
 
     try:
-
         return await service.disable_two_fa(
             current_user,
             request_body.pin,
         )
 
     except ValueError as error:
-
         raise HTTPException(
             status_code=400,
             detail=str(error),
@@ -327,6 +332,7 @@ async def disable_two_fa(
 # ==========================================================
 # 2FA: Complete Login with PIN
 # ==========================================================
+
 
 @router.post(
     "/two-fa/verify",
@@ -343,28 +349,24 @@ async def verify_two_fa(
 
     jwt = JWTService()
 
-    payload = jwt.verify_two_fa_token(
-        request_body.two_fa_token
-    )
+    payload = jwt.verify_two_fa_token(request_body.two_fa_token)
 
     if payload is None:
-
         raise HTTPException(
             status_code=401,
-            detail="This login session has expired. "
-                   "Please request a new code.",
+            detail="This login session has expired. Please request a new code.",
         )
 
     email = payload["email"]
 
     # Per-user PIN attempt lockout: max 5 attempts per 10 minutes
-    PIN_MAX_ATTEMPTS = 5
-    PIN_WINDOW_SECONDS = 600
+    pin_max_attempts = 5
+    pin_window_seconds = 600
     try:
         await get_limiter().check(
             f"twofa.pin.{email.lower()}",
-            PIN_MAX_ATTEMPTS,
-            PIN_WINDOW_SECONDS,
+            pin_max_attempts,
+            pin_window_seconds,
         )
     except RateLimitExceeded as exc:
         logger.warning(
@@ -373,10 +375,9 @@ async def verify_two_fa(
         )
         raise HTTPException(
             status_code=429,
-            detail="Too many failed attempts. Please wait "
-                   "10 minutes or reset via email.",
+            detail="Too many failed attempts. Please wait 10 minutes or reset via email.",
             headers={"Retry-After": str(exc.retry_after)},
-        )
+        ) from exc
 
     repository = AuthRepository(db)
 
@@ -388,7 +389,6 @@ async def verify_two_fa(
     )
 
     if user is None:
-
         raise HTTPException(
             status_code=400,
             detail="The PIN you entered is incorrect.",
@@ -405,9 +405,7 @@ async def verify_two_fa(
         ver=user.session_version,
     )
 
-    refresh_service = RefreshTokenService(
-        RefreshTokenRepository(db)
-    )
+    refresh_service = RefreshTokenService(RefreshTokenRepository(db))
 
     refresh_token = await refresh_service.issue(
         user.id,
@@ -433,6 +431,7 @@ async def verify_two_fa(
 # factor; the PIN is the second layer).
 # ==========================================================
 
+
 @router.post(
     "/two-fa/reset",
     dependencies=[
@@ -456,7 +455,6 @@ async def reset_two_fa(
     )
 
     if result is None:
-
         raise HTTPException(
             status_code=400,
             detail="Invalid or expired OTP.",
@@ -472,9 +470,7 @@ async def reset_two_fa(
         ver=user.session_version,
     )
 
-    refresh_service = RefreshTokenService(
-        RefreshTokenRepository(db)
-    )
+    refresh_service = RefreshTokenService(RefreshTokenRepository(db))
 
     refresh_token = await refresh_service.issue(
         user.id,
@@ -495,6 +491,7 @@ async def reset_two_fa(
 # Refresh Access Token (with rotation)
 # ==========================================================
 
+
 @router.post(
     "/refresh",
     dependencies=[
@@ -512,27 +509,21 @@ async def refresh_token(
         import json
 
         try:
-            body_token = json.loads(
-                (await request.body()).decode()
-            ).get("refresh_token")
+            body_token = json.loads((await request.body()).decode()).get("refresh_token")
         except Exception:
             body_token = None
 
     token = _extract_refresh_token(request, body_token)
 
     if not token:
-
         raise HTTPException(
             status_code=401,
             detail="Missing refresh token.",
         )
 
-    refresh_service = RefreshTokenService(
-        RefreshTokenRepository(db)
-    )
+    refresh_service = RefreshTokenService(RefreshTokenRepository(db))
 
     try:
-
         new_token = await refresh_service.rotate(
             token,
             user_agent=request.headers.get("user-agent"),
@@ -540,14 +531,13 @@ async def refresh_token(
         )
 
     except RefreshTokenError as exc:
-
         # Rotate on reuse/expiry: caller must re-authenticate.
         _clear_refresh_cookie(response)
 
         raise HTTPException(
             status_code=401,
             detail=exc.args[0],
-        )
+        ) from exc
 
     jwt = JWTService()
 
@@ -560,7 +550,6 @@ async def refresh_token(
     user = await repository.get_user_by_id(UUID(user_id))
 
     if user is None:
-
         raise HTTPException(
             status_code=401,
             detail="Invalid or expired access token.",
@@ -585,6 +574,7 @@ async def refresh_token(
 # Logout (revoke the refresh-token family)
 # ==========================================================
 
+
 @router.post(
     "/logout",
     response_model=MessageResponse,
@@ -600,20 +590,15 @@ async def logout(
         import json
 
         try:
-            body_token = json.loads(
-                (await request.body()).decode()
-            ).get("refresh_token")
+            body_token = json.loads((await request.body()).decode()).get("refresh_token")
         except Exception:
             body_token = None
 
     token = _extract_refresh_token(request, body_token)
 
-    refresh_service = RefreshTokenService(
-        RefreshTokenRepository(db)
-    )
+    refresh_service = RefreshTokenService(RefreshTokenRepository(db))
 
     if token:
-
         await refresh_service.revoke_family(token)
 
         # Bump the session generation so every outstanding access
@@ -621,9 +606,7 @@ async def logout(
         # later). Best-effort: a stale/unknown refresh token leaves
         # the session version untouched.
         try:
-            record = await RefreshTokenRepository(
-                db
-            ).get_by_token_hash(
+            record = await RefreshTokenRepository(db).get_by_token_hash(
                 RefreshTokenRepository.hash_token(token)
             )
             if record is not None:
@@ -646,19 +629,6 @@ async def logout(
 # ==========================================================
 # Account Deletion (GDPR)
 # ==========================================================
-
-from pathlib import Path
-
-from app.core.file_config import AVATAR_DIR
-from app.models.attachment import Attachment
-from app.models.message import Message
-from app.models.otp import OTPCode
-from app.models.story import Story
-from app.websocket.connection_manager import (
-    manager as ws_manager,
-)
-from sqlalchemy import delete as sa_delete
-from sqlalchemy import select
 
 
 @router.delete(
@@ -703,9 +673,7 @@ async def delete_account(
         if thumbnail_path:
             files.append(Path(thumbnail_path))
 
-    story_paths = await db.scalars(
-        select(Story.storage_path).where(Story.user_id == uid)
-    )
+    story_paths = await db.scalars(select(Story.storage_path).where(Story.user_id == uid))
     files.extend(Path(path) for path in story_paths)
 
     # 2. Hard-delete the user row. Every dependent row - devices,
@@ -714,9 +682,7 @@ async def delete_account(
     #    credentials, identity-key pins, privacy settings - is
     #    removed by the schema's ON DELETE CASCADE, so there is no
     #    hand-grown delete list to drift out of sync with new tables.
-    await db.execute(
-        sa_delete(OTPCode).where(OTPCode.email == current_user.email)
-    )
+    await db.execute(sa_delete(OTPCode).where(OTPCode.email == current_user.email))
     await db.delete(current_user)
     await db.commit()
 
@@ -743,7 +709,7 @@ async def delete_account(
     for websocket in list(ws_manager.user_connections.get(uid, [])):
         try:
             await websocket.close(code=1000)
-        except Exception:
+        except Exception:  # noqa: S110 - best-effort cleanup
             pass
 
     _clear_refresh_cookie(response)

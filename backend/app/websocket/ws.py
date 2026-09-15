@@ -34,11 +34,7 @@ async def websocket_endpoint(
     # Authenticate
     # ==========================================================
 
-    payload, subprotocol = (
-        await websocket_auth.authenticate(
-            websocket
-        )
-    )
+    payload, subprotocol = await websocket_auth.authenticate(websocket)
 
     if payload is None:
         return
@@ -50,14 +46,9 @@ async def websocket_endpoint(
     # ==========================================================
 
     async with AsyncSessionLocal() as db:
-
         auth_repository = AuthRepository(db)
 
-        current_user: User | None = (
-            await auth_repository.get_user_by_id(
-                user_id
-            )
-        )
+        current_user: User | None = await auth_repository.get_user_by_id(user_id)
 
         if current_user is None:
             await websocket.close(code=1008)
@@ -131,9 +122,7 @@ async def websocket_endpoint(
         # Replay any ringing call offers this user missed while
         # offline (closed tab, reconnect gap) so the incoming-call
         # UI always shows up instead of being silently lost.
-        await manager.deliver_pending_calls(
-            current_user.id
-        )
+        await manager.deliver_pending_calls(current_user.id)
 
         # Notify everyone sharing a conversation with this user
         await manager.broadcast_presence(
@@ -161,13 +150,10 @@ async def websocket_endpoint(
         # ======================================================
 
         try:
-
             while True:
-
                 data = await websocket.receive_json()
 
                 if not isinstance(data, dict):
-
                     await websocket.send_json(
                         {
                             "event": "error",
@@ -178,7 +164,6 @@ async def websocket_endpoint(
                     continue
 
                 try:
-
                     await websocket_service.handle_event(
                         websocket=websocket,
                         current_user=current_user,
@@ -196,17 +181,16 @@ async def websocket_endpoint(
                     await db.commit()
 
                 except RateLimitExceeded as e:
-
                     try:
                         await db.rollback()
-                    except Exception:
+                    except Exception:  # noqa: S110 - best-effort cleanup
                         pass
 
                     try:
                         fresh_user = await db.get(User, user_id)
                         if fresh_user is not None:
                             current_user = fresh_user
-                    except Exception:
+                    except Exception:  # noqa: S110 - best-effort cleanup
                         pass
 
                     await websocket.send_json(
@@ -218,21 +202,20 @@ async def websocket_endpoint(
                     )
 
                 except ValueError as e:
-
                     # rollback ends the transaction AND expires
                     # every ORM object in the session (including
                     # current_user): re-load it so the next event
                     # can still use it.
                     try:
                         await db.rollback()
-                    except Exception:
+                    except Exception:  # noqa: S110 - best-effort cleanup
                         pass
 
                     try:
                         fresh_user = await db.get(User, user_id)
                         if fresh_user is not None:
                             current_user = fresh_user
-                    except Exception:
+                    except Exception:  # noqa: S110 - best-effort cleanup
                         pass
 
                     await websocket.send_json(
@@ -243,7 +226,6 @@ async def websocket_endpoint(
                     )
 
                 except Exception as e:
-
                     logger.exception(
                         "WebSocket error for user=%s: %s",
                         user_email,
@@ -252,18 +234,17 @@ async def websocket_endpoint(
 
                     try:
                         await db.rollback()
-                    except Exception:
+                    except Exception:  # noqa: S110 - best-effort cleanup
                         pass
 
                     try:
                         fresh_user = await db.get(User, user_id)
                         if fresh_user is not None:
                             current_user = fresh_user
-                    except Exception:
+                    except Exception:  # noqa: S110 - best-effort cleanup
                         pass
 
                     try:
-
                         await websocket.send_json(
                             {
                                 "event": "error",
@@ -271,18 +252,16 @@ async def websocket_endpoint(
                             }
                         )
 
-                    except Exception:
+                    except Exception:  # noqa: S110 - best-effort cleanup
                         pass
 
         except WebSocketDisconnect:
-
             logger.info(
                 "WS disconnected: user=%s",
                 user_email,
             )
 
         finally:
-
             await manager.disconnect_user(
                 user_id,
                 websocket,
@@ -296,7 +275,6 @@ async def websocket_endpoint(
             # (cached membership), so it completes either way - and
             # swallow the teardown CancelledError.
             try:
-
                 await asyncio.shield(
                     manager.broadcast_presence(
                         user_id,
@@ -306,7 +284,6 @@ async def websocket_endpoint(
                 )
 
             except asyncio.CancelledError:
-
                 pass
 
 

@@ -1,15 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
 import logging
-
-logger = logging.getLogger("app.api.friends")
 
 from app.database.session import get_db
 from app.dependencies.auth import get_current_user
 from app.dependencies.rate_limit import rate_limit
 from app.models.user import User
-from app.repositories.friend_repository import FriendRepository
 from app.repositories.block_repository import BlockRepository
+from app.repositories.friend_repository import FriendRepository
 from app.schemas.friend import (
     FriendMessage,
     FriendRequestAction,
@@ -18,6 +14,11 @@ from app.schemas.friend import (
     SendFriendRequest,
 )
 from app.services.friend_service import FriendService
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger("app.api.friends")
+
 
 router = APIRouter(
     prefix="/friends",
@@ -27,6 +28,7 @@ router = APIRouter(
 # ==========================================================
 # Search Users
 # ==========================================================
+
 
 @router.get(
     "/search",
@@ -49,9 +51,12 @@ async def search_users(
         current_user,
         email,
     )
+
+
 # ==========================================================
 # Send Friend Request
 # ==========================================================
+
 
 @router.post(
     "/request",
@@ -97,12 +102,13 @@ async def send_friend_request(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from e
 
 
 # ==========================================================
 # Pending Requests
 # ==========================================================
+
 
 @router.get(
     "/pending",
@@ -122,6 +128,7 @@ async def get_pending_requests(
 # Friends List
 # ==========================================================
 
+
 @router.get(
     "/",
     response_model=list[FriendResponse],
@@ -139,6 +146,7 @@ async def get_friends(
 # ==========================================================
 # Accept Request
 # ==========================================================
+
 
 @router.post(
     "/accept",
@@ -165,12 +173,13 @@ async def accept_friend_request(
         raise HTTPException(
             status_code=400,
             detail=str(e),
-        )
+        ) from e
 
 
 # ==========================================================
 # Reject Request
 # ==========================================================
+
 
 @router.post(
     "/reject",
@@ -202,12 +211,13 @@ async def reject_friend_request(
         raise HTTPException(
             status_code=400,
             detail=str(e),
-        )
+        ) from e
 
 
 # ==========================================================
 # Remove Friend
 # ==========================================================
+
 
 @router.delete(
     "/{friendship_id}",
@@ -238,4 +248,4 @@ async def remove_friend(
         raise HTTPException(
             status_code=400,
             detail=str(e),
-        )
+        ) from e

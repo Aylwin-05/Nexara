@@ -120,9 +120,7 @@ class StoryView(Base):
 
     __tablename__ = "story_views"
 
-    __table_args__ = (
-        UniqueConstraint("story_id", "user_id", name="uq_story_view"),
-    )
+    __table_args__ = (UniqueConstraint("story_id", "user_id", name="uq_story_view"),)
 
     id: Mapped[UUID] = mapped_column(
         UUID(as_uuid=True),

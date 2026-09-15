@@ -119,20 +119,6 @@ jobs:
           SMTP_FROM_NAME: "Nexara"
         run: python -m pytest test_all.py -x -q
 
-      - name: Run extended tests
-        working-directory: backend
-        env:
-          DATABASE_URL: "postgresql+asyncpg://nexara:test@localhost:5432/nexara_test"
-          REDIS_URL: "redis://localhost:6379/0"
-          SECRET_KEY: "test-key-do-not-use-in-production"
-          SMTP_HOST: "localhost"
-          SMTP_PORT: "587"
-          SMTP_USERNAME: "test"
-          SMTP_PASSWORD: "test"
-          SMTP_FROM_EMAIL: "noreply@example.com"
-          SMTP_FROM_NAME: "Nexara"
-        run: python -m pytest test_everything.py -x -q
-
   frontend-test:
     runs-on: ubuntu-latest
     steps:

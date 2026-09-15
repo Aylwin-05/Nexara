@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
@@ -29,9 +29,9 @@ def _is_expired(story: Story) -> bool:
     expires = story.expires_at
 
     if expires.tzinfo is None:
-        expires = expires.replace(tzinfo=timezone.utc)
+        expires = expires.replace(tzinfo=UTC)
 
-    return expires <= datetime.now(timezone.utc)
+    return expires <= datetime.now(UTC)
 
 
 class StoryService:
@@ -85,24 +85,12 @@ class StoryService:
             "mime_type": story.mime_type,
             "media_type": story.media_type,
             "encrypted": story.encrypted,
-            "encrypted_key_sender": (
-                story.encrypted_key_sender
-            ),
-            "encrypted_key_receiver": (
-                story.encrypted_key_receiver
-            ),
+            "encrypted_key_sender": (story.encrypted_key_sender),
+            "encrypted_key_receiver": (story.encrypted_key_receiver),
             "nonce": story.nonce,
             "wrapped_keys": story.wrapped_keys or [],
-            "created_at": (
-                story.created_at.isoformat()
-                if story.created_at
-                else None
-            ),
-            "expires_at": (
-                story.expires_at.isoformat()
-                if story.expires_at
-                else None
-            ),
+            "created_at": (story.created_at.isoformat() if story.created_at else None),
+            "expires_at": (story.expires_at.isoformat() if story.expires_at else None),
             "media_url": f"/api/v1/stories/{story.id}/media",
             "viewed": viewed,
             "view_count": view_count,
@@ -131,26 +119,18 @@ class StoryService:
         extension = Path(filename).suffix.lower()
 
         if extension not in STORY_EXTENSIONS:
-            raise ValueError(
-                "Unsupported file type for a status update."
-            )
+            raise ValueError("Unsupported file type for a status update.")
 
         media_type = STORY_MEDIA_TYPES.get(extension, "image")
 
-        if encrypted and (
-            not encrypted_key_sender or not nonce
-        ):
-            raise ValueError(
-                "Encrypted stories require the wrapped key "
-                "and nonce."
-            )
+        if encrypted and (not encrypted_key_sender or not nonce):
+            raise ValueError("Encrypted stories require the wrapped key and nonce.")
 
         import uuid
 
         storage = STORIES_DIR / f"{uuid.uuid4().hex}{extension}"
 
         try:
-
             await stream_to_disk(
                 file,
                 storage,
@@ -166,17 +146,14 @@ class StoryService:
             caption=(caption or "").strip()[:500] or None,
             storage_path=str(storage),
             filename=filename,
-            mime_type=(
-                file.content_type or "application/octet-stream"
-            ),
+            mime_type=(file.content_type or "application/octet-stream"),
             media_type=media_type,
             encrypted=bool(encrypted),
             encrypted_key_sender=encrypted_key_sender,
             encrypted_key_receiver=encrypted_key_receiver,
             nonce=nonce,
             wrapped_keys=wrapped_keys or [],
-            expires_at=datetime.now(timezone.utc)
-            + timedelta(seconds=STORY_TTL_SECONDS),
+            expires_at=datetime.now(UTC) + timedelta(seconds=STORY_TTL_SECONDS),
         )
 
         story = await self.story_repository.create_story(story)
@@ -194,15 +171,12 @@ class StoryService:
         friend_ids = await self._friend_ids(current_user.id)
 
         if self.block_service is not None:
-
             friend_ids = [
                 friend_id
                 for friend_id in friend_ids
-                if not await (
-                    self.block_service.block_exists_between(
-                        current_user.id,
-                        friend_id,
-                    )
+                if not await self.block_service.block_exists_between(
+                    current_user.id,
+                    friend_id,
                 )
             ]
 
@@ -233,20 +207,14 @@ class StoryService:
 
         await self.story_repository.purge_expired()
 
-        my_stories = (
-            await self.story_repository.get_active_stories_of(
-                [current_user.id]
-            )
-        )
+        my_stories = await self.story_repository.get_active_stories_of([current_user.id])
 
         friend_ids = await self._friend_ids(current_user.id)
 
         if self.block_service is not None:
-
             visible = []
 
             for friend_id in friend_ids:
-
                 if await self.block_service.can_view_story(
                     viewer_id=current_user.id,
                     owner_id=friend_id,
@@ -255,43 +223,29 @@ class StoryService:
 
             friend_ids = visible
 
-        friend_stories = (
-            await self.story_repository.get_active_stories_of(
-                friend_ids
-            )
-        )
+        friend_stories = await self.story_repository.get_active_stories_of(friend_ids)
 
-        my_viewed = {
-            str(story.id)
-            for story in my_stories
-        }
+        my_viewed = {str(story.id) for story in my_stories}
 
         # Which of my friends' stories did I already view?
         viewed_foreign = set()
 
         if friend_stories:
-
             from app.models.story import StoryView
             from sqlalchemy import select
 
             result = await self.story_repository.execute(
                 select(StoryView.story_id).where(
                     StoryView.user_id == current_user.id,
-                    StoryView.story_id.in_(
-                        [story.id for story in friend_stories]
-                    ),
+                    StoryView.story_id.in_([story.id for story in friend_stories]),
                 )
             )
 
-            viewed_foreign = {
-                str(row[0])
-                for row in result.all()
-            }
+            viewed_foreign = {str(row[0]) for row in result.all()}
 
         grouped: dict[str, dict] = {}
 
         for story in [*my_stories, *friend_stories]:
-
             owner_id = str(story.user_id)
 
             if owner_id not in grouped:
@@ -302,9 +256,7 @@ class StoryService:
 
             grouped[owner_id]["stories"].append(story)
 
-        owners = await self._owners(
-            [UUID(owner_id) for owner_id in grouped]
-        )
+        owners = await self._owners([UUID(owner_id) for owner_id in grouped])
 
         owner_map = {str(user.id): user for user in owners}
 
@@ -312,10 +264,7 @@ class StoryService:
         view_map = {}
 
         for story in my_stories:
-
-            viewers = (
-                await self.story_repository.get_viewers(story.id)
-            )
+            viewers = await self.story_repository.get_viewers(story.id)
 
             view_map[str(story.id)] = {
                 "count": len(viewers),
@@ -325,17 +274,14 @@ class StoryService:
         result = []
 
         for owner_id, entry in grouped.items():
-
             stories = []
 
             for story in entry["stories"]:
-
                 story_key = str(story.id)
 
                 is_mine = story_key in my_viewed
 
                 if is_mine and story_key in view_map:
-
                     info = view_map[story_key]
 
                     viewers = [
@@ -344,11 +290,7 @@ class StoryService:
                             "display_name": viewer.display_name,
                             "username": viewer.username,
                             "avatar_url": viewer.avatar_url,
-                            "viewed_at": (
-                                view.viewed_at.isoformat()
-                                if view.viewed_at
-                                else None
-                            ),
+                            "viewed_at": (view.viewed_at.isoformat() if view.viewed_at else None),
                         }
                         for view, viewer in info["viewers"]
                     ]
@@ -362,7 +304,6 @@ class StoryService:
                     )
 
                 else:
-
                     story_data = self._serialize(
                         story,
                         viewed=story_key in viewed_foreign,
@@ -375,9 +316,7 @@ class StoryService:
                 {
                     "user_id": owner_id,
                     "owner": (
-                        self._serialize_owner(
-                            owner_map.get(owner_id)
-                        )
+                        self._serialize_owner(owner_map.get(owner_id))
                         if owner_map.get(owner_id)
                         else None
                     ),
@@ -386,10 +325,7 @@ class StoryService:
             )
 
         # My own status first, then friends (WhatsApp order)
-        result.sort(
-            key=lambda item: item["user_id"]
-            != str(current_user.id)
-        )
+        result.sort(key=lambda item: item["user_id"] != str(current_user.id))
 
         return result
 
@@ -418,14 +354,11 @@ class StoryService:
             )
 
             if self.block_service is not None:
-
                 if not await self.block_service.can_view_story(
                     viewer_id=current_user.id,
                     owner_id=story.user_id,
                 ):
-                    raise PermissionError(
-                        "You cannot view this story."
-                    )
+                    raise PermissionError("You cannot view this story.")
 
         if story.user_id == current_user.id:
             return {
@@ -441,7 +374,6 @@ class StoryService:
         await self.story_repository.commit()
 
         if added and story.user_id != current_user.id:
-
             await manager.send_to_user(
                 story.user_id,
                 {
@@ -481,21 +413,17 @@ class StoryService:
             raise ValueError("Story has expired.")
 
         if story.user_id != current_user.id:
-
             await self._verify_friend(
                 current_user.id,
                 story.user_id,
             )
 
             if self.block_service is not None:
-
                 if not await self.block_service.can_view_story(
                     viewer_id=current_user.id,
                     owner_id=story.user_id,
                 ):
-                    raise PermissionError(
-                        "You cannot interact with this story."
-                    )
+                    raise PermissionError("You cannot interact with this story.")
 
         return story
 
@@ -524,14 +452,11 @@ class StoryService:
             )
 
             if self.block_service is not None:
-
                 if not await self.block_service.can_view_story(
                     viewer_id=current_user.id,
                     owner_id=story.user_id,
                 ):
-                    raise PermissionError(
-                        "You cannot view this story."
-                    )
+                    raise PermissionError("You cannot view this story.")
 
         path = Path(story.storage_path)
 
@@ -556,16 +481,13 @@ class StoryService:
             raise ValueError("Story not found.")
 
         if story.user_id != current_user.id:
-            raise PermissionError(
-                "You can delete only your own stories."
-            )
+            raise PermissionError("You can delete only your own stories.")
 
         await self.story_repository.delete_story(story)
 
         await self.story_repository.commit()
 
         try:
-
             path = Path(story.storage_path)
 
             if path.exists():
@@ -581,9 +503,7 @@ class StoryService:
         }
 
         for friend_id in await self._friend_ids(current_user.id):
-
             if self.block_service is not None:
-
                 if await self.block_service.block_exists_between(
                     current_user.id,
                     friend_id,
@@ -615,16 +535,10 @@ class StoryService:
         if self.friend_repository is None:
             return []
 
-        friendships = (
-            await self.friend_repository.get_friends(user_id)
-        )
+        friendships = await self.friend_repository.get_friends(user_id)
 
         return [
-            (
-                friendship.receiver_id
-                if friendship.sender_id == user_id
-                else friendship.sender_id
-            )
+            (friendship.receiver_id if friendship.sender_id == user_id else friendship.sender_id)
             for friendship in friendships
         ]
 
@@ -633,23 +547,17 @@ class StoryService:
         if self.friend_repository is None:
             return
 
-        friendship = (
-            await self.friend_repository.get_existing_friendship(
-                viewer_id,
-                owner_id,
-            )
+        friendship = await self.friend_repository.get_existing_friendship(
+            viewer_id,
+            owner_id,
         )
 
         is_friend = (
-            friendship is not None
-            and friendship.status
-            == FriendRequestStatus.ACCEPTED.value
+            friendship is not None and friendship.status == FriendRequestStatus.ACCEPTED.value
         )
 
         if not is_friend:
-            raise PermissionError(
-                "You can only view stories of your friends."
-            )
+            raise PermissionError("You can only view stories of your friends.")
 
     async def _owners(self, user_ids: list[UUID]) -> list[User]:
 
@@ -659,8 +567,6 @@ class StoryService:
         from app.models.user import User
         from sqlalchemy import select
 
-        result = await self.story_repository.execute(
-            select(User).where(User.id.in_(user_ids))
-        )
+        result = await self.story_repository.execute(select(User).where(User.id.in_(user_ids)))
 
         return result.scalars().all()

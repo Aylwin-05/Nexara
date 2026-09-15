@@ -20,7 +20,6 @@ router = APIRouter(
 
 
 class SubscribeRequest(BaseModel):
-
     endpoint: str = Field(..., max_length=1000)
 
     p256dh: str = Field(..., max_length=512)
@@ -84,6 +83,7 @@ def _validate_push_endpoint(endpoint: str) -> None:
 # VAPID public key (for the browser's PushManager.subscribe)
 # ==========================================================
 
+
 @router.get(
     "/vapid-public-key",
     dependencies=[
@@ -98,6 +98,7 @@ async def vapid_public_key():
 # ==========================================================
 # Subscribe this browser to push notifications
 # ==========================================================
+
 
 @router.post(
     "/subscribe",
@@ -114,12 +115,9 @@ async def subscribe(
 
     repo = PushRepository(db)
 
-    existing = await repo.get_subscriptions(
-        current_user.id
-    )
+    existing = await repo.get_subscriptions(current_user.id)
 
     for subscription in existing:
-
         if subscription.endpoint == request.endpoint:
             return {
                 "id": str(subscription.id),
@@ -152,6 +150,7 @@ async def subscribe(
 # List my push subscriptions
 # ==========================================================
 
+
 @router.get(
     "/subscriptions",
     dependencies=[
@@ -162,18 +161,14 @@ async def list_subscriptions(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    subscriptions = await PushRepository(
-        db
-    ).get_subscriptions(current_user.id)
+    subscriptions = await PushRepository(db).get_subscriptions(current_user.id)
 
     return [
         {
             "id": str(subscription.id),
             "endpoint": subscription.endpoint,
             "created_at": (
-                subscription.created_at.isoformat()
-                if subscription.created_at
-                else None
+                subscription.created_at.isoformat() if subscription.created_at else None
             ),
         }
         for subscription in subscriptions
@@ -183,6 +178,7 @@ async def list_subscriptions(
 # ==========================================================
 # Unsubscribe a browser
 # ==========================================================
+
 
 @router.delete(
     "/subscriptions/{subscription_id}",
@@ -201,7 +197,7 @@ async def unsubscribe(
         raise HTTPException(
             status_code=400,
             detail="Invalid subscription id.",
-        )
+        ) from None
 
     deleted = await PushRepository(db).delete_subscription(
         current_user.id,

@@ -38,12 +38,9 @@ class UserService:
         if request.username is not None:
             username = request.username.strip()
 
-            existing_user = await self.repository.get_by_username(
-                username
-            )
+            existing_user = await self.repository.get_by_username(username)
 
             if existing_user is not None and existing_user.id != user.id:
-
                 raise HTTPException(
                     status_code=409,
                     detail="Username already exists.",
@@ -85,8 +82,6 @@ class UserService:
         username: str,
     ) -> bool:
 
-        existing_user = await self.repository.get_by_username(
-            username
-        )
+        existing_user = await self.repository.get_by_username(username)
 
         return existing_user is None

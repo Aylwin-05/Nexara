@@ -39,7 +39,6 @@ HEARTBEAT_INTERVAL_SECONDS = 30
 
 
 class RedisBus:
-
     def __init__(self):
         self._client = None
         self._tasks: list[asyncio.Task] = []
@@ -76,8 +75,7 @@ class RedisBus:
 
         except Exception as e:
             logger.warning(
-                "Redis bus unavailable (%s) - WebSocket "
-                "fan-out falls back to single-worker mode.",
+                "Redis bus unavailable (%s) - WebSocket fan-out falls back to single-worker mode.",
                 e,
             )
             self._client = None
@@ -86,17 +84,11 @@ class RedisBus:
         self.active = True
 
         self._tasks = [
-            asyncio.create_task(
-                self._listener(pubsub, manager)
-            ),
-            asyncio.create_task(
-                self._heartbeat(manager)
-            ),
+            asyncio.create_task(self._listener(pubsub, manager)),
+            asyncio.create_task(self._heartbeat(manager)),
         ]
 
-        logger.info(
-            "Redis bus active: cross-worker WS fan-out enabled."
-        )
+        logger.info("Redis bus active: cross-worker WS fan-out enabled.")
 
     async def stop(self) -> None:
 
@@ -128,11 +120,8 @@ class RedisBus:
     async def _listener(self, pubsub, manager) -> None:
 
         while True:
-
             try:
-
                 async for message in pubsub.listen():
-
                     if message["type"] != "message":
                         continue
 
@@ -154,24 +143,16 @@ class RedisBus:
                 try:
                     await pubsub.unsubscribe(CHANNEL)
                     await pubsub.subscribe(CHANNEL)
-                except Exception:
+                except Exception:  # noqa: S110 - best-effort cleanup
                     pass
 
     async def _heartbeat(self, manager) -> None:
 
         while True:
-
             try:
-                await asyncio.sleep(
-                    HEARTBEAT_INTERVAL_SECONDS
-                )
+                await asyncio.sleep(HEARTBEAT_INTERVAL_SECONDS)
 
-                user_ids = [
-                    str(user_id)
-                    for user_id in (
-                        manager.connected_local_user_ids()
-                    )
-                ]
+                user_ids = [str(user_id) for user_id in (manager.connected_local_user_ids())]
 
                 if user_ids:
                     await self.refresh_online(user_ids)
@@ -180,9 +161,7 @@ class RedisBus:
                 raise
 
             except Exception as e:
-                logger.warning(
-                    "Presence heartbeat failed: %s", e
-                )
+                logger.warning("Presence heartbeat failed: %s", e)
 
     async def _dispatch(self, raw, manager) -> None:
 
@@ -195,23 +174,20 @@ class RedisBus:
         kind = envelope.get("t")
 
         if kind == "evt":
-
             user_id = envelope.get("u")
             payload = envelope.get("m")
 
             if user_id and isinstance(payload, dict):
                 await manager.deliver_local(
-                    UUID_from(user_id),
+                    uuid_from(user_id),
                     payload,
                 )
 
         elif kind == "inv":
-
             kinds = set(envelope.get("k", []))
 
             for user_id in envelope.get("u", []):
-
-                uid = UUID_from(user_id)
+                uid = uuid_from(user_id)
 
                 if uid is None:
                     continue
@@ -298,9 +274,7 @@ class RedisBus:
         client = await get_redis_client()
         if client is None:
             return
-        await client.delete(
-            f"{ONLINE_PREFIX}{user_id}"
-        )
+        await client.delete(f"{ONLINE_PREFIX}{user_id}")
 
     async def refresh_online(
         self,
@@ -323,36 +297,22 @@ class RedisBus:
         client = await get_redis_client()
         if client is None:
             return False
-        return await client.exists(
-            f"{ONLINE_PREFIX}{user_id}"
-        ) > 0
+        return await client.exists(f"{ONLINE_PREFIX}{user_id}") > 0
 
     async def connected_at(self, user_id):
         client = await get_redis_client()
         if client is None:
             return None
-        value = await client.get(
-            f"{ONLINE_PREFIX}{user_id}"
-        )
+        value = await client.get(f"{ONLINE_PREFIX}{user_id}")
         return float(value) if value else None
 
     async def online_user_ids(self) -> set:
         client = await get_redis_client()
         if client is None:
             return set()
-        keys = [
-            key
-            async for key in (
-                client.scan_iter(
-                    match=f"{ONLINE_PREFIX}*"
-                )
-            )
-        ]
+        keys = [key async for key in (client.scan_iter(match=f"{ONLINE_PREFIX}*"))]
 
-        return {
-            key[len(ONLINE_PREFIX):]
-            for key in keys
-        }
+        return {key[len(ONLINE_PREFIX) :] for key in keys}
 
     # ==========================================================
     # Pending calls registry
@@ -387,23 +347,14 @@ class RedisBus:
         client = await get_redis_client()
         if client is None:
             return
-        await client.delete(
-            f"{CALL_PREFIX}{call_id}"
-        )
+        await client.delete(f"{CALL_PREFIX}{call_id}")
 
     async def pending_calls(self) -> list[dict]:
         client = await get_redis_client()
         if client is None:
             return []
 
-        keys = [
-            key
-            async for key in (
-                client.scan_iter(
-                    match=f"{CALL_PREFIX}*"
-                )
-            )
-        ]
+        keys = [key async for key in (client.scan_iter(match=f"{CALL_PREFIX}*"))]
 
         entries = []
 
@@ -427,7 +378,7 @@ class RedisBus:
         return self._client
 
 
-def UUID_from(value):
+def uuid_from(value):
     from uuid import UUID
 
     try:

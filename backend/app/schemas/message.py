@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 # SEND MESSAGE
 # ==========================================================
 
+
 class SendMessageRequest(BaseModel):
     """
     Encrypted message request.
@@ -75,8 +76,8 @@ class SendMessageRequest(BaseModel):
 # PER-DEVICE ENVELOPE (multi-device E2EE)
 # ==========================================================
 
-class MessageEnvelopeInput(BaseModel):
 
+class MessageEnvelopeInput(BaseModel):
     device_id: str = Field(
         min_length=8,
         max_length=64,
@@ -92,8 +93,8 @@ class MessageEnvelopeInput(BaseModel):
 # PER-RECIPIENT MESSAGE KEY (group E2EE)
 # ==========================================================
 
-class RecipientKeyInput(BaseModel):
 
+class RecipientKeyInput(BaseModel):
     user_id: UUID
 
     encrypted_key: str = Field(
@@ -105,6 +106,7 @@ class RecipientKeyInput(BaseModel):
 # ==========================================================
 # EDIT MESSAGE
 # ==========================================================
+
 
 class EditMessageRequest(BaseModel):
     """
@@ -149,6 +151,7 @@ class EditMessageRequest(BaseModel):
 # REACTION
 # ==========================================================
 
+
 class ReactionRequest(BaseModel):
     """
     Toggle an emoji reaction on a message.
@@ -164,6 +167,7 @@ class ReactionRequest(BaseModel):
 # STAR (per-user, personal)
 # ==========================================================
 
+
 class StarRequest(BaseModel):
     """
     Star or unstar a message for the current user.
@@ -173,7 +177,6 @@ class StarRequest(BaseModel):
 
 
 class ReactionResponse(BaseModel):
-
     model_config = ConfigDict(
         from_attributes=True,
     )
@@ -189,8 +192,8 @@ class ReactionResponse(BaseModel):
 # PER-RECIPIENT KEY RESPONSE
 # ==========================================================
 
-class RecipientKeyResponse(BaseModel):
 
+class RecipientKeyResponse(BaseModel):
     user_id: UUID
 
     encrypted_key: str
@@ -200,8 +203,8 @@ class RecipientKeyResponse(BaseModel):
 # PER-DEVICE ENVELOPE RESPONSE
 # ==========================================================
 
-class MessageEnvelopeResponse(BaseModel):
 
+class MessageEnvelopeResponse(BaseModel):
     device_id: str
 
     data: str
@@ -214,6 +217,7 @@ class MessageEnvelopeResponse(BaseModel):
 # (sync_blob): an account-key AES-256-GCM blob the server
 # stores opaquely.
 # ==========================================================
+
 
 class SyncCopyInput(BaseModel):
     """
@@ -232,13 +236,13 @@ class SyncCopyInput(BaseModel):
 
 
 class SyncCopyUpsert(BaseModel):
-
     sync_copy: SyncCopyInput
 
 
 # ==========================================================
 # DELETE MESSAGE
 # ==========================================================
+
 
 class DeleteMessageRequest(BaseModel):
     """
@@ -252,8 +256,8 @@ class DeleteMessageRequest(BaseModel):
 # MESSAGE RESPONSE
 # ==========================================================
 
-class MessageResponse(BaseModel):
 
+class MessageResponse(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
     )
@@ -328,6 +332,6 @@ class MessageResponse(BaseModel):
 # MESSAGE LIST
 # ==========================================================
 
-class MessageListResponse(BaseModel):
 
+class MessageListResponse(BaseModel):
     messages: list[MessageResponse]

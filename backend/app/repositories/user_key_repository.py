@@ -30,11 +30,7 @@ class UserKeyRepository(BaseRepository):
         user_id: UUID,
     ) -> UserKey | None:
 
-        result = await self.execute(
-            select(UserKey).where(
-                UserKey.user_id == user_id
-            )
-        )
+        result = await self.execute(select(UserKey).where(UserKey.user_id == user_id))
 
         return result.scalar_one_or_none()
 

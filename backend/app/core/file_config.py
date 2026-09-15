@@ -129,29 +129,17 @@ STORY_MEDIA_TYPES = {
 # ==========================================================
 
 for directory in [
-
     BASE_UPLOAD_DIR,
-
     IMAGE_DIR,
-
     VIDEO_DIR,
-
     DOCUMENT_DIR,
-
     AUDIO_DIR,
-
     VOICE_DIR,
-
     ARCHIVE_DIR,
-
     ENCRYPTED_DIR,
-
     THUMBNAIL_DIR,
-
     AVATAR_DIR,
-
     STORIES_DIR,
-
 ]:
     directory.mkdir(
         parents=True,

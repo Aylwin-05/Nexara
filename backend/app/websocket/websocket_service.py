@@ -1,5 +1,5 @@
 import logging
-from datetime import timezone
+from datetime import UTC
 from uuid import UUID
 
 from app.core.rate_limit import (
@@ -18,17 +18,17 @@ from fastapi import WebSocket
 logger = logging.getLogger("app.websocket.websocket_service")
 
 WS_RATE_LIMITS = {
-    "message":      (30, 60),
-    "edit":         (30, 60),
-    "delete":       (30, 60),
-    "typing":       (120, 60),
-    "stop_typing":  (120, 60),
-    "delivered":    (120, 60),
-    "read":         (120, 60),
-    "call_offer":   (60, 60),
-    "call_answer":  (60, 60),
-    "call_ice":     (60, 60),
-    "call_end":     (60, 60),
+    "message": (30, 60),
+    "edit": (30, 60),
+    "delete": (30, 60),
+    "typing": (120, 60),
+    "stop_typing": (120, 60),
+    "delivered": (120, 60),
+    "read": (120, 60),
+    "call_offer": (60, 60),
+    "call_answer": (60, 60),
+    "call_ice": (60, 60),
+    "call_end": (60, 60),
     "location_update": (60, 60),
 }
 
@@ -64,29 +64,25 @@ class WebSocketService:
 
         self.db = db
 
-        self.conversation_repository = (
-            ConversationRepository(db)
-        )
+        self.conversation_repository = ConversationRepository(db)
 
-        self.message_repository = (
-            MessageRepository(db)
-        )
+        self.message_repository = MessageRepository(db)
 
         # Built once per WebSocketService instance (one per
         # connection) instead of re-creating the dict on every
         # incoming event.
         self._handlers = {
-            "message":      self.handle_message,
-            "typing":       self.handle_typing,
-            "stop_typing":  self.handle_stop_typing,
-            "delivered":    self.handle_delivered,
-            "read":         self.handle_read,
-            "edit":         self.handle_edit,
-            "delete":       self.handle_delete,
-            "call_offer":   self.handle_call,
-            "call_answer":  self.handle_call,
-            "call_ice":     self.handle_call,
-            "call_end":     self.handle_call,
+            "message": self.handle_message,
+            "typing": self.handle_typing,
+            "stop_typing": self.handle_stop_typing,
+            "delivered": self.handle_delivered,
+            "read": self.handle_read,
+            "edit": self.handle_edit,
+            "delete": self.handle_delete,
+            "call_offer": self.handle_call,
+            "call_answer": self.handle_call,
+            "call_ice": self.handle_call,
+            "call_end": self.handle_call,
             "location_update": self.handle_location_update,
         }
 
@@ -100,16 +96,9 @@ class WebSocketService:
         current_user: User,
     ) -> bool:
 
-        participants = (
-            await self.conversation_repository.get_participants(
-                conversation_id
-            )
-        )
+        participants = await self.conversation_repository.get_participants(conversation_id)
 
-        return any(
-            participant.user_id == current_user.id
-            for participant in participants
-        )
+        return any(participant.user_id == current_user.id for participant in participants)
 
     # ======================================================
     # Event Dispatcher
@@ -125,7 +114,6 @@ class WebSocketService:
         event = data.get("event")
 
         if event == "ping":
-
             await self.handle_ping(websocket)
 
             return
@@ -141,9 +129,7 @@ class WebSocketService:
             )
 
         if event == "sync_request":
-            await self.handle_sync_request(
-                current_user, data
-            )
+            await self.handle_sync_request(current_user, data)
             return
 
         # The socket is user-scoped (/ws/me), so every real event
@@ -152,10 +138,7 @@ class WebSocketService:
         raw_cid = data.get("conversation_id", "")
 
         if not raw_cid:
-
-            raise ValueError(
-                "Missing 'conversation_id' in event payload."
-            )
+            raise ValueError("Missing 'conversation_id' in event payload.")
 
         conversation_id = UUID(raw_cid)
 
@@ -163,17 +146,12 @@ class WebSocketService:
             conversation_id,
             current_user,
         ):
-            raise ValueError(
-                "Access denied."
-            )
+            raise ValueError("Access denied.")
 
         handler = self._handlers.get(event)
 
         if handler is None:
-
-            raise ValueError(
-                f"Unknown websocket event '{event}'"
-            )
+            raise ValueError(f"Unknown websocket event '{event}'")
 
         await handler(
             conversation_id,
@@ -201,32 +179,19 @@ class WebSocketService:
     ):
 
         required = [
-
             "id",
-
             "conversation_id",
-
             "sender_id",
-
             "ciphertext",
-
             "encrypted_key_sender",
-
             "encrypted_key_receiver",
-
             "nonce",
-
             "created_at",
-
         ]
 
         for field in required:
-
             if field not in data:
-
-                raise ValueError(
-                    f"Missing field '{field}'."
-                )
+                raise ValueError(f"Missing field '{field}'.")
 
         exclude = await self._blocked_recipients(
             conversation_id,
@@ -236,96 +201,54 @@ class WebSocketService:
         await manager.broadcast(
             conversation_id,
             {
-
                 "event": "message",
-
                 "id": data["id"],
-
-                "conversation_id":
-                    data["conversation_id"],
-
-                "sender_id":
-                    data["sender_id"],
-
-                "ciphertext":
-                    data["ciphertext"],
-
-                "encrypted_key_sender":
-                    data["encrypted_key_sender"],
-
-                "encrypted_key_receiver":
-                    data["encrypted_key_receiver"],
-
-                "nonce":
-                    data["nonce"],
-
-                "crypto_version":
-                    data.get(
-                        "crypto_version",
-                        1,
-                    ),
-
-                "message_type":
-                    data.get(
-                        "message_type",
-                        "text",
-                    ),
-
-                "reply_to_id":
-                    data.get(
-                        "reply_to_id"
-                    ),
-
-                "edited":
-                    data.get(
-                        "edited",
-                        False,
-                    ),
-
-                "deleted_for_everyone":
-                    data.get(
-                        "deleted_for_everyone",
-                        False,
-                    ),
-
-                "is_read":
-                    data.get(
-                        "is_read",
-                        False,
-                    ),
-
-                "expires_at":
-                    data.get(
-                        "expires_at"
-                    ),
-
-                "created_at":
+                "conversation_id": data["conversation_id"],
+                "sender_id": data["sender_id"],
+                "ciphertext": data["ciphertext"],
+                "encrypted_key_sender": data["encrypted_key_sender"],
+                "encrypted_key_receiver": data["encrypted_key_receiver"],
+                "nonce": data["nonce"],
+                "crypto_version": data.get(
+                    "crypto_version",
+                    1,
+                ),
+                "message_type": data.get(
+                    "message_type",
+                    "text",
+                ),
+                "reply_to_id": data.get("reply_to_id"),
+                "edited": data.get(
+                    "edited",
+                    False,
+                ),
+                "deleted_for_everyone": data.get(
+                    "deleted_for_everyone",
+                    False,
+                ),
+                "is_read": data.get(
+                    "is_read",
+                    False,
+                ),
+                "expires_at": data.get("expires_at"),
+                "created_at": data["created_at"],
+                "updated_at": data.get(
+                    "updated_at",
                     data["created_at"],
-
-                "updated_at":
-                    data.get(
-                        "updated_at",
-                        data["created_at"],
-                    ),
-                "attachments":
-                    data.get(
-                        "attachments",
-                        [],
-                    ),
-                "recipient_keys":
-                    data.get(
-                        "recipient_keys",
-                        [],
-                    ),
-                "envelopes":
-                    data.get(
-                        "envelopes",
-                        [],
-                    ),
-                "sync_envelope":
-                    data.get(
-                        "sync_envelope"
-                    ),
+                ),
+                "attachments": data.get(
+                    "attachments",
+                    [],
+                ),
+                "recipient_keys": data.get(
+                    "recipient_keys",
+                    [],
+                ),
+                "envelopes": data.get(
+                    "envelopes",
+                    [],
+                ),
+                "sync_envelope": data.get("sync_envelope"),
             },
             exclude_user_ids=exclude,
         )
@@ -352,22 +275,16 @@ class WebSocketService:
 
         message_id = UUID(raw_message_id)
 
-        message = await self.message_repository.get_by_id(
-            message_id
-        )
+        message = await self.message_repository.get_by_id(message_id)
 
         if message is None:
             raise ValueError("Message not found.")
 
         if message.sender_id != current_user.id:
-            raise ValueError(
-                "You can edit only your own messages."
-            )
+            raise ValueError("You can edit only your own messages.")
 
         if message.deleted_for_everyone:
-            raise ValueError(
-                "Message has already been deleted."
-            )
+            raise ValueError("Message has already been deleted.")
 
         from datetime import datetime
 
@@ -375,7 +292,6 @@ class WebSocketService:
         # (Signal ratchet): the server only swaps the payload
         # fields — the edited plaintext never touches it.
         if data.get("ciphertext"):
-
             message.ciphertext = data["ciphertext"]
             message.encrypted_key_sender = data.get(
                 "encrypted_key_sender",
@@ -392,7 +308,6 @@ class WebSocketService:
 
             # Group edits carry fresh per-recipient wrapped keys.
             if data.get("recipient_keys"):
-
                 await self.message_repository.replace_recipient_keys(
                     message.id,
                     [
@@ -406,7 +321,6 @@ class WebSocketService:
 
             # Multi-device edits carry fresh per-device envelopes.
             if data.get("envelopes"):
-
                 message.envelopes = [
                     {
                         "device_id": env["device_id"],
@@ -419,13 +333,10 @@ class WebSocketService:
             # account-key copy so other browsers don't keep the
             # stale text.
             if data.get("sync_envelope"):
-
                 message.sync_envelope = data["sync_envelope"]
 
         message.edited = True
-        message.updated_at = datetime.now(
-            timezone.utc
-        )
+        message.updated_at = datetime.now(UTC)
 
         await self.message_repository.update()
 
@@ -433,24 +344,16 @@ class WebSocketService:
             conversation_id,
             {
                 "event": "edit",
-
                 "message_id": str(message.id),
-
                 "sender_id": str(message.sender_id),
-
                 "edited": True,
-
                 "ciphertext": data.get(
                     "ciphertext",
                     message.ciphertext,
                 ),
-
                 "encrypted_key_sender": message.encrypted_key_sender,
-
                 "encrypted_key_receiver": message.encrypted_key_receiver,
-
                 "nonce": message.nonce,
-
                 "recipient_keys": [
                     {
                         "user_id": str(key.user_id),
@@ -460,13 +363,9 @@ class WebSocketService:
                 ]
                 if "recipient_keys" in message.__dict__
                 else [],
-
                 "envelopes": message.envelopes or [],
-
                 "sync_envelope": message.sync_envelope,
-
-                "updated_at":
-                    message.updated_at.isoformat(),
+                "updated_at": message.updated_at.isoformat(),
             },
         )
 
@@ -487,17 +386,13 @@ class WebSocketService:
 
         message_id = UUID(raw_message_id)
 
-        message = await self.message_repository.get_by_id(
-            message_id
-        )
+        message = await self.message_repository.get_by_id(message_id)
 
         if message is None:
             raise ValueError("Message not found.")
 
         if message.sender_id != current_user.id:
-            raise ValueError(
-                "You can delete only your own messages."
-            )
+            raise ValueError("You can delete only your own messages.")
 
         from datetime import datetime
 
@@ -507,11 +402,8 @@ class WebSocketService:
         # already deleted, but ALWAYS broadcast so the other
         # participant's UI updates without a reload.
         if not message.deleted_for_everyone:
-
             message.deleted_for_everyone = True
-            message.updated_at = datetime.now(
-                timezone.utc
-            )
+            message.updated_at = datetime.now(UTC)
 
             await self.message_repository.update()
 
@@ -519,13 +411,9 @@ class WebSocketService:
             conversation_id,
             {
                 "event": "delete",
-
                 "message_id": str(message.id),
-
                 "deleted_for_everyone": True,
-
-                "updated_at":
-                    message.updated_at.isoformat(),
+                "updated_at": message.updated_at.isoformat(),
             },
         )
 
@@ -544,30 +432,20 @@ class WebSocketService:
         if not raw_message_id:
             raise ValueError("Missing 'message_id' in event payload.")
 
-        message = await self.message_repository.get_by_id(
-            UUID(raw_message_id)
-        )
+        message = await self.message_repository.get_by_id(UUID(raw_message_id))
 
         if message is None:
             raise ValueError("Message not found.")
 
-        await self.message_repository.mark_delivered(
-            message
-        )
+        await self.message_repository.mark_delivered(message)
 
         await manager.broadcast(
             conversation_id,
             {
                 "event": "delivered",
-
                 "message_id": str(message.id),
-
                 "user_id": str(current_user.id),
-
-                "delivered_at":
-                    message.delivered_at.isoformat()
-                    if message.delivered_at
-                    else None,
+                "delivered_at": message.delivered_at.isoformat() if message.delivered_at else None,
             },
         )
 
@@ -586,32 +464,23 @@ class WebSocketService:
         if not raw_message_id:
             raise ValueError("Missing 'message_id' in event payload.")
 
-        message = await self.message_repository.get_by_id(
-            UUID(raw_message_id)
-        )
+        message = await self.message_repository.get_by_id(UUID(raw_message_id))
 
         if message is None:
             raise ValueError("Message not found.")
 
-        await self.message_repository.mark_read(
-            message
-        )
+        await self.message_repository.mark_read(message)
 
         await manager.broadcast(
             conversation_id,
             {
                 "event": "read",
-
                 "message_id": str(message.id),
-
                 "user_id": str(current_user.id),
-
-                "read_at":
-                    message.read_at.isoformat()
-                    if message.read_at
-                    else None,
+                "read_at": message.read_at.isoformat() if message.read_at else None,
             },
         )
+
     # ======================================================
     # VOICE / VIDEO CALL SIGNALING (WebRTC relay)
     #
@@ -632,58 +501,40 @@ class WebSocketService:
         event = data.get("event")
 
         if not data.get("call_id"):
-
-            raise ValueError(
-                "Missing field 'call_id'."
-            )
+            raise ValueError("Missing field 'call_id'.")
 
         if event == "call_offer" and not data.get("call_type"):
-
-            raise ValueError(
-                "Missing field 'call_type'."
-            )
+            raise ValueError("Missing field 'call_type'.")
 
         payload = {
-
             "event": event,
-
             "conversation_id": str(conversation_id),
-
             "call_id": data["call_id"],
-
             "from": str(current_user.id),
-
         }
 
         # Optional addressing: "to" lets callers target one peer
         # (ICE candidates, answers); when absent the event goes
         # to every member.
         if data.get("to"):
-
             payload["to"] = str(data["to"])
 
         if data.get("call_type"):
-
             payload["call_type"] = data["call_type"]
 
         if data.get("sdp"):
-
             payload["sdp"] = data["sdp"]
 
         if data.get("candidate"):
-
             payload["candidate"] = data["candidate"]
 
         if data.get("call_nonce"):
-
             payload["call_nonce"] = data["call_nonce"]
 
         if data.get("call_key_hash"):
-
             payload["call_key_hash"] = data["call_key_hash"]
 
         if data.get("answer_key_hash"):
-
             payload["answer_key_hash"] = data["answer_key_hash"]
 
         exclude = await self._blocked_recipients(
@@ -694,7 +545,6 @@ class WebSocketService:
         targeted = data.get("to")
 
         if targeted and UUID(targeted) in exclude:
-
             return
 
         await manager.broadcast(
@@ -708,7 +558,6 @@ class WebSocketService:
         # (re)connect within the ring window, and push-notify the
         # members with no live socket at all.
         if event == "call_offer":
-
             await manager.store_pending_call(
                 conversation_id,
                 payload,
@@ -721,10 +570,7 @@ class WebSocketService:
             )
 
         elif event == "call_end":
-
-            await manager.drop_pending_call(
-                data["call_id"]
-            )
+            await manager.drop_pending_call(data["call_id"])
 
     # ======================================================
     # TYPING
@@ -781,9 +627,7 @@ class WebSocketService:
         lng = data.get("lng")
 
         if lat is None or lng is None:
-            raise ValueError(
-                "Missing 'lat' or 'lng' in location_update payload."
-            )
+            raise ValueError("Missing 'lat' or 'lng' in location_update payload.")
 
         await manager.broadcast_transient(
             conversation_id,
@@ -858,19 +702,13 @@ class WebSocketService:
         from sqlalchemy import and_, or_, select
 
         try:
-
             result = await self.db.execute(
-                select(
-                    ConversationParticipant.user_id
-                ).where(
-                    ConversationParticipant.conversation_id
-                    == conversation_id
+                select(ConversationParticipant.user_id).where(
+                    ConversationParticipant.conversation_id == conversation_id
                 )
             )
 
-            member_ids = set(
-                result.scalars().all()
-            )
+            member_ids = set(result.scalars().all())
 
             block_result = await self.db.execute(
                 select(
@@ -893,7 +731,6 @@ class WebSocketService:
             blocked = set()
 
             for blocker_id, blocked_id in block_result.all():
-
                 if blocker_id == sender_id:
                     blocked.add(blocked_id)
 
@@ -903,7 +740,6 @@ class WebSocketService:
             return blocked
 
         except Exception:
-
             logger.exception(
                 "Block lookup failed for conversation=%s",
                 conversation_id,
@@ -930,7 +766,6 @@ class WebSocketService:
     ):
 
         try:
-
             from app.models.conversation import Conversation
             from app.services.push_service import push_service
             from app.websocket.connection_manager import manager
@@ -942,17 +777,10 @@ class WebSocketService:
             )
 
             result = await self.db.execute(
-                select(
-                    Conversation.conversation_type
-                ).where(
-                    Conversation.id == conversation_id
-                )
+                select(Conversation.conversation_type).where(Conversation.id == conversation_id)
             )
 
-            conversation_type = (
-                result.scalar_one_or_none()
-                or "private"
-            )
+            conversation_type = result.scalar_one_or_none() or "private"
 
             await push_service.notify_message(
                 recipient_ids=member_ids,
@@ -963,7 +791,6 @@ class WebSocketService:
             )
 
         except Exception:
-
             logger.exception(
                 "Push fan-out failed for conversation=%s",
                 conversation_id,
@@ -987,7 +814,6 @@ class WebSocketService:
     ):
 
         try:
-
             from app.models.conversation import Conversation
             from app.services.push_service import push_service
             from app.websocket.connection_manager import manager
@@ -1000,24 +826,13 @@ class WebSocketService:
 
             connected = await manager.connected_user_ids()
 
-            offline_members = [
-                member_id
-                for member_id in member_ids
-                if member_id not in connected
-            ]
+            offline_members = [member_id for member_id in member_ids if member_id not in connected]
 
             result = await self.db.execute(
-                select(
-                    Conversation.conversation_type
-                ).where(
-                    Conversation.id == conversation_id
-                )
+                select(Conversation.conversation_type).where(Conversation.id == conversation_id)
             )
 
-            conversation_type = (
-                result.scalar_one_or_none()
-                or "private"
-            )
+            conversation_type = result.scalar_one_or_none() or "private"
 
             await push_service.notify_call(
                 recipient_ids=offline_members,
@@ -1033,7 +848,6 @@ class WebSocketService:
             )
 
         except Exception:
-
             logger.exception(
                 "Call push fan-out failed for call=%s",
                 payload.get("call_id"),
@@ -1059,10 +873,7 @@ class WebSocketService:
         }
 
         if message_type not in allowed:
-
-            raise ValueError(
-                f"Unsupported message type '{message_type}'."
-            )
+            raise ValueError(f"Unsupported message type '{message_type}'.")
 
     async def ensure_participant(
         self,
@@ -1076,10 +887,7 @@ class WebSocketService:
         )
 
         if not allowed:
-
-            raise ValueError(
-                "Access denied."
-            )
+            raise ValueError("Access denied.")
 
     # ======================================================
     # END

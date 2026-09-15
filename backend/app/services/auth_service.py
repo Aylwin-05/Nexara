@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.core.config import settings
 from app.models.otp import OTPCode
@@ -55,8 +55,7 @@ class AuthService:
         otp_record = OTPCode(
             email=email,
             otp_hash=otp_hash,
-            expires_at=datetime.now(timezone.utc)
-            + timedelta(minutes=self.OTP_EXPIRY_MINUTES),
+            expires_at=datetime.now(UTC) + timedelta(minutes=self.OTP_EXPIRY_MINUTES),
         )
 
         await self.repository.create_otp(otp_record)
@@ -69,7 +68,6 @@ class AuthService:
         # ==================================================
 
         if settings.DEBUG:
-
             logger.warning(
                 "[DEV] OTP for %s: %s",
                 email,
@@ -88,14 +86,12 @@ class AuthService:
             async def _deliver():
 
                 try:
-
                     await self.email_service.send_otp_email(
                         recipient_email=email,
                         otp=otp,
                     )
 
                 except Exception:
-
                     logger.exception(
                         "OTP email delivery failed for %s",
                         email,
@@ -104,7 +100,6 @@ class AuthService:
             background_tasks.add_task(_deliver)
 
         else:
-
             await self.email_service.send_otp_email(
                 recipient_email=email,
                 otp=otp,
@@ -149,9 +144,7 @@ class AuthService:
             pin,
             user.two_fa_secret,
         ):
-            raise ValueError(
-                "The PIN you entered is incorrect."
-            )
+            raise ValueError("The PIN you entered is incorrect.")
 
         user.two_fa_secret = None
 
@@ -180,11 +173,7 @@ class AuthService:
         stored 2FA secret. The caller issues tokens.
         """
 
-        user = (
-            await self.repository.get_user_by_email(
-                email
-            )
-        )
+        user = await self.repository.get_user_by_email(email)
 
         if user is None or not user.two_fa_enabled:
             return None
@@ -249,9 +238,7 @@ class AuthService:
         otp: str,
     ):
 
-        otp_record = await self.repository.get_latest_otp(
-            email
-        )
+        otp_record = await self.repository.get_latest_otp(email)
 
         if otp_record is None:
             return None
@@ -265,35 +252,25 @@ class AuthService:
         expires_at = otp_record.expires_at
 
         if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
 
-            expires_at = expires_at.replace(
-                tzinfo=timezone.utc
-            )
-
-        if datetime.now(timezone.utc) > expires_at:
+        if datetime.now(UTC) > expires_at:
             return None
 
         if not SecurityUtils.verify_otp(
             otp,
             otp_record.otp_hash,
         ):
-
-            await self.repository.increment_attempts(
-                otp_record
-            )
+            await self.repository.increment_attempts(otp_record)
 
             await self.repository.commit()
 
             return None
 
         try:
-
-            await self.repository.mark_otp_used(
-                otp_record
-            )
+            await self.repository.mark_otp_used(otp_record)
 
         except ValueError:
-
             # OTP was consumed by a concurrent request
             await self.repository.commit()
 
@@ -310,14 +287,9 @@ class AuthService:
         # Existing User
         # =====================================================
 
-        existing_user = (
-            await self.repository.get_user_by_email(
-                email
-            )
-        )
+        existing_user = await self.repository.get_user_by_email(email)
 
         if existing_user:
-
             await self.repository.commit()
 
             return {
@@ -328,21 +300,14 @@ class AuthService:
         # New User Registration
         # =====================================================
 
-        base_username = (
-            email.split("@")[0]
-            .strip()
-            .lower()
-        )
+        base_username = email.split("@")[0].strip().lower()
 
         username = base_username
 
         counter = 1
 
         # Generate a unique username
-        while await self.repository.get_user_by_username(
-            username
-        ):
-
+        while await self.repository.get_user_by_username(username):
             username = f"{base_username}{counter}"
 
             counter += 1
@@ -355,19 +320,13 @@ class AuthService:
         )
 
         try:
-
-            await self.repository.create_user(
-                user
-            )
+            await self.repository.create_user(user)
 
             await self.repository.commit()
 
-            await self.repository.refresh(
-                user
-            )
+            await self.repository.refresh(user)
 
         except Exception:
-
             await self.repository.rollback()
 
             raise

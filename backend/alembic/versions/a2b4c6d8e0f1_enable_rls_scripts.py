@@ -27,7 +27,6 @@ covered by the grants only.
 """
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision = "a2b4c6d8e0f1"
@@ -111,15 +110,9 @@ def upgrade() -> None:
 
     bind.execute(sa.text("GRANT USAGE ON SCHEMA public TO nexara_app"))
     bind.execute(
-        sa.text(
-            "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO nexara_app"
-        )
+        sa.text("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO nexara_app")
     )
-    bind.execute(
-        sa.text(
-            "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO nexara_app"
-        )
-    )
+    bind.execute(sa.text("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO nexara_app"))
     bind.execute(
         sa.text(
             """
@@ -130,12 +123,8 @@ def upgrade() -> None:
     )
 
     for table in RLS_TABLES:
-        bind.execute(
-            sa.text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
-        )
-        bind.execute(
-            sa.text(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
-        )
+        bind.execute(sa.text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+        bind.execute(sa.text(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY"))
 
     for table, stmt in _member_scope().items():
         exists = bind.execute(
@@ -150,14 +139,8 @@ def downgrade() -> None:
 
     bind = op.get_bind()
     for table in RLS_TABLES:
-        bind.execute(
-            sa.text(f"DROP POLICY IF EXISTS np_{table}_scope ON {table}")
-        )
-        bind.execute(
-            sa.text(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY")
-        )
-        bind.execute(
-            sa.text(f"ALTER TABLE {table} NO FORCE ROW LEVEL SECURITY")
-        )
+        bind.execute(sa.text(f"DROP POLICY IF EXISTS np_{table}_scope ON {table}"))
+        bind.execute(sa.text(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY"))
+        bind.execute(sa.text(f"ALTER TABLE {table} NO FORCE ROW LEVEL SECURITY"))
 
     bind.execute(sa.text("DROP ROLE IF EXISTS nexara_app"))

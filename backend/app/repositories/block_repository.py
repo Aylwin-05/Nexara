@@ -89,11 +89,7 @@ class BlockRepository(BaseRepository):
         blocker_id: UUID,
     ) -> list[UUID]:
 
-        result = await self.execute(
-            select(Block.blocked_id).where(
-                Block.blocker_id == blocker_id
-            )
-        )
+        result = await self.execute(select(Block.blocked_id).where(Block.blocker_id == blocker_id))
 
         return list(result.scalars().all())
 
@@ -102,11 +98,7 @@ class BlockRepository(BaseRepository):
         user_id: UUID,
     ) -> list[UUID]:
 
-        result = await self.execute(
-            select(Block.blocker_id).where(
-                Block.blocked_id == user_id
-            )
-        )
+        result = await self.execute(select(Block.blocker_id).where(Block.blocked_id == user_id))
 
         return list(result.scalars().all())
 
@@ -121,9 +113,7 @@ class BlockRepository(BaseRepository):
                 Block,
                 Block.blocked_id == User.id,
             )
-            .where(
-                Block.blocker_id == blocker_id
-            )
+            .where(Block.blocker_id == blocker_id)
             .order_by(User.display_name)
         )
 
@@ -139,9 +129,7 @@ class BlockRepository(BaseRepository):
     ) -> UserPrivacySetting | None:
 
         result = await self.execute(
-            select(UserPrivacySetting).where(
-                UserPrivacySetting.user_id == user_id
-            )
+            select(UserPrivacySetting).where(UserPrivacySetting.user_id == user_id)
         )
 
         return result.scalar_one_or_none()

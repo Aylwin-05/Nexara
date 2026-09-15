@@ -24,7 +24,6 @@ that Postgres may evaluate even when the `'system'` OR-branch holds.
 """
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision = "d6f8h0j2l4"
@@ -116,9 +115,7 @@ def upgrade() -> None:
     bind = op.get_bind()
 
     for table in ("messages", "conversation_participants", "attachments"):
-        bind.execute(
-            sa.text(f"DROP POLICY IF EXISTS np_{table}_scope ON {table}")
-        )
+        bind.execute(sa.text(f"DROP POLICY IF EXISTS np_{table}_scope ON {table}"))
 
     bind.execute(_function())
 
@@ -137,9 +134,7 @@ def downgrade() -> None:
     uid = "COALESCE(current_setting('app.current_user_id', true), '')"
 
     for table in ("messages", "conversation_participants", "attachments"):
-        bind.execute(
-            sa.text(f"DROP POLICY IF EXISTS np_{table}_scope ON {table}")
-        )
+        bind.execute(sa.text(f"DROP POLICY IF EXISTS np_{table}_scope ON {table}"))
 
     bind.execute(
         sa.text(

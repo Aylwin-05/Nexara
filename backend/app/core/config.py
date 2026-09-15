@@ -16,7 +16,6 @@ ENV_FILE = BASE_DIR / ".env"
 
 
 class Settings(BaseSettings):
-
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
         env_file_encoding="utf-8",
@@ -65,9 +64,7 @@ class Settings(BaseSettings):
     # CORS / Hosts
     # ======================================================
 
-    CORS_ORIGINS: str = (
-        "http://localhost:5173,http://127.0.0.1:5173"
-    )
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
     ALLOWED_HOSTS: str = "*"
 
     # ======================================================
@@ -148,22 +145,17 @@ def get_settings():
     instance = Settings()
 
     if instance.APP_ENV == "production":
-
         problems = []
 
         if instance.DEBUG:
-            problems.append(
-                "DEBUG must be false in production"
-            )
+            problems.append("DEBUG must be false in production")
 
-        has_es256 = bool(
-            instance.JWT_PRIVATE_KEY and instance.JWT_PUBLIC_KEY
-        )
+        has_es256 = bool(instance.JWT_PRIVATE_KEY and instance.JWT_PUBLIC_KEY)
 
         if not has_es256:
             if (
                 not instance.SECRET_KEY
-                or instance.SECRET_KEY == "CHANGE_ME"
+                or instance.SECRET_KEY == "CHANGE_ME"  # noqa: S105 - placeholder
                 or len(instance.SECRET_KEY) < 32
             ):
                 problems.append(
@@ -173,32 +165,22 @@ def get_settings():
                 )
 
         if instance.ALLOWED_HOSTS == "*":
-            problems.append(
-                "ALLOWED_HOSTS must be pinned to real hostnames "
-                "in production"
-            )
+            problems.append("ALLOWED_HOSTS must be pinned to real hostnames in production")
 
         if not instance.COOKIE_SECURE:
-            problems.append(
-                "COOKIE_SECURE must be true in production "
-                "(HTTPS only)"
-            )
+            problems.append("COOKIE_SECURE must be true in production (HTTPS only)")
 
-        if not all([
-            instance.SMTP_HOST,
-            instance.SMTP_USERNAME,
-            instance.SMTP_PASSWORD,
-        ]):
-            problems.append(
-                "SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD "
-                "are required in production"
-            )
+        if not all(
+            [
+                instance.SMTP_HOST,
+                instance.SMTP_USERNAME,
+                instance.SMTP_PASSWORD,
+            ]
+        ):
+            problems.append("SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD are required in production")
 
         if problems:
-            raise RuntimeError(
-                "Invalid production configuration:\n  - "
-                + "\n  - ".join(problems)
-            )
+            raise RuntimeError("Invalid production configuration:\n  - " + "\n  - ".join(problems))
 
     return instance
 

@@ -5,14 +5,15 @@ Revises: d8e7f6a5b4c3
 Create Date: 2026-08-13 12:00:00.000000
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = 'a4b7c9d2e1f0'
-down_revision: str | Sequence[str] | None = 'd8e7f6a5b4c3'
+revision: str = "a4b7c9d2e1f0"
+down_revision: str | Sequence[str] | None = "d8e7f6a5b4c3"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -26,15 +27,12 @@ def upgrade() -> None:
     """
 
     op.add_column(
-        'messages',
+        "messages",
         sa.Column(
-            'envelopes',
+            "envelopes",
             sa.JSON(),
             nullable=True,
-            comment=(
-                'Per-device Signal envelopes: '
-                '[{"device_id": str, "data": envelopeJson}]'
-            ),
+            comment=('Per-device Signal envelopes: [{"device_id": str, "data": envelopeJson}]'),
         ),
     )
 
@@ -42,4 +40,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Drop the envelopes column."""
 
-    op.drop_column('messages', 'envelopes')
+    op.drop_column("messages", "envelopes")

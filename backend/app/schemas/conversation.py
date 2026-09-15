@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 # Create Conversation
 # ==========================================================
 
+
 class CreateConversationRequest(BaseModel):
     user_id: UUID
 
@@ -15,8 +16,8 @@ class CreateConversationRequest(BaseModel):
 # Create Group
 # ==========================================================
 
-class CreateGroupRequest(BaseModel):
 
+class CreateGroupRequest(BaseModel):
     name: str = Field(
         min_length=1,
         max_length=100,
@@ -32,8 +33,8 @@ class CreateGroupRequest(BaseModel):
 # Add Group Members
 # ==========================================================
 
-class AddGroupMembersRequest(BaseModel):
 
+class AddGroupMembersRequest(BaseModel):
     member_ids: list[UUID] = Field(
         min_length=1,
         max_length=49,
@@ -44,8 +45,8 @@ class AddGroupMembersRequest(BaseModel):
 # Update Group (name / description, admin only)
 # ==========================================================
 
-class UpdateGroupRequest(BaseModel):
 
+class UpdateGroupRequest(BaseModel):
     name: str | None = Field(
         default=None,
         min_length=1,
@@ -62,8 +63,8 @@ class UpdateGroupRequest(BaseModel):
 # Remove Group Member (admin only)
 # ==========================================================
 
-class RemoveGroupMemberRequest(BaseModel):
 
+class RemoveGroupMemberRequest(BaseModel):
     user_id: UUID
 
 
@@ -71,8 +72,8 @@ class RemoveGroupMemberRequest(BaseModel):
 # Promote / Demote Admin (admin only)
 # ==========================================================
 
-class SetGroupAdminRequest(BaseModel):
 
+class SetGroupAdminRequest(BaseModel):
     user_id: UUID
 
     is_admin: bool = True
@@ -82,8 +83,8 @@ class SetGroupAdminRequest(BaseModel):
 # Join Group via Invite Link
 # ==========================================================
 
-class JoinGroupWithLinkRequest(BaseModel):
 
+class JoinGroupWithLinkRequest(BaseModel):
     token: str = Field(
         min_length=1,
         max_length=128,
@@ -94,25 +95,23 @@ class JoinGroupWithLinkRequest(BaseModel):
 # Update Conversation Settings (pin / archive / mute)
 # ==========================================================
 
-class UpdateConversationSettingsRequest(BaseModel):
 
+class UpdateConversationSettingsRequest(BaseModel):
     is_pinned: bool | None = None
 
     is_archived: bool | None = None
 
     muted_until: datetime | None = None
 
-    disappear_after_seconds: int | None = Field(
-        default=None, ge=0, le=86400
-    )
+    disappear_after_seconds: int | None = Field(default=None, ge=0, le=86400)
 
 
 # ==========================================================
 # Create Conversation Response
 # ==========================================================
 
-class ConversationCreateResponse(BaseModel):
 
+class ConversationCreateResponse(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
     )
@@ -126,8 +125,8 @@ class ConversationCreateResponse(BaseModel):
 # Other User
 # ==========================================================
 
-class ConversationUser(BaseModel):
 
+class ConversationUser(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
     )
@@ -144,8 +143,8 @@ class ConversationUser(BaseModel):
 # Last Message
 # ==========================================================
 
-class LastMessage(BaseModel):
 
+class LastMessage(BaseModel):
     ciphertext: str | None = None
 
     message_type: str | None = None
@@ -157,8 +156,8 @@ class LastMessage(BaseModel):
 # Conversation List Response
 # ==========================================================
 
-class ConversationResponse(BaseModel):
 
+class ConversationResponse(BaseModel):
     id: UUID
 
     updated_at: datetime

@@ -31,6 +31,7 @@ router = APIRouter(
 # Upload Public Key
 # ==========================================================
 
+
 @router.post(
     "/public",
     response_model=KeyUploadResponse,
@@ -41,15 +42,13 @@ async def upload_public_key(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        await get_limiter().check(
-            f"keys.upload.{current_user.id}", 10, 60
-        )
+        await get_limiter().check(f"keys.upload.{current_user.id}", 10, 60)
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=429,
             detail="Too many requests.",
             headers={"Retry-After": str(exc.retry_after)},
-        )
+        ) from exc
 
     repository = UserKeyRepository(db)
 
@@ -65,6 +64,7 @@ async def upload_public_key(
 # Get Public Key
 # ==========================================================
 
+
 @router.get(
     "/{user_id}",
     response_model=PublicKeyResponse,
@@ -75,15 +75,13 @@ async def get_public_key(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        await get_limiter().check(
-            f"keys.get.{current_user.id}", 60, 60
-        )
+        await get_limiter().check(f"keys.get.{current_user.id}", 60, 60)
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=429,
             detail="Too many requests.",
             headers={"Retry-After": str(exc.retry_after)},
-        )
+        ) from exc
 
     repository = UserKeyRepository(db)
 

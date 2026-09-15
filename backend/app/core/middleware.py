@@ -11,9 +11,7 @@ SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
-    "Permissions-Policy": (
-        "camera=(), microphone=(), geolocation=()"
-    ),
+    "Permissions-Policy": ("camera=(), microphone=(), geolocation=()"),
     "Cross-Origin-Opener-Policy": "same-origin",
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
 }
@@ -47,14 +45,9 @@ class SecurityHeadersMiddleware:
         async def send_wrapper(message):
             if message["type"] == "http.response.start":
                 headers = message.get("headers", [])
-                headers = [
-                    (k.lower(), v)
-                    for (k, v) in headers
-                ]
+                headers = [(k.lower(), v) for (k, v) in headers]
                 for name, value in SECURITY_HEADERS.items():
-                    headers.append(
-                        (name.lower().encode(), value.encode())
-                    )
+                    headers.append((name.lower().encode(), value.encode()))
                 if self.enable_csp:
                     headers.append(
                         (
@@ -83,9 +76,7 @@ class RequestIdMiddleware:
             return
 
         request = Request(scope, receive)
-        request_id = request.headers.get(
-            "x-request-id"
-        )
+        request_id = request.headers.get("x-request-id")
         if not request_id:
             import uuid
 
@@ -94,9 +85,7 @@ class RequestIdMiddleware:
         async def send_wrapper(message):
             if message["type"] == "http.response.start":
                 headers = message.get("headers", [])
-                headers.append(
-                    (b"x-request-id", request_id.encode())
-                )
+                headers.append((b"x-request-id", request_id.encode()))
                 message["headers"] = headers
             await send(message)
 
@@ -139,9 +128,7 @@ class RequestBodySizeLimitMiddleware:
             return
 
         content_length = 0
-        for header_name, header_value in scope.get(
-            "headers", []
-        ):
+        for header_name, header_value in scope.get("headers", []):
             if header_name == b"content-length":
                 try:
                     content_length = int(header_value)
@@ -160,8 +147,6 @@ class RequestBodySizeLimitMiddleware:
             return
 
         await self.app(scope, receive, send)
-
-
 
 
 # Global counters — reset on process restart.
@@ -209,6 +194,7 @@ class MetricsMiddleware:
             _metrics["latencies_ms"].append(round(elapsed_ms, 2))
 
         from app.metrics import inc_counter
+
         inc_counter("http_requests_total")
         inc_counter(f"http_requests_{status_code}")
         if status_code >= 400:

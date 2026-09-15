@@ -60,21 +60,12 @@ class FriendRepository(BaseRepository):
     ) -> Friendship | None:
 
         result = await self.execute(
-
             select(Friendship)
-
             .options(
-
                 selectinload(Friendship.sender),
-
                 selectinload(Friendship.receiver),
-
             )
-
-            .where(
-                Friendship.id == friendship_id
-            )
-
+            .where(Friendship.id == friendship_id)
         )
 
         return result.scalar_one_or_none()
@@ -89,30 +80,16 @@ class FriendRepository(BaseRepository):
     ):
 
         result = await self.execute(
-
             select(Friendship)
-
             .options(
-
                 selectinload(Friendship.sender),
-
                 selectinload(Friendship.receiver),
-
             )
-
             .where(
-
                 Friendship.receiver_id == receiver_id,
-
-                Friendship.status ==
-                FriendRequestStatus.PENDING.value,
-
+                Friendship.status == FriendRequestStatus.PENDING.value,
             )
-
-            .order_by(
-                Friendship.created_at.desc()
-            )
-
+            .order_by(Friendship.created_at.desc())
         )
 
         return result.scalars().all()
@@ -127,35 +104,22 @@ class FriendRepository(BaseRepository):
     ):
 
         result = await self.execute(
-
             select(Friendship)
-
             .options(
-
                 selectinload(Friendship.sender),
-
                 selectinload(Friendship.receiver),
-
             )
-
             .where(
-
-                Friendship.status ==
-                FriendRequestStatus.ACCEPTED.value,
-
+                Friendship.status == FriendRequestStatus.ACCEPTED.value,
                 or_(
-
                     Friendship.sender_id == user_id,
-
                     Friendship.receiver_id == user_id,
-
                 ),
-
             )
-
         )
 
         return result.scalars().all()
+
     # ==========================================================
     # Search Users by Email
     # ==========================================================
@@ -166,23 +130,14 @@ class FriendRepository(BaseRepository):
         email: str,
     ):
 
-
         result = await self.execute(
-
             select(User)
-
             .where(
-
                 User.id != current_user_id,
-
                 User.email.ilike(f"%{email}%"),
-
             )
-
             .order_by(User.email)
-
             .limit(20)
-
         )
 
         return result.scalars().all()

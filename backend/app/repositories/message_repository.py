@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from app.models.attachment import Attachment
@@ -84,7 +84,7 @@ class MessageRepository(BaseRepository):
         """
 
         if now is None:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
         result = await self.execute(
             select(
@@ -104,35 +104,18 @@ class MessageRepository(BaseRepository):
         message_ids = [row.id for row in expired]
 
         await self.db.execute(
-            delete(MessageReaction).where(
-                MessageReaction.message_id.in_(message_ids)
-            )
+            delete(MessageReaction).where(MessageReaction.message_id.in_(message_ids))
         )
 
-        await self.db.execute(
-            delete(MessageStar).where(
-                MessageStar.message_id.in_(message_ids)
-            )
-        )
+        await self.db.execute(delete(MessageStar).where(MessageStar.message_id.in_(message_ids)))
 
-        await self.db.execute(
-            delete(Attachment).where(
-                Attachment.message_id.in_(message_ids)
-            )
-        )
+        await self.db.execute(delete(Attachment).where(Attachment.message_id.in_(message_ids)))
 
-        await self.db.execute(
-            delete(Message).where(
-                Message.id.in_(message_ids)
-            )
-        )
+        await self.db.execute(delete(Message).where(Message.id.in_(message_ids)))
 
         await self.db.flush()
 
-        return [
-            (row.conversation_id, row.id)
-            for row in expired
-        ]
+        return [(row.conversation_id, row.id) for row in expired]
 
     # ==========================================================
     # GET
@@ -144,15 +127,7 @@ class MessageRepository(BaseRepository):
     ) -> Message | None:
 
         result = await self.execute(
-
-            select(Message)
-            .options(
-                *_message_options()
-            )
-            .where(
-                Message.id == message_id
-            )
-
+            select(Message).options(*_message_options()).where(Message.id == message_id)
         )
 
         return result.scalar_one_or_none()
@@ -180,19 +155,14 @@ class MessageRepository(BaseRepository):
 
         stmt = (
             select(Message)
-            .options(
-                *_message_options()
-            )
-            .where(
-                Message.conversation_id == conversation_id
-            )
+            .options(*_message_options())
+            .where(Message.conversation_id == conversation_id)
         )
 
         if before is not None:
-
-            cursor_created_at = select(Message.created_at).where(
-                Message.id == before
-            ).scalar_subquery()
+            cursor_created_at = (
+                select(Message.created_at).where(Message.id == before).scalar_subquery()
+            )
 
             # created_at DESC with the id as a tiebreaker, so a
             # page boundary is stable even for same-timestamp
@@ -208,7 +178,6 @@ class MessageRepository(BaseRepository):
             )
 
         if limit:
-
             result = await self.execute(
                 stmt.order_by(
                     Message.created_at.desc(),
@@ -221,7 +190,6 @@ class MessageRepository(BaseRepository):
             messages.reverse()
 
         else:
-
             result = await self.execute(
                 stmt.order_by(
                     Message.created_at.asc(),
@@ -233,12 +201,8 @@ class MessageRepository(BaseRepository):
 
         # "Delete for me": hide messages the user removed
         if user_id is not None:
-
             messages = [
-                message
-                for message in messages
-                if str(user_id)
-                not in (message.deleted_for or [])
+                message for message in messages if str(user_id) not in (message.deleted_for or [])
             ]
 
         return messages
@@ -256,31 +220,19 @@ class MessageRepository(BaseRepository):
         await self.purge_expired()
 
         result = await self.execute(
-
             select(Message)
-            .options(
-                *_message_options()
-            )
-            .where(
-                Message.conversation_id == conversation_id
-            )
-            .order_by(
-                Message.created_at.desc()
-            )
+            .options(*_message_options())
+            .where(Message.conversation_id == conversation_id)
+            .order_by(Message.created_at.desc())
             .limit(200)
-
         )
 
         messages = result.scalars().all()
 
         # "Delete for me": hide messages the user removed
         if user_id is not None:
-
             messages = [
-                message
-                for message in messages
-                if str(user_id)
-                not in (message.deleted_for or [])
+                message for message in messages if str(user_id) not in (message.deleted_for or [])
             ]
 
         return messages[0] if messages else None
@@ -326,35 +278,19 @@ class MessageRepository(BaseRepository):
         result = await self.execute(
             select(Message)
             .options(*_message_options())
-            .where(
-                Message.id.in_(
-                    select(newest_row.c.message_id).where(
-                        newest_row.c.rank == 1
-                    )
-                )
-            )
+            .where(Message.id.in_(select(newest_row.c.message_id).where(newest_row.c.rank == 1)))
         )
 
-        by_conversation = {
-            message.conversation_id: message
-            for message in result.scalars().all()
-        }
+        by_conversation = {message.conversation_id: message for message in result.scalars().all()}
 
         for conversation_id, message in list(by_conversation.items()):
-
-            if (
-                message is not None
-                and str(user_id) in (message.deleted_for or [])
-            ):
-
+            if message is not None and str(user_id) in (message.deleted_for or []):
                 # ponytail: exact-match fallback, rare (only when
                 # the newest message was deleted-for-me); batch it
                 # if sidebars ever serve users who delete a lot.
-                by_conversation[conversation_id] = (
-                    await self.get_last_message(
-                        conversation_id,
-                        user_id,
-                    )
+                by_conversation[conversation_id] = await self.get_last_message(
+                    conversation_id,
+                    user_id,
                 )
 
         return {
@@ -372,10 +308,7 @@ class MessageRepository(BaseRepository):
     ):
 
         if message.delivered_at is None:
-
-            message.delivered_at = datetime.now(
-                timezone.utc
-            )
+            message.delivered_at = datetime.now(UTC)
 
             await self.update()
 
@@ -391,16 +324,10 @@ class MessageRepository(BaseRepository):
         message.is_read = True
 
         if message.delivered_at is None:
-
-            message.delivered_at = datetime.now(
-                timezone.utc
-            )
+            message.delivered_at = datetime.now(UTC)
 
         if message.read_at is None:
-
-            message.read_at = datetime.now(
-                timezone.utc
-            )
+            message.read_at = datetime.now(UTC)
 
         await self.update()
 
@@ -409,7 +336,7 @@ class MessageRepository(BaseRepository):
         conversation_id: UUID,
         user_id: UUID,
     ):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         await self.db.execute(
             update(Message)
             .where(
@@ -439,8 +366,7 @@ class MessageRepository(BaseRepository):
         await self.purge_expired()
 
         result = await self.db.execute(
-            select(func.count(Message.id))
-            .where(
+            select(func.count(Message.id)).where(
                 Message.conversation_id == conversation_id,
                 Message.sender_id != user_id,
                 Message.is_read.is_(False),
@@ -500,9 +426,7 @@ class MessageRepository(BaseRepository):
                 Message,
                 Attachment.message_id == Message.id,
             )
-            .where(
-                Message.conversation_id == conversation_id
-            )
+            .where(Message.conversation_id == conversation_id)
         )
         return list(result.scalars().all())
 
@@ -519,45 +443,25 @@ class MessageRepository(BaseRepository):
         dialects without FK cascades (e.g. SQLite in tests).
         """
 
-        message_ids = select(Message.id).where(
-            Message.conversation_id == conversation_id
-        )
+        message_ids = select(Message.id).where(Message.conversation_id == conversation_id)
 
         await self.db.execute(
-            delete(MessageReaction).where(
-                MessageReaction.message_id.in_(message_ids)
-            )
+            delete(MessageReaction).where(MessageReaction.message_id.in_(message_ids))
         )
 
-        await self.db.execute(
-            delete(MessageStar).where(
-                MessageStar.message_id.in_(message_ids)
-            )
-        )
+        await self.db.execute(delete(MessageStar).where(MessageStar.message_id.in_(message_ids)))
 
         await self.db.execute(
-            delete(MessageRecipientKey).where(
-                MessageRecipientKey.message_id.in_(message_ids)
-            )
+            delete(MessageRecipientKey).where(MessageRecipientKey.message_id.in_(message_ids))
         )
 
-        await self.db.execute(
-            delete(Attachment).where(
-                Attachment.message_id.in_(message_ids)
-            )
-        )
+        await self.db.execute(delete(Attachment).where(Attachment.message_id.in_(message_ids)))
 
         await self.db.execute(
-            delete(SignalSession).where(
-                SignalSession.conversation_id == conversation_id
-            )
+            delete(SignalSession).where(SignalSession.conversation_id == conversation_id)
         )
 
-        await self.db.execute(
-            delete(Message).where(
-                Message.conversation_id == conversation_id
-            )
-        )
+        await self.db.execute(delete(Message).where(Message.conversation_id == conversation_id))
 
         await self.db.flush()
 
@@ -585,7 +489,6 @@ class MessageRepository(BaseRepository):
         user_id = str(user_id)
 
         if user_id not in message.deleted_for:
-
             message.deleted_for.append(user_id)
 
             await self.update()
@@ -611,9 +514,7 @@ class MessageRepository(BaseRepository):
         result = await self.db.execute(
             delete(MessageRecipientKey).where(
                 MessageRecipientKey.message_id.in_(
-                    select(Message.id).where(
-                        Message.conversation_id == conversation_id
-                    )
+                    select(Message.id).where(Message.conversation_id == conversation_id)
                 ),
                 MessageRecipientKey.user_id == user_id,
             )
@@ -628,13 +529,10 @@ class MessageRepository(BaseRepository):
     ) -> None:
 
         await self.db.execute(
-            delete(MessageRecipientKey).where(
-                MessageRecipientKey.message_id == message_id
-            )
+            delete(MessageRecipientKey).where(MessageRecipientKey.message_id == message_id)
         )
 
         for user_id, encrypted_key in keys:
-
             row = MessageRecipientKey(
                 message_id=message_id,
                 user_id=user_id,
@@ -656,13 +554,7 @@ class MessageRepository(BaseRepository):
 
         await self.purge_expired()
 
-        result = await self.execute(
-
-            select(Message).where(
-                Message.id == reply_to_id
-            )
-
-        )
+        result = await self.execute(select(Message).where(Message.id == reply_to_id))
 
         return result.scalar_one_or_none()
 
@@ -684,18 +576,10 @@ class MessageRepository(BaseRepository):
         """
 
         result = await self.execute(
-
             select(Message)
-            .options(
-                *_message_options()
-            )
-            .where(
-                Message.id == message_id
-            )
-            .execution_options(
-                populate_existing=True
-            )
-
+            .options(*_message_options())
+            .where(Message.id == message_id)
+            .execution_options(populate_existing=True)
         )
 
         return result.scalar_one_or_none()
@@ -736,12 +620,10 @@ class MessageRepository(BaseRepository):
     ) -> MessageReaction | None:
 
         result = await self.execute(
-
             select(MessageReaction).where(
                 MessageReaction.message_id == message_id,
                 MessageReaction.user_id == user_id,
             )
-
         )
 
         return result.scalar_one_or_none()
@@ -779,12 +661,10 @@ class MessageRepository(BaseRepository):
     ) -> MessageStar | None:
 
         result = await self.execute(
-
             select(MessageStar).where(
                 MessageStar.message_id == message_id,
                 MessageStar.user_id == user_id,
             )
-
         )
 
         return result.scalar_one_or_none()
@@ -816,7 +696,6 @@ class MessageRepository(BaseRepository):
     ) -> set[UUID]:
 
         result = await self.execute(
-
             select(MessageStar.message_id)
             .join(
                 Message,
@@ -826,7 +705,6 @@ class MessageRepository(BaseRepository):
                 Message.conversation_id == conversation_id,
                 MessageStar.user_id == user_id,
             )
-
         )
 
         return {row[0] for row in result.all()}
@@ -845,25 +723,16 @@ class MessageRepository(BaseRepository):
                 MessageStar,
                 MessageStar.message_id == Message.id,
             )
-            .options(
-                *_message_options()
-            )
+            .options(*_message_options())
             .where(
                 MessageStar.user_id == user_id,
             )
         )
 
         if conversation_id is not None:
+            query = query.where(Message.conversation_id == conversation_id)
 
-            query = query.where(
-                Message.conversation_id == conversation_id
-            )
-
-        result = await self.execute(
-            query.order_by(
-                MessageStar.created_at.desc()
-            )
-        )
+        result = await self.execute(query.order_by(MessageStar.created_at.desc()))
 
         return list(result.scalars().all())
 

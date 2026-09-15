@@ -5,7 +5,15 @@ exchange messages, verify both members can read and verify purge under
 'system' scope. This exercises all three RLS policies via real API
 paths — not direct SQL.
 """
-import httpx, os, random, re, subprocess, time, uuid
+
+import os
+import random
+import re
+import subprocess
+import time
+import uuid
+
+import httpx
 
 BASE = "http://localhost:8000/api/v1"
 LOG = r"C:\Users\dell\AppData\Local\Temp\opencode\nexara-backend.log"
@@ -19,9 +27,14 @@ def make_email(tag: str) -> str:
 
 def get_otp(email: str, last_n: int = 50) -> str | None:
     out = subprocess.run(
-        ["powershell", "-Command",
-         f"Get-Content '{LOG}' -Tail {last_n} | Select-String 'OTP for {email}'"],
-        capture_output=True, text=True, timeout=8,
+        [
+            "powershell",
+            "-Command",
+            f"Get-Content '{LOG}' -Tail {last_n} | Select-String 'OTP for {email}'",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=8,
     ).stdout.strip()
     m = otp_pattern.search(out)
     return m.group(2) if m else None
@@ -72,20 +85,17 @@ with httpx.Client(base_url=BASE, timeout=15) as c:
     print(f"[+] User A = {uidA}   User B = {uidB}")
 
     # ---- friend request A->B + accept --------------------------------
-    r = c.post("/friends/request", json={"receiver_id": uidB},
-               headers=headers(tokA))
+    r = c.post("/friends/request", json={"receiver_id": uidB}, headers=headers(tokA))
     print(f"[+] Friend request A->B: {r.status_code}")
     reqs = c.get("/friends/pending", headers=headers(tokB)).json()
     my_req = next((r for r in reqs if r.get("requester_id") == uidA), None)
     if my_req:
         fid = my_req.get("id") or my_req.get("friendship_id")
-        r = c.post("/friends/accept", json={"friendship_id": fid},
-                   headers=headers(tokB))
+        r = c.post("/friends/accept", json={"friendship_id": fid}, headers=headers(tokB))
         print(f"[+] Friend accepted: {r.status_code}")
 
     # ---- create private conversation ---------------------------------
-    r = c.post("/conversations/private", json={"user_id": uidB},
-               headers=headers(tokA))
+    r = c.post("/conversations/private", json={"user_id": uidB}, headers=headers(tokA))
     print(f"[+] Create private convo: {r.status_code}")
     conv = r.json()
     cid = conv["id"]
@@ -125,8 +135,10 @@ with httpx.Client(base_url=BASE, timeout=15) as c:
     r = c.get(f"/messages/{cid}", headers=headers(tokC))
     msgsC = r.json() if isinstance(r.json(), list) else r.json().get("messages", [])
     countC = len(msgsC)
-    print(f"[+] C (non-member) read status={r.status_code}  count={countC}  "
-          f"(expect empty/404)  {'✓' if countC == 0 or r.status_code == 404 else '✗ FAIL'}")
+    print(
+        f"[+] C (non-member) read status={r.status_code}  count={countC}  "
+        f"(expect empty/404)  {'✓' if countC == 0 or r.status_code == 404 else '✗ FAIL'}"
+    )
 
     # ---- A sends a disappearing message (expires_in = 3 s) -----------
     disappearing_body = {
@@ -152,21 +164,32 @@ with httpx.Client(base_url=BASE, timeout=15) as c:
             ),
         }
         subprocess.run(
-            ["C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe",
-             "-h", "localhost", "-U", "nexara_app", "-d", "nexara", "-tAc",
-             f"UPDATE messages SET expires_at = now() - interval '1 minute' "
-             f"WHERE id = '{disappearing_id}';"],
-            env=env_full, capture_output=True, timeout=8,
+            [
+                "C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe",
+                "-h",
+                "localhost",
+                "-U",
+                "nexara_app",
+                "-d",
+                "nexara",
+                "-tAc",
+                f"UPDATE messages SET expires_at = now() - interval '1 minute' "
+                f"WHERE id = '{disappearing_id}';",
+            ],
+            env=env_full,
+            capture_output=True,
+            timeout=8,
         )
         print("[+] Set expires_at to past; waiting 65 s for purge tick...")
         time.sleep(65)
         r2 = c.get(f"/messages/{cid}", headers=headers(tokA))
         all_msgs = r2.json() if isinstance(r2.json(), list) else r2.json().get("messages")
         still_there = [m for m in all_msgs if m.get("id") == disappearing_id]
-        print(f"[+] Purge: disappeared={'✓' if len(still_there)==0 else '✗ still present'}")
+        print(f"[+] Purge: disappeared={'✓' if len(still_there) == 0 else '✗ still present'}")
 
     # ---- WebSocket connect as A (verifies set_config path) -----------
     import websocket  # websocket-client (pip installed in test env)
+
     ws_url = "ws://localhost:8000/ws/me"
     ws = websocket.create_connection(ws_url, timeout=8)
     ws.send(f'{{"token":"{tokA}","device_id":"smoke-device"}}')

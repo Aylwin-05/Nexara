@@ -4,18 +4,6 @@ import shutil
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    File,
-    Form,
-    HTTPException,
-    UploadFile,
-)
-from fastapi.responses import FileResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-
-logger = logging.getLogger(__name__)
 from app.database.session import get_db
 from app.dependencies.auth import get_current_user
 from app.dependencies.rate_limit import rate_limit
@@ -34,6 +22,18 @@ from app.schemas.attachment import (
 from app.schemas.message import SyncCopyUpsert
 from app.services.attachment_service import AttachmentService
 from app.websocket.connection_manager import manager
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+)
+from fastapi.responses import FileResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/attachments",
@@ -45,6 +45,7 @@ router = APIRouter(
 # Upload Attachment
 # ==========================================================
 
+
 @router.post(
     "/upload/{message_id}",
     response_model=UploadResponse,
@@ -54,23 +55,14 @@ router = APIRouter(
 )
 async def upload_attachment(
     message_id: UUID,
-
     file: UploadFile = File(...),
-
     encrypted: bool = Form(False),
-
     encrypted_key_sender: str | None = Form(None),
-
     encrypted_key_receiver: str | None = Form(None),
-
     nonce: str | None = Form(None),
-
     wrapped_keys: str | None = Form(None),
-
     view_once: bool = Form(False),
-
     current_user: User = Depends(get_current_user),
-
     db: AsyncSession = Depends(get_db),
 ):
 
@@ -84,37 +76,25 @@ async def upload_attachment(
         attachment_repository,
     )
 
-    message = await message_repository.get_by_id(
-        message_id
-    )
+    message = await message_repository.get_by_id(message_id)
 
     if message is None:
-
         raise HTTPException(
             status_code=404,
             detail="Message not found.",
         )
 
-    participants = (
-        await conversation_repository.get_participants(
-            message.conversation_id
-        )
-    )
+    participants = await conversation_repository.get_participants(message.conversation_id)
 
-    allowed = any(
-        participant.user_id == current_user.id
-        for participant in participants
-    )
+    allowed = any(participant.user_id == current_user.id for participant in participants)
 
     if not allowed:
-
         raise HTTPException(
             status_code=403,
             detail="You are not a member of this conversation.",
         )
 
     if encrypted:
-
         if not encrypted_key_sender:
             raise HTTPException(
                 status_code=400,
@@ -133,12 +113,7 @@ async def upload_attachment(
                 detail="Missing encryption nonce.",
             )
     try:
-
-        parsed_wrapped_keys = (
-            json.loads(wrapped_keys)
-            if wrapped_keys
-            else None
-        )
+        parsed_wrapped_keys = json.loads(wrapped_keys) if wrapped_keys else None
 
         attachment = await attachment_service.upload_attachment(
             message.id,
@@ -167,69 +142,26 @@ async def upload_attachment(
         message.conversation_id,
         {
             "event": "attachment",
-
-            "message_id": str(
-                message.id
-            ),
-
-            "conversation_id": str(
-                message.conversation_id
-            ),
-
-            "sender_id": str(
-                current_user.id
-            ),
-
+            "message_id": str(message.id),
+            "conversation_id": str(message.conversation_id),
+            "sender_id": str(current_user.id),
             "attachment": {
-
-                "id": str(
-                    attachment.id
-                ),
-
-                "original_name":
-                    attachment.original_name,
-
-                "filename":
-                    attachment.filename,
-
-                "attachment_type":
-                    attachment.attachment_type,
-
-                "mime_type":
-                    attachment.mime_type,
-
-                "extension":
-                    attachment.extension,
-
-                "view_once":
-                    attachment.view_once,
-
-                "size":
-                    attachment.size,
-
-                "encrypted":
-                    attachment.encrypted,
-
-                "encrypted_key_sender":
-                    attachment.encrypted_key_sender,
-
-                "encrypted_key_receiver":
-                    attachment.encrypted_key_receiver,
-
-                "nonce":
-                    attachment.nonce,
-
-                "wrapped_keys":
-                    attachment.wrapped_keys or [],
-
-                "sync_blob":
-                    attachment.sync_blob,
-
-                "download_url":
-                    f"/api/v1/attachments/{attachment.id}",
-
-                "created_at":
-                    attachment.created_at.isoformat(),
+                "id": str(attachment.id),
+                "original_name": attachment.original_name,
+                "filename": attachment.filename,
+                "attachment_type": attachment.attachment_type,
+                "mime_type": attachment.mime_type,
+                "extension": attachment.extension,
+                "view_once": attachment.view_once,
+                "size": attachment.size,
+                "encrypted": attachment.encrypted,
+                "encrypted_key_sender": attachment.encrypted_key_sender,
+                "encrypted_key_receiver": attachment.encrypted_key_receiver,
+                "nonce": attachment.nonce,
+                "wrapped_keys": attachment.wrapped_keys or [],
+                "sync_blob": attachment.sync_blob,
+                "download_url": f"/api/v1/attachments/{attachment.id}",
+                "created_at": attachment.created_at.isoformat(),
             },
         },
     )
@@ -248,6 +180,7 @@ async def upload_attachment(
 # server never sees plaintext. This endpoint stores the
 # small, low-quality JPEG alongside the encrypted file.
 # ==========================================================
+
 
 @router.post(
     "/{attachment_id}/thumbnail",
@@ -274,9 +207,7 @@ async def upload_thumbnail(
     if message is None:
         raise HTTPException(status_code=404, detail="Message not found.")
 
-    participants = await conversation_repository.get_participants(
-        message.conversation_id
-    )
+    participants = await conversation_repository.get_participants(message.conversation_id)
     if not any(p.user_id == current_user.id for p in participants):
         raise HTTPException(status_code=403, detail="Access denied.")
 
@@ -305,6 +236,7 @@ async def upload_thumbnail(
 # Get Thumbnail
 # ==========================================================
 
+
 @router.get(
     "/{attachment_id}/thumbnail",
     dependencies=[rate_limit("attachments.thumbnail", 60, 60)],
@@ -319,21 +251,12 @@ async def get_thumbnail(
     if attachment is None or not attachment.thumbnail_path:
         raise HTTPException(status_code=404, detail="Thumbnail not found.")
 
-    message = await MessageRepository(db).get_by_id(
-        attachment.message_id
-    )
+    message = await MessageRepository(db).get_by_id(attachment.message_id)
     if message is None:
         raise HTTPException(status_code=404, detail="Thumbnail not found.")
 
-    participants = (
-        await ConversationRepository(db).get_participants(
-            message.conversation_id
-        )
-    )
-    allowed = any(
-        participant.user_id == current_user.id
-        for participant in participants
-    )
+    participants = await ConversationRepository(db).get_participants(message.conversation_id)
+    allowed = any(participant.user_id == current_user.id for participant in participants)
     if not allowed:
         raise HTTPException(
             status_code=403,
@@ -355,6 +278,7 @@ async def get_thumbnail(
 # Download Attachment
 # ==========================================================
 
+
 @router.get(
     "/{attachment_id}",
     dependencies=[rate_limit("attachments.download", 60, 60)],
@@ -375,41 +299,27 @@ async def download_attachment(
         attachment_repository,
     )
 
-    attachment = await attachment_service.get_attachment(
-        attachment_id
-    )
+    attachment = await attachment_service.get_attachment(attachment_id)
 
     if attachment is None:
-
         raise HTTPException(
             status_code=404,
             detail="Attachment not found.",
         )
 
-    message = await message_repository.get_by_id(
-        attachment.message_id
-    )
+    message = await message_repository.get_by_id(attachment.message_id)
 
     if message is None:
-
         raise HTTPException(
             status_code=404,
             detail="Message not found.",
         )
 
-    participants = (
-        await conversation_repository.get_participants(
-            message.conversation_id
-        )
-    )
+    participants = await conversation_repository.get_participants(message.conversation_id)
 
-    allowed = any(
-        participant.user_id == current_user.id
-        for participant in participants
-    )
+    allowed = any(participant.user_id == current_user.id for participant in participants)
 
     if not allowed:
-
         raise HTTPException(
             status_code=403,
             detail="Access denied.",
@@ -424,24 +334,23 @@ async def download_attachment(
     file_path = Path(attachment.storage_path)
 
     if not file_path.exists():
-
         raise HTTPException(
             status_code=404,
             detail="Attachment file not found.",
         )
 
-    safe_name = "".join(
-        c for c in (attachment.original_name or "file")
-        if c.isprintable() and c not in "\r\n"
-    ) or "file"
+    safe_name = (
+        "".join(
+            c for c in (attachment.original_name or "file") if c.isprintable() and c not in "\r\n"
+        )
+        or "file"
+    )
 
     return FileResponse(
         path=file_path,
         filename=safe_name,
         media_type=attachment.mime_type,
-        headers={
-            "Content-Disposition": f'attachment; filename="{safe_name}"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
     )
 
 
@@ -452,6 +361,7 @@ async def download_attachment(
 # account-key copy of the raw bytes here, so browsers that
 # register later can read it after unlocking the sync secret.
 # ==========================================================
+
 
 @router.put(
     "/{attachment_id}/sync-blob",
@@ -475,41 +385,27 @@ async def upsert_sync_blob(
         attachment_repository,
     )
 
-    attachment = await attachment_service.get_attachment(
-        attachment_id
-    )
+    attachment = await attachment_service.get_attachment(attachment_id)
 
     if attachment is None:
-
         raise HTTPException(
             status_code=404,
             detail="Attachment not found.",
         )
 
-    message = await message_repository.get_by_id(
-        attachment.message_id
-    )
+    message = await message_repository.get_by_id(attachment.message_id)
 
     if message is None:
-
         raise HTTPException(
             status_code=404,
             detail="Message not found.",
         )
 
-    participants = (
-        await conversation_repository.get_participants(
-            message.conversation_id
-        )
-    )
+    participants = await conversation_repository.get_participants(message.conversation_id)
 
-    allowed = any(
-        participant.user_id == current_user.id
-        for participant in participants
-    )
+    allowed = any(participant.user_id == current_user.id for participant in participants)
 
     if not allowed:
-
         raise HTTPException(
             status_code=403,
             detail="Access denied.",
@@ -531,6 +427,7 @@ async def upsert_sync_blob(
 # Delete Attachment
 # ==========================================================
 
+
 @router.delete(
     "/{attachment_id}",
     dependencies=[rate_limit("attachments.delete", 30, 60)],
@@ -551,41 +448,27 @@ async def delete_attachment(
         attachment_repository,
     )
 
-    attachment = await attachment_service.get_attachment(
-        attachment_id
-    )
+    attachment = await attachment_service.get_attachment(attachment_id)
 
     if attachment is None:
-
         raise HTTPException(
             status_code=404,
             detail="Attachment not found.",
         )
 
-    message = await message_repository.get_by_id(
-        attachment.message_id
-    )
+    message = await message_repository.get_by_id(attachment.message_id)
 
     if message is None:
-
         raise HTTPException(
             status_code=404,
             detail="Message not found.",
         )
 
-    participants = (
-        await conversation_repository.get_participants(
-            message.conversation_id
-        )
-    )
+    participants = await conversation_repository.get_participants(message.conversation_id)
 
-    allowed = any(
-        participant.user_id == current_user.id
-        for participant in participants
-    )
+    allowed = any(participant.user_id == current_user.id for participant in participants)
 
     if not allowed:
-
         raise HTTPException(
             status_code=403,
             detail="Access denied.",
@@ -594,18 +477,11 @@ async def delete_attachment(
     # Delete-for-everyone requires ownership (WhatsApp-style group
     # moderation: a group admin may delete any member's attachment).
     if message.sender_id != current_user.id:
+        conversation = await conversation_repository.get_by_id(message.conversation_id)
 
-        conversation = (
-            await conversation_repository.get_by_id(
-                message.conversation_id
-            )
-        )
-
-        participant = (
-            await conversation_repository.get_participant(
-                message.conversation_id,
-                current_user.id,
-            )
+        participant = await conversation_repository.get_participant(
+            message.conversation_id,
+            current_user.id,
         )
 
         is_group_admin = (
@@ -616,19 +492,14 @@ async def delete_attachment(
         )
 
         if not is_group_admin:
-
             raise HTTPException(
                 status_code=403,
-                detail="Only the sender or a group admin can "
-                       "delete this attachment.",
+                detail="Only the sender or a group admin can delete this attachment.",
             )
 
-    deleted = await attachment_service.delete_attachment(
-        attachment_id
-    )
+    deleted = await attachment_service.delete_attachment(attachment_id)
 
     if not deleted:
-
         raise HTTPException(
             status_code=404,
             detail="Attachment not found.",
@@ -642,12 +513,8 @@ async def delete_attachment(
         message.conversation_id,
         {
             "event": "attachment_deleted",
-            "attachment_id": str(
-                attachment.id
-            ),
-            "message_id": str(
-                message.id
-            ),
+            "attachment_id": str(attachment.id),
+            "message_id": str(message.id),
         },
     )
 

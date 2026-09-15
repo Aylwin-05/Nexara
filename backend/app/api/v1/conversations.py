@@ -3,15 +3,6 @@ import traceback
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    File,
-    HTTPException,
-    UploadFile,
-)
-from fastapi.responses import FileResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.file_config import (
     AVATAR_DIR,
     AVATAR_EXTENSIONS,
@@ -24,9 +15,7 @@ from app.core.magic_sniff import (
 from app.database.session import get_db
 from app.dependencies.auth import get_current_user
 from app.dependencies.rate_limit import rate_limit
-
 from app.models.user import User
-
 from app.repositories.conversation_repository import (
     ConversationRepository,
 )
@@ -36,7 +25,6 @@ from app.repositories.friend_repository import (
 from app.repositories.message_repository import (
     MessageRepository,
 )
-
 from app.schemas.conversation import (
     AddGroupMembersRequest,
     ConversationResponse,
@@ -48,10 +36,18 @@ from app.schemas.conversation import (
     UpdateConversationSettingsRequest,
     UpdateGroupRequest,
 )
-
 from app.services.conversation_service import (
     ConversationService,
 )
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    UploadFile,
+)
+from fastapi.responses import FileResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(
     prefix="/conversations",
@@ -62,6 +58,7 @@ router = APIRouter(
 # ==========================================================
 # Open/Create Conversation
 # ==========================================================
+
 
 @router.post(
     "/private",
@@ -84,33 +81,25 @@ async def create_private_conversation(
             message_repository,
         )
 
-        
         conversation = await service.get_or_create_private_conversation(
             current_user,
             request.user_id,
         )
 
-        
         await db.commit()
 
-        
         await db.refresh(conversation)
 
-        
         other_user = await conversation_repository.get_other_user(
             conversation.id,
             current_user.id,
         )
 
-        
-        
         last_message = await message_repository.get_last_message(
             conversation.id,
             current_user.id,
         )
 
-        
-        
         return {
             "id": conversation.id,
             "updated_at": conversation.updated_at,
@@ -124,25 +113,24 @@ async def create_private_conversation(
                 if last_message
                 else None
             ),
-            "disappear_after_seconds":
-                conversation.disappear_after_seconds,
-            "delete_requested_by":
-                str(conversation.delete_requested_by)
-                if conversation.delete_requested_by
-                else None,
-            "delete_requested_at":
-                conversation.delete_requested_at.isoformat()
-                if conversation.delete_requested_at
-                else None,
+            "disappear_after_seconds": conversation.disappear_after_seconds,
+            "delete_requested_by": str(conversation.delete_requested_by)
+            if conversation.delete_requested_by
+            else None,
+            "delete_requested_at": conversation.delete_requested_at.isoformat()
+            if conversation.delete_requested_at
+            else None,
         }
 
     except Exception:
         traceback.print_exc()
         raise
 
+
 # ==========================================================
 # Update Settings (pin / archive / mute)
 # ==========================================================
+
 
 @router.patch("/{conversation_id}")
 async def update_conversation_settings(
@@ -176,9 +164,7 @@ async def update_conversation_settings(
             payload["muted_until"] = request.muted_until
 
         if "disappear_after_seconds" in request.model_fields_set:
-            payload["disappear_after_seconds"] = (
-                request.disappear_after_seconds
-            )
+            payload["disappear_after_seconds"] = request.disappear_after_seconds
 
         settings = await service.update_settings(
             current_user,
@@ -205,9 +191,11 @@ async def update_conversation_settings(
             detail="Invalid conversation id.",
         ) from error
 
+
 # ==========================================================
 # My Conversations
 # ==========================================================
+
 
 @router.get("/")
 async def my_conversations(
@@ -222,13 +210,13 @@ async def my_conversations(
         message_repository,
     )
 
-    return await service.my_conversations(
-        current_user
-    )
+    return await service.my_conversations(current_user)
+
 
 # ==========================================================
 # Create Group
 # ==========================================================
+
 
 @router.post(
     "/group",
@@ -262,11 +250,7 @@ async def create_group(
 
         await db.refresh(conversation)
 
-        participant_count = (
-            await conversation_repository.get_participant_count(
-                conversation.id
-            )
-        )
+        participant_count = await conversation_repository.get_participant_count(conversation.id)
 
         return {
             "id": conversation.id,
@@ -276,8 +260,7 @@ async def create_group(
             "participant_count": participant_count,
             "other_user": None,
             "last_message": None,
-            "disappear_after_seconds":
-                conversation.disappear_after_seconds,
+            "disappear_after_seconds": conversation.disappear_after_seconds,
             "delete_requested_by": None,
             "delete_requested_at": None,
         }
@@ -288,9 +271,11 @@ async def create_group(
             detail=str(error),
         ) from error
 
+
 # ==========================================================
 # Group Detail
 # ==========================================================
+
 
 @router.get(
     "/{conversation_id}",
@@ -329,9 +314,11 @@ async def group_detail(
             detail=str(error),
         ) from error
 
+
 # ==========================================================
 # Add Group Members (admin only)
 # ==========================================================
+
 
 @router.post(
     "/{conversation_id}/group/add",
@@ -373,9 +360,11 @@ async def add_group_members(
             detail=str(error),
         ) from error
 
+
 # ==========================================================
 # Leave Group
 # ==========================================================
+
 
 @router.post(
     "/{conversation_id}/group/leave",
@@ -414,9 +403,11 @@ async def leave_group(
             detail=str(error),
         ) from error
 
+
 # ==========================================================
 # Update Group Info (name / description, admin only)
 # ==========================================================
+
 
 @router.patch(
     "/{conversation_id}/group",
@@ -458,9 +449,11 @@ async def update_group(
             detail=str(error),
         ) from error
 
+
 # ==========================================================
 # Remove Group Member (admin only)
 # ==========================================================
+
 
 @router.post(
     "/{conversation_id}/group/remove",
@@ -501,9 +494,11 @@ async def remove_group_member(
             detail=str(error),
         ) from error
 
+
 # ==========================================================
 # Promote / Demote Admin (admin only)
 # ==========================================================
+
 
 @router.post(
     "/{conversation_id}/group/admin",
@@ -545,9 +540,11 @@ async def set_group_admin(
             detail=str(error),
         ) from error
 
+
 # ==========================================================
 # Join Group via Invite Link
 # ==========================================================
+
 
 @router.post(
     "/join-with-link",
@@ -586,9 +583,11 @@ async def join_group_with_link(
             detail=str(error),
         ) from error
 
+
 # ==========================================================
 # Get Invite Link (admin only)
 # ==========================================================
+
 
 @router.get(
     "/{conversation_id}/group/invite-link",
@@ -627,9 +626,11 @@ async def get_invite_link(
             detail=str(error),
         ) from error
 
+
 # ==========================================================
 # Create / Reset Invite Link (admin only)
 # ==========================================================
+
 
 @router.post(
     "/{conversation_id}/group/invite-link",
@@ -668,9 +669,11 @@ async def create_invite_link(
             detail=str(error),
         ) from error
 
+
 # ==========================================================
 # Revoke Invite Link (admin only)
 # ==========================================================
+
 
 @router.delete(
     "/{conversation_id}/group/invite-link",
@@ -709,9 +712,11 @@ async def revoke_invite_link(
             detail=str(error),
         ) from error
 
+
 # ==========================================================
 # Group Avatar Upload (admin only)
 # ==========================================================
+
 
 @router.post(
     "/{conversation_id}/avatar",
@@ -787,9 +792,7 @@ async def upload_group_avatar(
 
     destination.write_bytes(content)
 
-    conversation.avatar_url = (
-        f"/api/v1/conversations/{conversation_id}/avatar"
-    )
+    conversation.avatar_url = f"/api/v1/conversations/{conversation_id}/avatar"
 
     await conversation_repository.save()
 
@@ -807,9 +810,11 @@ async def upload_group_avatar(
         "avatar_url": conversation.avatar_url,
     }
 
+
 # ==========================================================
 # Group Avatar Fetch (participants only)
 # ==========================================================
+
 
 @router.get("/{conversation_id}/avatar")
 async def get_group_avatar(
@@ -852,15 +857,13 @@ async def get_group_avatar(
 
     file_path = avatar_files[0]
 
-    media_type = (
-        mimetypes.guess_type(file_path.name)[0]
-        or "application/octet-stream"
-    )
+    media_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
 
     return FileResponse(
         path=file_path,
         media_type=media_type,
     )
+
 
 # ==========================================================
 # Two-Party Conversation Deletion
@@ -872,6 +875,7 @@ async def get_group_avatar(
 #           physical files) + the conversation itself.
 # cancel:   Either participant aborts a pending request.
 # ==========================================================
+
 
 @router.post(
     "/{conversation_id}/delete-request",

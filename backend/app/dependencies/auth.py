@@ -23,7 +23,6 @@ async def get_current_user(
     payload = jwt_service.verify_access_token(token)
 
     if payload is None:
-
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired access token.",
@@ -32,7 +31,6 @@ async def get_current_user(
     user_id = payload.get("sub")
 
     if user_id is None:
-
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload.",
@@ -40,12 +38,9 @@ async def get_current_user(
 
     repository = AuthRepository(db)
 
-    user = await repository.get_user_by_id(
-        UUID(user_id)
-    )
+    user = await repository.get_user_by_id(UUID(user_id))
 
     if user is None:
-
         # Same message as a bad/expired token on purpose: telling
         # the caller "this account was deleted" would give away
         # account state.
@@ -55,7 +50,6 @@ async def get_current_user(
         )
 
     if getattr(user, "session_version", 0) != payload.get("ver"):
-
         # The access token predates the last logout / deactivation /
         # deletion: reject it even though it has not expired yet.
         raise HTTPException(
@@ -64,7 +58,6 @@ async def get_current_user(
         )
 
     if not getattr(user, "is_active", True):
-
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is deactivated.",

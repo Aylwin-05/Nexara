@@ -46,19 +46,13 @@ async def stream_to_disk(
         prefix=".upload-",
         delete=False,
     ) as tmp:
-
         while chunk := await file.read(CHUNK):
-
             size += len(chunk)
 
             if size > max_size:
-
                 raise HTTPException(
                     status_code=413,
-                    detail=(
-                        f"File is too large "
-                        f"(max {max_size // (1024 * 1024)} MB)."
-                    ),
+                    detail=(f"File is too large (max {max_size // (1024 * 1024)} MB)."),
                 )
 
             if sniff and len(header) < HEADER_SIZE:
@@ -67,20 +61,15 @@ async def stream_to_disk(
             tmp.write(chunk)
 
         if size == 0:
-
             raise HTTPException(
                 status_code=400,
                 detail="Empty file.",
             )
 
         if sniff and not sniff_header(extension, header):
-
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "File content does not match its "
-                    "declared type."
-                ),
+                detail=("File content does not match its declared type."),
             )
 
         tmp.flush()

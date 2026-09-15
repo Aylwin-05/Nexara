@@ -81,7 +81,7 @@ class MessageReaction(Base):
     # SQLAlchemy Relationships
     # ==========================================================
 
-    message: Mapped["Message"] = relationship(
+    message: Mapped["Message"] = relationship(  # noqa: F821 - SQLAlchemy forward ref
         "Message",
         backref="reactions",
     )

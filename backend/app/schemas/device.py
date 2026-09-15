@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 # Device Registration
 # ==========================================================
 
+
 class OneTimePreKeyUpload(BaseModel):
     key_id: int
     public_key: str = Field(max_length=1000)
@@ -44,6 +45,7 @@ class RegisterDeviceResponse(BaseModel):
 # Key Bundle (what a client fetches to initiate X3DH)
 # ==========================================================
 
+
 class SignedPreKeyBundle(BaseModel):
     key_id: int
     public_key: str
@@ -72,6 +74,7 @@ class KeyBundleResponse(BaseModel):
 # One-Time PreKey replenishment
 # ==========================================================
 
+
 class ReplenishPreKeysResponse(BaseModel):
     success: bool = True
     one_time_prekeys: list[OneTimePreKeyUpload]
@@ -81,6 +84,7 @@ class ReplenishPreKeysResponse(BaseModel):
 # One-Time PreKey upload (client-generated)
 # ==========================================================
 
+
 class UploadPreKeysRequest(BaseModel):
     device_id: str = Field(min_length=8, max_length=64)
     one_time_prekeys: list[OneTimePreKeyUpload] = []
@@ -89,6 +93,7 @@ class UploadPreKeysRequest(BaseModel):
 # ==========================================================
 # Device list / removal
 # ==========================================================
+
 
 class DeviceInfo(BaseModel):
     device_id: str
@@ -121,6 +126,7 @@ class DeviceActionResponse(BaseModel):
 # Signed PreKey Rotation
 # ==========================================================
 
+
 class RotateSignedPreKeyRequest(BaseModel):
     device_id: str = Field(min_length=8, max_length=64)
     key_id: int
@@ -140,6 +146,7 @@ class RotateSignedPreKeyResponse(BaseModel):
 # ==========================================================
 # Device Trust (TOFU)
 # ==========================================================
+
 
 class DeviceTrustSetRequest(BaseModel):
     device_id: str = Field(min_length=8, max_length=64)

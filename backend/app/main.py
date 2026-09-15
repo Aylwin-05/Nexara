@@ -75,18 +75,13 @@ async def _disappearing_messages_loop():
 
     async def _tick():
         async with AsyncSessionLocal() as db:
-
             # Maintenance session: runs across ALL users' expiry
             # rows, so it adopts the 'system' scope the RLS
             # policies admit (see the RLS migration).
             if db.bind.dialect.name == "postgresql":
                 from sqlalchemy import text
 
-                await db.execute(
-                    text(
-                        "SELECT set_config('app.current_user_id', 'system', true)"
-                    )
-                )
+                await db.execute(text("SELECT set_config('app.current_user_id', 'system', true)"))
 
             repo = MessageRepository(db)
             purged = await repo.purge_expired()
@@ -96,12 +91,8 @@ async def _disappearing_messages_loop():
         if purged and bus.active:
             from uuid import UUID
 
-            conv_ids = {
-                str(cid) for cid, _ in purged
-            }
-            msg_ids = {
-                str(mid) for _, mid in purged
-            }
+            conv_ids = {str(cid) for cid, _ in purged}
+            msg_ids = {str(mid) for _, mid in purged}
 
             for cid in conv_ids:
                 await manager.broadcast(
@@ -134,9 +125,7 @@ async def _disappearing_messages_loop():
         except asyncio.CancelledError:
             raise
         except Exception:
-            logger.exception(
-                "Disappearing-message purge task failed"
-            )
+            logger.exception("Disappearing-message purge task failed")
 
         try:
             await asyncio.sleep(PURGE_INTERVAL_SECONDS)
@@ -150,9 +139,7 @@ async def lifespan(app: FastAPI):
 
     await bus.start(manager)
 
-    purge_task = asyncio.create_task(
-        _disappearing_messages_loop()
-    )
+    purge_task = asyncio.create_task(_disappearing_messages_loop())
 
     # Reclaim files orphaned by uploads that died between the disk
     # write and the DB commit (client abort / crash). Runs once at
@@ -171,33 +158,21 @@ async def lifespan(app: FastAPI):
         )
 
         async with AsyncSessionLocal() as db:
-
             if db.bind.dialect.name == "postgresql":
                 from sqlalchemy import text
 
-                await db.execute(
-                    text(
-                        "SELECT set_config('app.current_user_id', 'system', true)"
-                    )
-                )
+                await db.execute(text("SELECT set_config('app.current_user_id', 'system', true)"))
 
-            orphaned = (
-                await AttachmentService(
-                    AttachmentRepository(db)
-                ).sweep_orphaned_files()
-            )
+            orphaned = await AttachmentService(AttachmentRepository(db)).sweep_orphaned_files()
 
         if orphaned:
             logger.info(
-                "Startup attachment sweep: removed "
-                "%d orphaned files",
+                "Startup attachment sweep: removed %d orphaned files",
                 orphaned,
             )
 
     except Exception:
-        logger.exception(
-            "Startup attachment sweep failed"
-        )
+        logger.exception("Startup attachment sweep failed")
 
     try:
         yield
@@ -210,6 +185,7 @@ async def lifespan(app: FastAPI):
         await bus.stop()
 
         from app.core.redis import close_redis_client
+
         await close_redis_client()
 
 
@@ -248,11 +224,7 @@ app = FastAPI(
 # CORS (env-driven)
 # ==========================================================
 
-origins = [
-    origin.strip()
-    for origin in settings.CORS_ORIGINS.split(",")
-    if origin.strip()
-]
+origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,
@@ -268,11 +240,7 @@ app.add_middleware(
 
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=[
-        host.strip()
-        for host in settings.ALLOWED_HOSTS.split(",")
-        if host.strip()
-    ],
+    allowed_hosts=[host.strip() for host in settings.ALLOWED_HOSTS.split(",") if host.strip()],
 )
 
 app.add_middleware(
@@ -304,9 +272,7 @@ async def validation_exception_handler(
 ):
     errors = [
         {
-            "field": ".".join(
-                str(part) for part in error["loc"][1:]
-            ),
+            "field": ".".join(str(part) for part in error["loc"][1:]),
             "message": error["msg"],
         }
         for error in exc.errors()
@@ -356,9 +322,11 @@ async def unhandled_exception_handler(
     )
     return error_response
 
+
 # ==========================================================
 # Health check (load balancer / orchestrator probe)
 # ==========================================================
+
 
 @app.get("/healthz", tags=["ops"])
 async def health_check():
@@ -381,11 +349,7 @@ async def health_check():
 @app.get(
     "/metrics",
     tags=["ops"],
-    dependencies=(
-        []
-        if settings.APP_ENV == "development"
-        else [Depends(get_current_user)]
-    ),
+    dependencies=([] if settings.APP_ENV == "development" else [Depends(get_current_user)]),
 )
 async def metrics():
     return get_metrics()
@@ -412,6 +376,7 @@ app.include_router(
 # Root Endpoint
 # ==========================================================
 
+
 @app.get("/", tags=["System"])
 async def root():
     return {
@@ -423,9 +388,11 @@ async def root():
         "websocket": "/ws/me",
     }
 
+
 # ==========================================================
 # Health Check
 # ==========================================================
+
 
 @app.get("/health", tags=["System"])
 async def health(

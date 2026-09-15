@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from app.models.message import Message
@@ -54,21 +54,12 @@ class MessageService:
         conversation_id: UUID,
     ):
 
-        participants = (
-            await self.conversation_repository.get_participants(
-                conversation_id
-            )
-        )
+        participants = await self.conversation_repository.get_participants(conversation_id)
 
-        participant_ids = {
-            participant.user_id
-            for participant in participants
-        }
+        participant_ids = {participant.user_id for participant in participants}
 
         if current_user.id not in participant_ids:
-            raise ValueError(
-                "You are not a participant of this conversation."
-            )
+            raise ValueError("You are not a participant of this conversation.")
 
     # ==========================================================
     # GROUP KEY ROTATION
@@ -91,56 +82,31 @@ class MessageService:
         if not recipient_keys and not envelopes:
             return
 
-        conversation = (
-            await self.conversation_repository.get_by_id(
-                conversation_id
-            )
-        )
+        conversation = await self.conversation_repository.get_by_id(conversation_id)
 
-        if (
-            conversation is None
-            or conversation.conversation_type != "group"
-        ):
+        if conversation is None or conversation.conversation_type != "group":
             return
 
         member_ids = {
             participant.user_id
-            for participant
-            in await self.conversation_repository.get_participants(
-                conversation_id
-            )
+            for participant in await self.conversation_repository.get_participants(conversation_id)
         }
 
         if recipient_keys:
-
             for user_id, _ in recipient_keys:
-
                 if user_id not in member_ids:
-                    raise ValueError(
-                        "Group membership changed: refresh the "
-                        "group and re-send."
-                    )
+                    raise ValueError("Group membership changed: refresh the group and re-send.")
 
         if envelopes:
-
-            owners = (
-                await self.device_repository.get_owners_by_device_ids(
-                    [
-                        entry["device_id"]
-                        for entry in envelopes
-                    ]
-                )
+            owners = await self.device_repository.get_owners_by_device_ids(
+                [entry["device_id"] for entry in envelopes]
             )
 
             for entry in envelopes:
-
                 owner = owners.get(entry["device_id"])
 
                 if owner is None or owner not in member_ids:
-                    raise ValueError(
-                        "Group membership changed: refresh the "
-                        "group and re-send."
-                    )
+                    raise ValueError("Group membership changed: refresh the group and re-send.")
 
     # ==========================================================
     # SEND ENCRYPTED MESSAGE
@@ -168,13 +134,10 @@ class MessageService:
         # committed returns the ORIGINAL message instead of a
         # duplicate. Any later body is ignored.
         if client_message_id:
-
-            existing = (
-                await self.message_repository.find_by_client_message_id(
-                    conversation_id,
-                    current_user.id,
-                    client_message_id,
-                )
+            existing = await self.message_repository.find_by_client_message_id(
+                conversation_id,
+                current_user.id,
+                client_message_id,
             )
 
             if existing is not None:
@@ -192,82 +155,47 @@ class MessageService:
         )
 
         if reply_to_id:
-
-            reply = (
-                await self.message_repository.get_reply_message(
-                    reply_to_id
-                )
-            )
+            reply = await self.message_repository.get_reply_message(reply_to_id)
 
             if reply is None:
-                raise ValueError(
-                    "Reply target does not exist."
-                )
+                raise ValueError("Reply target does not exist.")
 
         expires_at = None
 
-        conversation = (
-            await self.conversation_repository.get_by_id(
-                conversation_id
-            )
-        )
+        conversation = await self.conversation_repository.get_by_id(conversation_id)
 
         if conversation and conversation.disappear_after_seconds:
-
-            expires_at = (
-                datetime.now(timezone.utc)
-                + timedelta(
-                    seconds=conversation.disappear_after_seconds
-                )
-            )
+            expires_at = datetime.now(UTC) + timedelta(seconds=conversation.disappear_after_seconds)
 
         message = Message(
             conversation_id=conversation_id,
             sender_id=current_user.id,
-
             ciphertext=ciphertext,
-
             encrypted_key_sender=encrypted_key_sender,
-
             encrypted_key_receiver=encrypted_key_receiver,
-
             nonce=nonce,
-
             crypto_version=1,
-
             message_type=message_type,
-
             reply_to_id=reply_to_id,
-
             is_forwarded=is_forwarded,
-
             forwarded_count=forwarded_count,
-
             expires_at=expires_at,
-
             client_message_id=client_message_id,
-
             envelopes=envelopes,
         )
 
         try:
-
-            message = await self.message_repository.create_message(
-                message
-            )
+            message = await self.message_repository.create_message(message)
 
         except IntegrityError:
-
             # Two racing retries of the same send: the dedupe
             # index won the race. Replay the winner.
             await self.message_repository.db.rollback()
 
-            existing = (
-                await self.message_repository.find_by_client_message_id(
-                    conversation_id,
-                    current_user.id,
-                    client_message_id,
-                )
+            existing = await self.message_repository.find_by_client_message_id(
+                conversation_id,
+                current_user.id,
+                client_message_id,
             )
 
             if existing is None:
@@ -278,7 +206,6 @@ class MessageService:
         # Group E2EE: the fresh AES key was wrapped for EVERY
         # member at send time; store each wrapped copy.
         if recipient_keys:
-
             await self.message_repository.replace_recipient_keys(
                 message.id,
                 recipient_keys,
@@ -286,15 +213,10 @@ class MessageService:
 
         # Attach uploaded files to this message
         if attachment_ids:
-
             for attachment_id in attachment_ids:
-
-                attachment = await self.attachment_service.get_attachment(
-                    attachment_id
-                )
+                attachment = await self.attachment_service.get_attachment(attachment_id)
 
                 if attachment:
-
                     attachment.message_id = message.id
 
         return message
@@ -349,15 +271,12 @@ class MessageService:
         )
 
         # Personal star flags for this user
-        starred_ids = (
-            await self.message_repository.get_starred_message_ids(
-                conversation_id,
-                current_user.id,
-            )
+        starred_ids = await self.message_repository.get_starred_message_ids(
+            conversation_id,
+            current_user.id,
         )
 
         for message in messages:
-
             message.is_starred = message.id in starred_ids
 
         return messages
@@ -372,14 +291,10 @@ class MessageService:
         message_id: UUID,
     ):
 
-        message = await self.message_repository.get_by_id(
-            message_id
-        )
+        message = await self.message_repository.get_by_id(message_id)
 
         if message is None:
-            raise ValueError(
-                "Message not found."
-            )
+            raise ValueError("Message not found.")
 
         await self._validate_participant(
             current_user,
@@ -411,9 +326,7 @@ class MessageService:
             message_id,
         )
 
-        return await self.message_repository.mark_read(
-            message
-        )
+        return await self.message_repository.mark_read(message)
 
     # ==========================================================
     # EDIT MESSAGE
@@ -438,14 +351,10 @@ class MessageService:
         )
 
         if message.sender_id != current_user.id:
-            raise ValueError(
-                "Only sender can edit message."
-            )
+            raise ValueError("Only sender can edit message.")
 
         if message.deleted_for_everyone:
-            raise ValueError(
-                "Message has already been deleted."
-            )
+            raise ValueError("Message has already been deleted.")
 
         await self._validate_group_recipients(
             message.conversation_id,
@@ -463,7 +372,6 @@ class MessageService:
 
         # Group edits re-wrap the key for every current member.
         if recipient_keys:
-
             await self.message_repository.replace_recipient_keys(
                 message.id,
                 recipient_keys,
@@ -471,13 +379,11 @@ class MessageService:
 
         # Multi-device edits re-wrap for every device.
         if envelopes is not None:
-
             edited.envelopes = envelopes or None
 
         # Edited content is a fresh plaintext: the account-key
         # copy must follow, or other browsers keep the stale text.
         if sync_envelope is not None:
-
             edited.sync_envelope = sync_envelope
 
         return edited
@@ -513,20 +419,13 @@ class MessageService:
         created_at = None
 
         if existing is not None and existing.emoji == emoji:
-
-            await self.message_repository.remove_reaction(
-                existing
-            )
+            await self.message_repository.remove_reaction(existing)
 
             action = "remove"
 
         else:
-
             if existing is not None:
-
-                await self.message_repository.remove_reaction(
-                    existing
-                )
+                await self.message_repository.remove_reaction(existing)
 
             reaction = await self.message_repository.add_reaction(
                 message_id,
@@ -541,11 +440,7 @@ class MessageService:
             "user_id": str(current_user.id),
             "emoji": emoji,
             "action": action,
-            "created_at": (
-                created_at.isoformat()
-                if created_at is not None
-                else None
-            ),
+            "created_at": (created_at.isoformat() if created_at is not None else None),
         }
 
     # ==========================================================
@@ -565,9 +460,7 @@ class MessageService:
         )
 
         if message.deleted_for_everyone:
-            raise ValueError(
-                "Message has been deleted."
-            )
+            raise ValueError("Message has been deleted.")
 
         star = await self.message_repository.get_star(
             message_id,
@@ -575,17 +468,13 @@ class MessageService:
         )
 
         if starred and star is None:
-
             await self.message_repository.add_star(
                 message_id,
                 current_user.id,
             )
 
         elif not starred and star is not None:
-
-            await self.message_repository.remove_star(
-                star
-            )
+            await self.message_repository.remove_star(star)
 
         return {
             "message_id": str(message.id),
@@ -599,7 +488,6 @@ class MessageService:
     ):
 
         if conversation_id is not None:
-
             await self._validate_participant(
                 current_user,
                 conversation_id,
@@ -611,7 +499,6 @@ class MessageService:
         )
 
         for message in messages:
-
             message.is_starred = True
 
         return messages
@@ -637,30 +524,20 @@ class MessageService:
         )
 
         if message.sender_id == current_user.id:
-            raise ValueError(
-                "Only the recipient can open view-once media."
-            )
+            raise ValueError("Only the recipient can open view-once media.")
 
         already_opened = message.view_once_opened
 
         if not already_opened:
-
             view_once_attachments = [
-                attachment
-                for attachment in (message.attachments or [])
-                if attachment.view_once
+                attachment for attachment in (message.attachments or []) if attachment.view_once
             ]
 
             if not view_once_attachments:
-                raise ValueError(
-                    "This message has no view-once media."
-                )
+                raise ValueError("This message has no view-once media.")
 
             for attachment in view_once_attachments:
-
-                await self.attachment_service.delete_attachment(
-                    attachment.id
-                )
+                await self.attachment_service.delete_attachment(attachment.id)
 
             message.view_once_opened = True
 
@@ -687,20 +564,13 @@ class MessageService:
         )
 
         if message.sender_id != current_user.id:
-
             # WhatsApp-style group moderation: a group admin may
             # delete any member's message.
-            conversation = (
-                await self.conversation_repository.get_by_id(
-                    message.conversation_id
-                )
-            )
+            conversation = await self.conversation_repository.get_by_id(message.conversation_id)
 
-            participant = (
-                await self.conversation_repository.get_participant(
-                    message.conversation_id,
-                    current_user.id,
-                )
+            participant = await self.conversation_repository.get_participant(
+                message.conversation_id,
+                current_user.id,
             )
 
             is_group_admin = (
@@ -711,10 +581,7 @@ class MessageService:
             )
 
             if not is_group_admin:
-                raise ValueError(
-                    "Only the sender or a group admin can "
-                    "delete this message."
-                )
+                raise ValueError("Only the sender or a group admin can delete this message.")
 
         # A deleted message must not leave an account-readable
         # sync copy behind.
@@ -723,17 +590,9 @@ class MessageService:
         # Attachment rows die with the message in this same
         # transaction; the physical files are unlinked by the caller
         # only after the commit.
-        attachment_paths = (
-            await self.attachment_service.delete_attachments_for_message(
-                message.id
-            )
-        )
+        attachment_paths = await self.attachment_service.delete_attachments_for_message(message.id)
 
-        deleted = (
-            await self.message_repository.delete_for_everyone(
-                message
-            )
-        )
+        deleted = await self.message_repository.delete_for_everyone(message)
 
         return deleted, attachment_paths
 

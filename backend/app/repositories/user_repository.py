@@ -19,9 +19,7 @@ class UserRepository(BaseRepository):
         user_id,
     ) -> User | None:
 
-        result = await self.execute(
-            select(User).where(User.id == user_id)
-        )
+        result = await self.execute(select(User).where(User.id == user_id))
 
         return result.scalar_one_or_none()
 
@@ -34,9 +32,7 @@ class UserRepository(BaseRepository):
         email: str,
     ) -> User | None:
 
-        result = await self.execute(
-            select(User).where(User.email == email)
-        )
+        result = await self.execute(select(User).where(User.email == email))
 
         return result.scalar_one_or_none()
 
@@ -49,9 +45,7 @@ class UserRepository(BaseRepository):
         username: str,
     ) -> User | None:
 
-        result = await self.execute(
-            select(User).where(User.username == username)
-        )
+        result = await self.execute(select(User).where(User.username == username))
 
         return result.scalar_one_or_none()
 
@@ -66,15 +60,11 @@ class UserRepository(BaseRepository):
         exclude_user_id: UUID | None = None,
     ) -> list[User]:
 
-        stmt = select(User).where(
-            User.email.ilike(f"%{query}%")
-        )
+        stmt = select(User).where(User.email.ilike(f"%{query}%"))
         if exclude_user_id is not None:
             stmt = stmt.where(User.id != exclude_user_id)
 
-        result = await self.execute(
-            stmt.order_by(User.email).limit(limit)
-        )
+        result = await self.execute(stmt.order_by(User.email).limit(limit))
 
         return result.scalars().all()
 

@@ -22,7 +22,6 @@ membership policy takes over.
 """
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision = "f2h4j6l8n0p2"
@@ -116,7 +115,7 @@ def downgrade() -> None:
 
     bind.execute(
         sa.text(
-            f"""
+            """
             DROP POLICY IF EXISTS np_conversation_participants_scope
                 ON conversation_participants;
             """

@@ -9,7 +9,7 @@ moment they get replayed.
 """
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.core.config import settings
 from app.models.refresh_token import RefreshToken
@@ -51,8 +51,7 @@ class RefreshTokenService:
             jti=jti,
             token_hash=RefreshTokenRepository.hash_token(token),
             family_id=family_id or uuid.uuid4(),
-            expires_at=datetime.now(timezone.utc)
-            + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+            expires_at=datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
             user_agent=user_agent,
             ip_address=ip_address,
         )
@@ -116,8 +115,7 @@ class RefreshTokenService:
                 token_hash=RefreshTokenRepository.hash_token(new_token),
                 family_id=record.family_id,
                 predecessor_jti=record.jti,
-                expires_at=datetime.now(timezone.utc)
-                + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+                expires_at=datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
                 user_agent=user_agent,
                 ip_address=ip_address,
             )

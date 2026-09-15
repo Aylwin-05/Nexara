@@ -1,10 +1,11 @@
-from enum import Enum
+from enum import StrEnum
 
 # ==========================================================
 # User Online Status
 # ==========================================================
 
-class OnlineStatus(str, Enum):
+
+class OnlineStatus(StrEnum):
     """
     User presence status.
     """
@@ -19,7 +20,8 @@ class OnlineStatus(str, Enum):
 # Friend Request Status
 # ==========================================================
 
-class FriendRequestStatus(str, Enum):
+
+class FriendRequestStatus(StrEnum):
     """
     Friendship request status.
     """

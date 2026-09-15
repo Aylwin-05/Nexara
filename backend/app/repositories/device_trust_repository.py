@@ -1,4 +1,4 @@
-from datetime import timezone
+from datetime import UTC
 from uuid import UUID
 
 from app.models.device import DeviceTrust, DeviceTrustLevel
@@ -47,9 +47,7 @@ class DeviceTrustRepository(BaseRepository):
     ) -> DeviceTrust:
         from datetime import datetime
 
-        trust = await self.get_or_create_trust(
-            owner_id, device_id
-        )
+        trust = await self.get_or_create_trust(owner_id, device_id)
         trust.trust_level = level
         if fingerprint is not None:
             trust.identity_key_fingerprint = fingerprint
@@ -57,7 +55,7 @@ class DeviceTrustRepository(BaseRepository):
             DeviceTrustLevel.trusted.value,
             DeviceTrustLevel.verified.value,
         ):
-            trust.trusted_at = datetime.now(timezone.utc)
+            trust.trusted_at = datetime.now(UTC)
         await self.update()
         await self.refresh(trust)
         return trust
@@ -69,10 +67,12 @@ class DeviceTrustRepository(BaseRepository):
         result = await self.execute(
             select(DeviceTrust).where(
                 DeviceTrust.owner_id == owner_id,
-                DeviceTrust.trust_level.in_([
-                    DeviceTrustLevel.trusted.value,
-                    DeviceTrustLevel.verified.value,
-                ]),
+                DeviceTrust.trust_level.in_(
+                    [
+                        DeviceTrustLevel.trusted.value,
+                        DeviceTrustLevel.verified.value,
+                    ]
+                ),
             )
         )
         return list(result.scalars().all())

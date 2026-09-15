@@ -1,11 +1,6 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-
-logger = logging.getLogger(__name__)
-
 from app.core.rate_limit import (
     RateLimitExceeded,
     get_limiter,
@@ -36,6 +31,11 @@ from app.schemas.device import (
 from app.services.device_service import (
     DeviceService,
 )
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
+
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 
@@ -43,6 +43,7 @@ router = APIRouter(prefix="/devices", tags=["devices"])
 # ==========================================================
 # Helpers
 # ==========================================================
+
 
 def _service(db: AsyncSession) -> DeviceService:
     return DeviceService(DeviceRepository(db))
@@ -57,20 +58,15 @@ def _device_info(device: Device) -> DeviceInfo:
         app_version=device.app_version,
         is_primary=device.is_primary,
         is_active=device.is_active,
-        last_seen=(
-            device.last_seen.isoformat()
-            if device.last_seen
-            else None
-        ),
-        created_at=device.registered_at.isoformat()
-        if device.registered_at
-        else None,
+        last_seen=(device.last_seen.isoformat() if device.last_seen else None),
+        created_at=device.registered_at.isoformat() if device.registered_at else None,
     )
 
 
 # ==========================================================
 # Register Device (public key material only)
 # ==========================================================
+
 
 @router.post(
     "/register",
@@ -82,20 +78,17 @@ async def register_device(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        await get_limiter().check(
-            f"devices.register.{current_user.id}", 10, 60
-        )
+        await get_limiter().check(f"devices.register.{current_user.id}", 10, 60)
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=429,
             detail="Too many requests.",
             headers={"Retry-After": str(exc.retry_after)},
-        )
+        ) from exc
 
     service = _service(db)
 
     try:
-
         device, recovery_info = await service.register_device(
             current_user,
             device_id=request.device_id,
@@ -108,17 +101,14 @@ async def register_device(
             signed_prekey_public=request.signed_prekey_public,
             signed_prekey_id=request.signed_prekey_id,
             signed_prekey_signature=request.signed_prekey_signature,
-            one_time_prekeys=[
-                opk.model_dump()
-                for opk in request.one_time_prekeys
-            ],
+            one_time_prekeys=[opk.model_dump() for opk in request.one_time_prekeys],
         )
 
     except PermissionError as e:
         raise HTTPException(
             status_code=403,
             detail=str(e),
-        )
+        ) from e
 
     await db.commit()
 
@@ -146,6 +136,7 @@ async def register_device(
 # Key Bundle (for X3DH initiators)
 # ==========================================================
 
+
 @router.get(
     "/{user_id}/bundle",
     response_model=KeyBundleResponse,
@@ -156,15 +147,13 @@ async def get_key_bundle(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        await get_limiter().check(
-            f"devices.bundle.{current_user.id}", 30, 60
-        )
+        await get_limiter().check(f"devices.bundle.{current_user.id}", 30, 60)
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=429,
             detail="Too many requests.",
             headers={"Retry-After": str(exc.retry_after)},
-        )
+        ) from exc
 
     service = _service(db)
 
@@ -183,6 +172,7 @@ async def get_key_bundle(
 # Upload Client-Generated One-Time PreKeys
 # ==========================================================
 
+
 @router.post(
     "/prekeys/upload",
     response_model=ReplenishPreKeysResponse,
@@ -193,21 +183,17 @@ async def upload_prekeys(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        await get_limiter().check(
-            f"devices.prekeys.{current_user.id}", 10, 60
-        )
+        await get_limiter().check(f"devices.prekeys.{current_user.id}", 10, 60)
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=429,
             detail="Too many requests.",
             headers={"Retry-After": str(exc.retry_after)},
-        )
+        ) from exc
 
     repository = DeviceRepository(db)
 
-    device = await repository.get_by_device_id(
-        request.device_id
-    )
+    device = await repository.get_by_device_id(request.device_id)
 
     if device is None:
         raise HTTPException(
@@ -225,10 +211,7 @@ async def upload_prekeys(
 
     stored = await service.upload_one_time_prekeys(
         device,
-        [
-            opk.model_dump()
-            for opk in request.one_time_prekeys
-        ],
+        [opk.model_dump() for opk in request.one_time_prekeys],
     )
 
     return {
@@ -247,6 +230,7 @@ async def upload_prekeys(
 # Rotate Signed PreKey
 # ==========================================================
 
+
 @router.post(
     "/prekeys/signed",
     response_model=RotateSignedPreKeyResponse,
@@ -257,21 +241,17 @@ async def rotate_signed_prekey(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        await get_limiter().check(
-            f"devices.spk.{current_user.id}", 5, 60
-        )
+        await get_limiter().check(f"devices.spk.{current_user.id}", 5, 60)
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=429,
             detail="Too many requests.",
             headers={"Retry-After": str(exc.retry_after)},
-        )
+        ) from exc
 
     repository = DeviceRepository(db)
 
-    device = await repository.get_by_device_id(
-        request.device_id
-    )
+    device = await repository.get_by_device_id(request.device_id)
 
     if device is None:
         raise HTTPException(
@@ -301,9 +281,7 @@ async def rotate_signed_prekey(
         from app.websocket.connection_manager import manager
 
         conv_repo = ConversationRepository(db)
-        conversations = await conv_repo.get_user_conversations(
-            current_user.id
-        )
+        conversations = await conv_repo.get_user_conversations(current_user.id)
         notification = {
             "event": "key_rotated",
             "user_id": str(current_user.id),
@@ -332,6 +310,7 @@ async def rotate_signed_prekey(
 # Device Trust (TOFU)
 # ==========================================================
 
+
 @router.post(
     "/trust",
     response_model=DeviceTrustActionResponse,
@@ -342,23 +321,19 @@ async def set_device_trust(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        await get_limiter().check(
-            f"devices.trust.{current_user.id}", 10, 60
-        )
+        await get_limiter().check(f"devices.trust.{current_user.id}", 10, 60)
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=429,
             detail="Too many requests.",
             headers={"Retry-After": str(exc.retry_after)},
-        )
+        ) from exc
     from app.repositories.device_trust_repository import (
         DeviceTrustRepository,
     )
 
     repository = DeviceRepository(db)
-    device = await repository.get_by_device_id(
-        request.device_id
-    )
+    device = await repository.get_by_device_id(request.device_id)
     if device is None:
         raise HTTPException(
             status_code=404,
@@ -390,23 +365,19 @@ async def list_trusted_devices(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        await get_limiter().check(
-            f"devices.trust.list.{current_user.id}", 30, 60
-        )
+        await get_limiter().check(f"devices.trust.list.{current_user.id}", 30, 60)
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=429,
             detail="Too many requests.",
             headers={"Retry-After": str(exc.retry_after)},
-        )
+        ) from exc
     from app.repositories.device_trust_repository import (
         DeviceTrustRepository,
     )
 
     trust_repo = DeviceTrustRepository(db)
-    trusts = await trust_repo.get_all_trusted_devices(
-        current_user.id
-    )
+    trusts = await trust_repo.get_all_trusted_devices(current_user.id)
 
     device_repo = DeviceRepository(db)
 
@@ -417,12 +388,14 @@ async def list_trusted_devices(
     items = []
     for t in trusts:
         dev = device_map.get(t.device_id)
-        items.append({
-            "device_id": dev.device_id if dev else str(t.device_id),
-            "trust_level": t.trust_level,
-            "identity_key_fingerprint": t.identity_key_fingerprint,
-            "trusted_at": t.trusted_at.isoformat() if t.trusted_at else None,
-        })
+        items.append(
+            {
+                "device_id": dev.device_id if dev else str(t.device_id),
+                "trust_level": t.trust_level,
+                "identity_key_fingerprint": t.identity_key_fingerprint,
+                "trusted_at": t.trusted_at.isoformat() if t.trusted_at else None,
+            }
+        )
 
     return {"trusts": items}
 
@@ -437,15 +410,13 @@ async def remove_device_trust(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        await get_limiter().check(
-            f"devices.trust.remove.{current_user.id}", 10, 60
-        )
+        await get_limiter().check(f"devices.trust.remove.{current_user.id}", 10, 60)
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=429,
             detail="Too many requests.",
             headers={"Retry-After": str(exc.retry_after)},
-        )
+        ) from exc
     from app.repositories.device_trust_repository import (
         DeviceTrustRepository,
     )
@@ -459,9 +430,7 @@ async def remove_device_trust(
         )
 
     trust_repo = DeviceTrustRepository(db)
-    removed = await trust_repo.remove_trust(
-        current_user.id, device.id
-    )
+    removed = await trust_repo.remove_trust(current_user.id, device.id)
     await db.commit()
 
     return {
@@ -477,6 +446,7 @@ async def remove_device_trust(
 # List My Devices
 # ==========================================================
 
+
 @router.get(
     "/me",
     response_model=DeviceListResponse,
@@ -486,33 +456,25 @@ async def list_my_devices(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        await get_limiter().check(
-            f"devices.me.{current_user.id}", 30, 60
-        )
+        await get_limiter().check(f"devices.me.{current_user.id}", 30, 60)
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=429,
             detail="Too many requests.",
             headers={"Retry-After": str(exc.retry_after)},
-        )
+        ) from exc
 
     repository = DeviceRepository(db)
 
-    devices = await repository.get_by_user_id(
-        current_user.id
-    )
+    devices = await repository.get_by_user_id(current_user.id)
 
-    return {
-        "devices": [
-            _device_info(device)
-            for device in devices
-        ]
-    }
+    return {"devices": [_device_info(device) for device in devices]}
 
 
 # ==========================================================
 # Update Device Metadata
 # ==========================================================
+
 
 @router.patch(
     "/{device_id}",
@@ -525,15 +487,13 @@ async def update_device_metadata(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        await get_limiter().check(
-            f"devices.update.{current_user.id}", 20, 60
-        )
+        await get_limiter().check(f"devices.update.{current_user.id}", 20, 60)
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=429,
             detail="Too many requests.",
             headers={"Retry-After": str(exc.retry_after)},
-        )
+        ) from exc
     repository = DeviceRepository(db)
 
     device = await repository.get_by_device_id(device_id)
@@ -562,6 +522,7 @@ async def update_device_metadata(
 # Remove Device
 # ==========================================================
 
+
 @router.delete(
     "/{device_id}",
     response_model=DeviceActionResponse,
@@ -572,21 +533,17 @@ async def remove_device(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        await get_limiter().check(
-            f"devices.remove.{current_user.id}", 5, 60
-        )
+        await get_limiter().check(f"devices.remove.{current_user.id}", 5, 60)
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=429,
             detail="Too many requests.",
             headers={"Retry-After": str(exc.retry_after)},
-        )
+        ) from exc
 
     repository = DeviceRepository(db)
 
-    device = await repository.get_by_device_id(
-        device_id
-    )
+    device = await repository.get_by_device_id(device_id)
 
     if device is None or device.user_id != current_user.id:
         raise HTTPException(
@@ -610,6 +567,7 @@ async def remove_device(
 
     try:
         from app.websocket.connection_manager import manager
+
         await manager.send_to_user(
             current_user.id,
             {

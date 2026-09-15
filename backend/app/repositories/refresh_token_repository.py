@@ -1,6 +1,6 @@
 import hashlib
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.models.refresh_token import RefreshToken
 from sqlalchemy import delete, select, update
@@ -23,9 +23,7 @@ class RefreshTokenRepository:
         token_hash: str,
     ) -> RefreshToken | None:
         result = await self.db.execute(
-            select(RefreshToken).where(
-                RefreshToken.token_hash == token_hash
-            )
+            select(RefreshToken).where(RefreshToken.token_hash == token_hash)
         )
         return result.scalar_one_or_none()
 
@@ -39,11 +37,7 @@ class RefreshTokenRepository:
         set, so a replayed (rotated-away) token can still be traced
         back to its family for revocation.
         """
-        result = await self.db.execute(
-            select(RefreshToken).where(
-                RefreshToken.jti == jti
-            )
-        )
+        result = await self.db.execute(select(RefreshToken).where(RefreshToken.jti == jti))
         return result.scalar_one_or_none()
 
     async def get_by_predecessor_jti(
@@ -56,9 +50,7 @@ class RefreshTokenRepository:
         its own row has been pruned.
         """
         result = await self.db.execute(
-            select(RefreshToken).where(
-                RefreshToken.predecessor_jti == predecessor_jti
-            )
+            select(RefreshToken).where(RefreshToken.predecessor_jti == predecessor_jti)
         )
         return result.scalar_one_or_none()
 
@@ -75,7 +67,7 @@ class RefreshTokenRepository:
         record: RefreshToken,
         replaced_by_jti: str | None = None,
     ):
-        record.revoked_at = datetime.now(timezone.utc)
+        record.revoked_at = datetime.now(UTC)
         if replaced_by_jti:
             record.replaced_by_jti = replaced_by_jti
         await self.db.flush()
@@ -87,7 +79,7 @@ class RefreshTokenRepository:
         await self.db.execute(
             update(RefreshToken)
             .where(RefreshToken.family_id == family_id)
-            .values(revoked_at=datetime.now(timezone.utc))
+            .values(revoked_at=datetime.now(UTC))
             .execution_options(synchronize_session=False)
         )
         await self.db.flush()
@@ -102,17 +94,14 @@ class RefreshTokenRepository:
                 RefreshToken.user_id == user_id,
                 RefreshToken.revoked_at.is_(None),
             )
-            .values(revoked_at=datetime.now(timezone.utc))
+            .values(revoked_at=datetime.now(UTC))
             .execution_options(synchronize_session=False)
         )
         await self.db.flush()
 
     async def delete_expired(self):
         await self.db.execute(
-            delete(RefreshToken).where(
-                RefreshToken.expires_at
-                < datetime.now(timezone.utc)
-            )
+            delete(RefreshToken).where(RefreshToken.expires_at < datetime.now(UTC))
         )
         await self.db.flush()
 

@@ -7,8 +7,8 @@ from pydantic import BaseModel, ConfigDict
 # User Summary
 # ==========================================================
 
-class FriendUser(BaseModel):
 
+class FriendUser(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -28,8 +28,8 @@ class FriendUser(BaseModel):
 # Send Friend Request
 # ==========================================================
 
-class SendFriendRequest(BaseModel):
 
+class SendFriendRequest(BaseModel):
     receiver_id: UUID
 
 
@@ -37,8 +37,8 @@ class SendFriendRequest(BaseModel):
 # Friend Request Action
 # ==========================================================
 
-class FriendRequestAction(BaseModel):
 
+class FriendRequestAction(BaseModel):
     friendship_id: UUID
 
 
@@ -46,8 +46,8 @@ class FriendRequestAction(BaseModel):
 # Friend Response
 # ==========================================================
 
-class FriendResponse(BaseModel):
 
+class FriendResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -64,12 +64,13 @@ class FriendResponse(BaseModel):
 
     receiver: FriendUser
 
+
 # ==========================================================
 # Search User Response
 # ==========================================================
 
-class SearchUserResponse(BaseModel):
 
+class SearchUserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -83,12 +84,14 @@ class SearchUserResponse(BaseModel):
     avatar_url: str | None = None
 
     online_status: str
+
+
 # ==========================================================
 # Generic Message
 # ==========================================================
 
-class FriendMessage(BaseModel):
 
+class FriendMessage(BaseModel):
     success: bool
 
     message: str

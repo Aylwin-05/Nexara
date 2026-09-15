@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from app.models.webauthn_credential import WebauthnCredential
@@ -7,7 +7,6 @@ from sqlalchemy import select, update
 
 
 class WebAuthnRepository(BaseRepository):
-
     async def create_credential(
         self,
         credential: WebauthnCredential,
@@ -30,9 +29,11 @@ class WebAuthnRepository(BaseRepository):
         user_id: UUID,
     ) -> list[WebauthnCredential]:
         result = await self.execute(
-            select(WebauthnCredential).where(
+            select(WebauthnCredential)
+            .where(
                 WebauthnCredential.user_id == user_id,
-            ).order_by(WebauthnCredential.created_at.desc())
+            )
+            .order_by(WebauthnCredential.created_at.desc())
         )
         return list(result.scalars().all())
 
@@ -53,7 +54,7 @@ class WebAuthnRepository(BaseRepository):
             .where(WebauthnCredential.id == credential.id)
             .values(
                 sign_count=new_count,
-                last_used_at=datetime.now(timezone.utc),
+                last_used_at=datetime.now(UTC),
             )
             .execution_options(synchronize_session=False)
         )

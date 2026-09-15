@@ -8,13 +8,14 @@ Adds a per-user session generation counter embedded in access
 tokens as the "ver" claim. Bumping it (logout, deactivation,
 deletion) invalidates outstanding access tokens immediately.
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = 'u1v3w5x7y9z1'
-down_revision: str | Sequence[str] | None = 't2u4v6w8x0y2'
+revision: str = "u1v3w5x7y9z1"
+down_revision: str | Sequence[str] | None = "t2u4v6w8x0y2"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

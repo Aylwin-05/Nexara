@@ -7,7 +7,6 @@ Aligns the live column with the model (String(512)).
 """
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision = "e1f2h6j0l8n2"

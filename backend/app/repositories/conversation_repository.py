@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from app.models.conversation import Conversation
@@ -48,9 +48,7 @@ class ConversationRepository(BaseRepository):
     ) -> Conversation | None:
 
         result = await self.execute(
-            select(Conversation).where(
-                Conversation.conversation_key == conversation_key
-            )
+            select(Conversation).where(Conversation.conversation_key == conversation_key)
         )
 
         return result.scalar_one_or_none()
@@ -62,15 +60,9 @@ class ConversationRepository(BaseRepository):
     ) -> Conversation | None:
 
         participant_count = (
-            select(
-                ConversationParticipant.conversation_id
-            )
-            .group_by(
-                ConversationParticipant.conversation_id
-            )
-            .having(
-                func.count() == 2
-            )
+            select(ConversationParticipant.conversation_id)
+            .group_by(ConversationParticipant.conversation_id)
+            .having(func.count() == 2)
             .subquery()
         )
 
@@ -103,16 +95,10 @@ class ConversationRepository(BaseRepository):
             select(Conversation)
             .join(
                 ConversationParticipant,
-                Conversation.id
-                == ConversationParticipant.conversation_id,
+                Conversation.id == ConversationParticipant.conversation_id,
             )
-            .where(
-                ConversationParticipant.user_id
-                == user_id
-            )
-            .order_by(
-                Conversation.updated_at.desc()
-            )
+            .where(ConversationParticipant.user_id == user_id)
+            .order_by(Conversation.updated_at.desc())
         )
 
         return result.scalars().all()
@@ -127,10 +113,8 @@ class ConversationRepository(BaseRepository):
     ):
 
         result = await self.execute(
-            select(ConversationParticipant)
-            .where(
-                ConversationParticipant.conversation_id
-                == conversation_id
+            select(ConversationParticipant).where(
+                ConversationParticipant.conversation_id == conversation_id
             )
         )
 
@@ -149,10 +133,8 @@ class ConversationRepository(BaseRepository):
         result = await self.execute(
             select(ConversationParticipant).where(
                 and_(
-                    ConversationParticipant.conversation_id
-                    == conversation_id,
-                    ConversationParticipant.user_id
-                    == user_id,
+                    ConversationParticipant.conversation_id == conversation_id,
+                    ConversationParticipant.user_id == user_id,
                 )
             )
         )
@@ -176,16 +158,11 @@ class ConversationRepository(BaseRepository):
         result = await self.execute(
             select(ConversationParticipant).where(
                 ConversationParticipant.user_id == user_id,
-                ConversationParticipant.conversation_id.in_(
-                    conversation_ids
-                ),
+                ConversationParticipant.conversation_id.in_(conversation_ids),
             )
         )
 
-        return {
-            participant.conversation_id: participant
-            for participant in result.scalars().all()
-        }
+        return {participant.conversation_id: participant for participant in result.scalars().all()}
 
     # ==========================================================
     # Get Other User
@@ -204,8 +181,7 @@ class ConversationRepository(BaseRepository):
                 User.id == ConversationParticipant.user_id,
             )
             .where(
-                ConversationParticipant.conversation_id
-                == conversation_id,
+                ConversationParticipant.conversation_id == conversation_id,
                 User.id != current_user_id,
             )
         )
@@ -238,17 +214,12 @@ class ConversationRepository(BaseRepository):
                 User.id == ConversationParticipant.user_id,
             )
             .where(
-                ConversationParticipant.conversation_id.in_(
-                    conversation_ids
-                ),
+                ConversationParticipant.conversation_id.in_(conversation_ids),
                 User.id != current_user_id,
             )
         )
 
-        return {
-            conversation_id: user
-            for conversation_id, user in result.all()
-        }
+        return dict(result.all())
 
     # ==========================================================
     # Verify Participant
@@ -263,10 +234,8 @@ class ConversationRepository(BaseRepository):
         result = await self.execute(
             select(ConversationParticipant).where(
                 and_(
-                    ConversationParticipant.conversation_id
-                    == conversation_id,
-                    ConversationParticipant.user_id
-                    == user_id,
+                    ConversationParticipant.conversation_id == conversation_id,
+                    ConversationParticipant.user_id == user_id,
                 )
             )
         )
@@ -282,11 +251,7 @@ class ConversationRepository(BaseRepository):
         conversation_id: UUID,
     ):
 
-        result = await self.execute(
-            select(Conversation).where(
-                Conversation.id == conversation_id
-            )
-        )
+        result = await self.execute(select(Conversation).where(Conversation.id == conversation_id))
 
         return result.scalar_one_or_none()
 
@@ -320,10 +285,7 @@ class ConversationRepository(BaseRepository):
                 UserKey,
                 UserKey.user_id == User.id,
             )
-            .where(
-                ConversationParticipant.conversation_id
-                == conversation_id
-            )
+            .where(ConversationParticipant.conversation_id == conversation_id)
         )
 
         return result.all()
@@ -340,10 +302,7 @@ class ConversationRepository(BaseRepository):
         result = await self.execute(
             select(func.count())
             .select_from(ConversationParticipant)
-            .where(
-                ConversationParticipant.conversation_id
-                == conversation_id
-            )
+            .where(ConversationParticipant.conversation_id == conversation_id)
         )
 
         return result.scalar_one()
@@ -366,11 +325,7 @@ class ConversationRepository(BaseRepository):
                 ConversationParticipant.conversation_id,
                 func.count(),
             )
-            .where(
-                ConversationParticipant.conversation_id.in_(
-                    conversation_ids
-                )
-            )
+            .where(ConversationParticipant.conversation_id.in_(conversation_ids))
             .group_by(ConversationParticipant.conversation_id)
         )
 
@@ -389,10 +344,8 @@ class ConversationRepository(BaseRepository):
         await self.db.execute(
             delete(ConversationParticipant).where(
                 and_(
-                    ConversationParticipant.conversation_id
-                    == conversation_id,
-                    ConversationParticipant.user_id
-                    == user_id,
+                    ConversationParticipant.conversation_id == conversation_id,
+                    ConversationParticipant.user_id == user_id,
                 )
             )
         )
@@ -419,13 +372,10 @@ class ConversationRepository(BaseRepository):
         result = await self.execute(
             select(GroupInviteLink)
             .where(
-                GroupInviteLink.conversation_id
-                == conversation_id,
-                GroupInviteLink.revoked == False,
+                GroupInviteLink.conversation_id == conversation_id,
+                GroupInviteLink.revoked.is_(False),
             )
-            .order_by(
-                GroupInviteLink.created_at.desc()
-            )
+            .order_by(GroupInviteLink.created_at.desc())
             .limit(1)
         )
 
@@ -439,17 +389,10 @@ class ConversationRepository(BaseRepository):
         expires_at = link.expires_at
 
         if expires_at is not None:
-
             if expires_at.tzinfo is not None:
-                expires_at = (
-                    expires_at.astimezone(timezone.utc)
-                    .replace(tzinfo=None)
-                )
+                expires_at = expires_at.astimezone(UTC).replace(tzinfo=None)
 
-            now = (
-                datetime.now(timezone.utc)
-                .replace(tzinfo=None)
-            )
+            now = datetime.now(UTC).replace(tzinfo=None)
 
             if expires_at <= now:
                 return None
@@ -464,7 +407,7 @@ class ConversationRepository(BaseRepository):
         result = await self.execute(
             select(GroupInviteLink).where(
                 GroupInviteLink.token == token,
-                GroupInviteLink.revoked == False,
+                GroupInviteLink.revoked.is_(False),
             )
         )
 
@@ -476,10 +419,7 @@ class ConversationRepository(BaseRepository):
     ) -> None:
 
         await self.db.execute(
-            delete(GroupInviteLink).where(
-                GroupInviteLink.conversation_id
-                == conversation_id
-            )
+            delete(GroupInviteLink).where(GroupInviteLink.conversation_id == conversation_id)
         )
 
         await self.db.flush()
@@ -509,15 +449,10 @@ class ConversationRepository(BaseRepository):
 
         await self.db.execute(
             delete(ConversationParticipant).where(
-                ConversationParticipant.conversation_id
-                == conversation_id
+                ConversationParticipant.conversation_id == conversation_id
             )
         )
 
-        await self.db.execute(
-            delete(Conversation).where(
-                Conversation.id == conversation_id
-            )
-        )
+        await self.db.execute(delete(Conversation).where(Conversation.id == conversation_id))
 
         await self.db.flush()

@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 # Public User
 # ==========================================================
 
+
 class UserResponse(BaseModel):
     """
     Public user information.
@@ -36,13 +37,12 @@ class UserResponse(BaseModel):
     created_at: datetime
 
 
-
 # ==========================================================
 # Update Profile
 # ==========================================================
 
-class UpdateProfileRequest(BaseModel):
 
+class UpdateProfileRequest(BaseModel):
     username: str | None = Field(
         default=None,
         min_length=3,
@@ -68,8 +68,8 @@ class UpdateProfileRequest(BaseModel):
 # Search Users
 # ==========================================================
 
-class SearchUserResponse(BaseModel):
 
+class SearchUserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -83,13 +83,12 @@ class SearchUserResponse(BaseModel):
     online_status: str
 
 
-
 # ==========================================================
 # Username Availability
 # ==========================================================
 
-class UsernameAvailabilityResponse(BaseModel):
 
+class UsernameAvailabilityResponse(BaseModel):
     available: bool
 
     message: str

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from app.models.story import Story, StoryView
@@ -85,12 +85,8 @@ class StoryRepository(BaseRepository):
                 User,
                 User.id == StoryView.user_id,
             )
-            .where(
-                StoryView.story_id == story_id
-            )
-            .order_by(
-                StoryView.viewed_at.desc()
-            )
+            .where(StoryView.story_id == story_id)
+            .order_by(StoryView.viewed_at.desc())
         )
 
         return result.all()
@@ -101,9 +97,7 @@ class StoryRepository(BaseRepository):
     ) -> int:
 
         result = await self.execute(
-            select(func.count())
-            .select_from(StoryView)
-            .where(StoryView.story_id == story_id)
+            select(func.count()).select_from(StoryView).where(StoryView.story_id == story_id)
         )
 
         return result.scalar_one()
@@ -114,9 +108,7 @@ class StoryRepository(BaseRepository):
 
     async def get_by_id(self, story_id: UUID) -> Story | None:
 
-        result = await self.execute(
-            select(Story).where(Story.id == story_id)
-        )
+        result = await self.execute(select(Story).where(Story.id == story_id))
 
         return result.scalar_one_or_none()
 
@@ -126,11 +118,9 @@ class StoryRepository(BaseRepository):
     ) -> list[Story]:
 
         if now is None:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
-        result = await self.execute(
-            select(Story).where(Story.expires_at <= now)
-        )
+        result = await self.execute(select(Story).where(Story.expires_at <= now))
 
         expired = result.scalars().all()
 
@@ -148,7 +138,7 @@ class StoryRepository(BaseRepository):
     ) -> list[Story]:
 
         if now is None:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
         if not user_ids:
             return []
@@ -159,9 +149,7 @@ class StoryRepository(BaseRepository):
                 Story.user_id.in_(user_ids),
                 Story.expires_at > now,
             )
-            .order_by(
-                Story.created_at.asc()
-            )
+            .order_by(Story.created_at.asc())
         )
 
         return result.scalars().all()

@@ -40,6 +40,7 @@ def _service(db: AsyncSession) -> BlockService:
 # Block a user
 # ==========================================================
 
+
 @router.post(
     "/",
     dependencies=[
@@ -73,6 +74,7 @@ async def block_user(
 # ==========================================================
 # Unblock a user
 # ==========================================================
+
 
 @router.delete(
     "/{user_id}",
@@ -108,6 +110,7 @@ async def unblock_user(
 # List blocked users
 # ==========================================================
 
+
 @router.get(
     "/",
     dependencies=[
@@ -124,6 +127,7 @@ async def list_blocked(
 # ==========================================================
 # Privacy settings
 # ==========================================================
+
 
 @router.get(
     "/privacy",

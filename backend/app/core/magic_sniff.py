@@ -79,17 +79,13 @@ def sniff_header(
         # detect_attachment_type; treat as unverifiable.
         return True
 
-    if any(
-        header.startswith(sig)
-        for sig in prefix_matches
-    ):
+    if any(header.startswith(sig) for sig in prefix_matches):
         return True
 
     offset_matches = OFFSET_SIGNATURES.get(extension, [])
 
     if offset_matches and all(
-        header[offset:offset + len(sig)] == sig
-        for offset, sig in offset_matches
+        header[offset : offset + len(sig)] == sig for offset, sig in offset_matches
     ):
         return True
 

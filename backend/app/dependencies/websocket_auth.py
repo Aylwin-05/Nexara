@@ -11,7 +11,7 @@ class WebSocketAuth:
     a query parameter, so it never leaks into access / proxy logs.
     """
 
-    TOKEN_PREFIX = "nexara."
+    TOKEN_PREFIX = "nexara."  # noqa: S105 - subprotocol prefix, not a secret
 
     def __init__(self):
         self.jwt_service = JWTService()
@@ -30,13 +30,11 @@ class WebSocketAuth:
         )
 
         for offered in header.split(","):
-
             offered = offered.strip()
 
             if offered.startswith(self.TOKEN_PREFIX):
-
                 return (
-                    offered[len(self.TOKEN_PREFIX):],
+                    offered[len(self.TOKEN_PREFIX) :],
                     offered,
                 )
 
@@ -57,9 +55,7 @@ class WebSocketAuth:
         or `(None, None)` after closing the connection.
         """
 
-        token, subprotocol = (
-            self.extract_token(websocket)
-        )
+        token, subprotocol = self.extract_token(websocket)
 
         if not token:
             await websocket.close(code=1008)
@@ -68,9 +64,7 @@ class WebSocketAuth:
                 None,
             )
 
-        payload = self.jwt_service.verify_access_token(
-            token
-        )
+        payload = self.jwt_service.verify_access_token(token)
 
         if payload is None:
             await websocket.close(code=1008)

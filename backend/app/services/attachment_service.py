@@ -128,25 +128,19 @@ class AttachmentService:
     ) -> int:
 
         mapping = {
-
             "image": MAX_IMAGE_SIZE,
-
             "video": MAX_VIDEO_SIZE,
-
             "audio": MAX_AUDIO_SIZE,
-
             "voice": MAX_AUDIO_SIZE,
-
             "document": MAX_DOCUMENT_SIZE,
-
             "archive": MAX_ARCHIVE_SIZE,
-
             "encrypted": MAX_ENCRYPTED_SIZE,
         }
 
         return mapping[attachment_type]
 
         # ==========================================================
+
     # Generate Secure Filename
     # ==========================================================
 
@@ -168,26 +162,18 @@ class AttachmentService:
     ) -> tuple[str, str, int]:
 
         if not file.filename:
-
             raise HTTPException(
                 status_code=400,
                 detail="Invalid filename.",
             )
 
-        extension = Path(
-            file.filename
-        ).suffix.lower()
+        extension = Path(file.filename).suffix.lower()
 
-        mime_type = (
-            file.content_type
-            or "application/octet-stream"
-        )
+        mime_type = file.content_type or "application/octet-stream"
 
-        attachment_type = (
-            self.detect_attachment_type(
-                extension,
-                mime_type,
-            )
+        attachment_type = self.detect_attachment_type(
+            extension,
+            mime_type,
         )
 
         size = 0
@@ -195,11 +181,9 @@ class AttachmentService:
         header = b""
 
         while chunk := await file.read(64 * 1024):
-
             size += len(chunk)
 
             if len(header) < HEADER_SIZE:
-
                 header += chunk[: HEADER_SIZE - len(header)]
 
         await file.seek(0)
@@ -212,27 +196,17 @@ class AttachmentService:
             extension,
             header,
         ):
-
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "File content does not match its "
-                    "declared type."
-                ),
+                detail=("File content does not match its declared type."),
             )
 
-        max_size = self.max_allowed_size(
-            attachment_type
-        )
+        max_size = self.max_allowed_size(attachment_type)
 
         if size > max_size:
-
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    f"Maximum allowed size is "
-                    f"{max_size // (1024 * 1024)} MB."
-                ),
+                detail=(f"Maximum allowed size is {max_size // (1024 * 1024)} MB."),
             )
 
         return (
@@ -240,6 +214,7 @@ class AttachmentService:
             attachment_type,
             size,
         )
+
     # ==========================================================
     # Save File To Disk
     # ==========================================================
@@ -251,13 +226,9 @@ class AttachmentService:
         extension: str,
     ) -> tuple[str, str]:
 
-        filename = self.generate_filename(
-            extension
-        )
+        filename = self.generate_filename(extension)
 
-        upload_directory = self.upload_directory(
-            attachment_type
-        )
+        upload_directory = self.upload_directory(attachment_type)
 
         upload_directory.mkdir(
             parents=True,
@@ -267,7 +238,6 @@ class AttachmentService:
         destination = upload_directory / filename
 
         with destination.open("wb") as buffer:
-
             shutil.copyfileobj(
                 file.file,
                 buffer,
@@ -277,6 +247,7 @@ class AttachmentService:
             filename,
             str(destination),
         )
+
     # ==========================================================
     # Guess MIME Type
     # ==========================================================
@@ -286,48 +257,35 @@ class AttachmentService:
         filename: str,
     ) -> str:
 
-        mime_type, _ = mimetypes.guess_type(
-            filename
-        )
+        mime_type, _ = mimetypes.guess_type(filename)
 
-        return (
-            mime_type
-            or "application/octet-stream"
-        )
+        return mime_type or "application/octet-stream"
+
     # ==========================================================
     # Upload Attachment
     # ==========================================================
 
     async def upload_attachment(
-    self,
-    message_id: UUID,
-    file: UploadFile,
-
-    encrypted: bool = False,
-
-    encrypted_key_sender: str | None = None,
-
-    encrypted_key_receiver: str | None = None,
-
-    nonce: str | None = None,
-
-    wrapped_keys: list | None = None,
-
-    view_once: bool = False,
+        self,
+        message_id: UUID,
+        file: UploadFile,
+        encrypted: bool = False,
+        encrypted_key_sender: str | None = None,
+        encrypted_key_receiver: str | None = None,
+        nonce: str | None = None,
+        wrapped_keys: list | None = None,
+        view_once: bool = False,
     ) -> Attachment:
 
-        extension, attachment_type, size = (
-            await self.validate_file(
-                file,
-                encrypted=encrypted,
-            )
+        extension, attachment_type, size = await self.validate_file(
+            file,
+            encrypted=encrypted,
         )
 
         filename = None
         storage_path = None
 
         try:
-
             filename, storage_path = await self.save_file(
                 file,
                 attachment_type,
@@ -337,44 +295,26 @@ class AttachmentService:
             mime_type = self.detect_mime_type(filename)
 
             attachment = Attachment(
-
                 message_id=message_id,
-
                 original_name=file.filename,
-
                 filename=filename,
-
                 mime_type=mime_type,
-
                 extension=extension,
-
                 attachment_type=attachment_type,
-
                 size=size,
-
                 storage_path=storage_path,
-
                 encrypted=encrypted,
-
                 encrypted_key_sender=encrypted_key_sender,
-
                 encrypted_key_receiver=encrypted_key_receiver,
-
                 nonce=nonce,
-
                 wrapped_keys=wrapped_keys,
-
                 view_once=view_once,
             )
 
-            return await self.repository.create_attachment(
-                attachment
-            )
+            return await self.repository.create_attachment(attachment)
 
         except Exception:
-
             if storage_path:
-
                 path = Path(storage_path)
 
                 if path.exists():
@@ -417,25 +357,19 @@ class AttachmentService:
         now = time.time()
 
         for directory in self.ATTACHMENT_DIRS:
-
             if not directory.is_dir():
                 continue
 
             for path in directory.iterdir():
-
                 if not path.is_file():
                     continue
 
                 try:
-                    is_stale = (
-                        path.stat().st_mtime
-                        < now - min_age_seconds
-                    )
+                    is_stale = path.stat().st_mtime < now - min_age_seconds
                 except OSError:
                     continue
 
                 if is_stale and path.name not in known:
-
                     try:
                         path.unlink()
                     except OSError:
@@ -453,11 +387,7 @@ class AttachmentService:
         message delete) and hand the file paths to the caller for
         post-commit unlink."""
 
-        return (
-            await self.repository.delete_attachments_for_message(
-                message_id
-            )
-        )
+        return await self.repository.delete_attachments_for_message(message_id)
 
     # ==========================================================
     # Get Attachment
@@ -468,9 +398,7 @@ class AttachmentService:
         attachment_id: UUID,
     ) -> Attachment | None:
 
-        return await self.repository.get_by_id(
-            attachment_id
-        )
+        return await self.repository.get_by_id(attachment_id)
 
     # ==========================================================
     # Delete Attachment
@@ -481,23 +409,17 @@ class AttachmentService:
         attachment_id: UUID,
     ) -> bool:
 
-        attachment = await self.get_attachment(
-            attachment_id
-        )
+        attachment = await self.get_attachment(attachment_id)
 
         if attachment is None:
             return False
 
-        path = Path(
-            attachment.storage_path
-        )
+        path = Path(attachment.storage_path)
 
         if path.exists():
             path.unlink()
 
-        await self.repository.delete_attachment(
-            attachment
-        )
+        await self.repository.delete_attachment(attachment)
 
         return True
 
@@ -513,9 +435,7 @@ class AttachmentService:
         Returns the physical file path.
         """
 
-        return Path(
-            attachment.storage_path
-        )
+        return Path(attachment.storage_path)
 
     # ==========================================================
     # Check File Exists
@@ -529,9 +449,7 @@ class AttachmentService:
         Returns whether the file exists.
         """
 
-        return self.get_file_path(
-            attachment
-        ).exists()
+        return self.get_file_path(attachment).exists()
 
     # ==========================================================
     # Future Encryption Hook
@@ -608,9 +526,7 @@ class AttachmentService:
         value = float(size)
 
         for unit in units:
-
             if value < 1024:
-
                 return f"{value:.2f} {unit}"
 
             value /= 1024

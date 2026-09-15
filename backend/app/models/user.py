@@ -194,8 +194,4 @@ class User(Base, TimestampMixin):
     # ==========================================================
 
     def __repr__(self) -> str:
-        return (
-            f"<User(id={self.id}, "
-            f"username='{self.username}', "
-            f"email='{self.email}')>"
-        )
+        return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"

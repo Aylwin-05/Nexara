@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 # Upload Public Key
 # ==========================================================
 
+
 class UploadPublicKeyRequest(BaseModel):
     public_key: str = Field(max_length=2000)
 
@@ -12,6 +13,7 @@ class UploadPublicKeyRequest(BaseModel):
 # Public Key Response
 # ==========================================================
 
+
 class PublicKeyResponse(BaseModel):
     public_key: str
 
@@ -19,6 +21,7 @@ class PublicKeyResponse(BaseModel):
 # ==========================================================
 # Generic Response
 # ==========================================================
+
 
 class KeyUploadResponse(BaseModel):
     success: bool

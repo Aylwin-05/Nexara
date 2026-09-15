@@ -34,12 +34,9 @@ class KeyService:
         public_key: str,
     ):
 
-        existing = await self.repository.get_by_user_id(
-            current_user.id
-        )
+        existing = await self.repository.get_by_user_id(current_user.id)
 
         if existing:
-
             existing.public_key = public_key
 
             await self.repository.save(existing)
@@ -74,12 +71,9 @@ class KeyService:
         user_id: UUID,
     ):
 
-        key = await self.repository.get_by_user_id(
-            user_id
-        )
+        key = await self.repository.get_by_user_id(user_id)
 
         if key is None:
-
             raise HTTPException(
                 status_code=404,
                 detail="Public key not found.",

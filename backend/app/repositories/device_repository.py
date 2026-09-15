@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from app.models.device import Device, OneTimePreKey, SignedPreKey
@@ -28,22 +28,14 @@ class DeviceRepository(BaseRepository):
         self,
         device_id: str,
     ) -> Device | None:
-        result = await self.execute(
-            select(Device).where(
-                Device.device_id == device_id
-            )
-        )
+        result = await self.execute(select(Device).where(Device.device_id == device_id))
         return result.scalar_one_or_none()
 
     async def get_by_id(
         self,
         device_pk: UUID,
     ) -> Device | None:
-        result = await self.execute(
-            select(Device).where(
-                Device.id == device_pk
-            )
-        )
+        result = await self.execute(select(Device).where(Device.id == device_pk))
         return result.scalar_one_or_none()
 
     async def get_by_ids(
@@ -52,11 +44,7 @@ class DeviceRepository(BaseRepository):
     ) -> list[Device]:
         if not device_pks:
             return []
-        result = await self.execute(
-            select(Device).where(
-                Device.id.in_(device_pks)
-            )
-        )
+        result = await self.execute(select(Device).where(Device.id.in_(device_pks)))
         return list(result.scalars().all())
 
     async def get_by_user_id(
@@ -64,10 +52,12 @@ class DeviceRepository(BaseRepository):
         user_id: UUID,
     ) -> list[Device]:
         result = await self.execute(
-            select(Device).where(
+            select(Device)
+            .where(
                 Device.user_id == user_id,
                 Device.is_active.is_(True),
-            ).order_by(Device.is_primary.desc(), Device.registered_at)
+            )
+            .order_by(Device.is_primary.desc(), Device.registered_at)
         )
         return list(result.scalars().all())
 
@@ -94,14 +84,9 @@ class DeviceRepository(BaseRepository):
             select(
                 Device.device_id,
                 Device.user_id,
-            ).where(
-                Device.device_id.in_(device_ids)
-            )
+            ).where(Device.device_id.in_(device_ids))
         )
-        return {
-            row.device_id: row.user_id
-            for row in result.all()
-        }
+        return {row.device_id: row.user_id for row in result.all()}
 
     async def get_primary_device(
         self,
@@ -180,16 +165,9 @@ class DeviceRepository(BaseRepository):
         not linger: nothing may start a handshake with it again.
         """
         from sqlalchemy import delete
-        await self.db.execute(
-            delete(OneTimePreKey).where(
-                OneTimePreKey.device_id == device_pk
-            )
-        )
-        await self.db.execute(
-            delete(SignedPreKey).where(
-                SignedPreKey.device_id == device_pk
-            )
-        )
+
+        await self.db.execute(delete(OneTimePreKey).where(OneTimePreKey.device_id == device_pk))
+        await self.db.execute(delete(SignedPreKey).where(SignedPreKey.device_id == device_pk))
 
     async def count_active_devices(
         self,
@@ -253,9 +231,11 @@ class DeviceRepository(BaseRepository):
         device_pk: UUID,
     ) -> list[SignedPreKey]:
         result = await self.execute(
-            select(SignedPreKey).where(
+            select(SignedPreKey)
+            .where(
                 SignedPreKey.device_id == device_pk,
-            ).order_by(SignedPreKey.created_at.desc())
+            )
+            .order_by(SignedPreKey.created_at.desc())
         )
         return list(result.scalars().all())
 
@@ -277,9 +257,12 @@ class DeviceRepository(BaseRepository):
         device_pk: UUID,
     ) -> int:
         result = await self.execute(
-            select(SignedPreKey.key_id).where(
+            select(SignedPreKey.key_id)
+            .where(
                 SignedPreKey.device_id == device_pk,
-            ).order_by(SignedPreKey.key_id.desc()).limit(1)
+            )
+            .order_by(SignedPreKey.key_id.desc())
+            .limit(1)
         )
         latest = result.scalar_one_or_none()
         return (latest or 0) + 1
@@ -309,7 +292,7 @@ class DeviceRepository(BaseRepository):
                 SignedPreKey.device_id == device_pk,
                 SignedPreKey.key_id < key_id,
             )
-            .values(expires_at=datetime.now(timezone.utc))
+            .values(expires_at=datetime.now(UTC))
             .execution_options(synchronize_session=False)
         )
 
@@ -335,13 +318,11 @@ class DeviceRepository(BaseRepository):
         )
 
         result = await self.db.execute(
-            delete(SignedPreKey)
-            .where(
+            delete(SignedPreKey).where(
                 SignedPreKey.device_id == device_pk,
                 SignedPreKey.key_id < subq,
                 SignedPreKey.expires_at.isnot(None),
-                SignedPreKey.expires_at
-                < datetime.now(timezone.utc),
+                SignedPreKey.expires_at < datetime.now(UTC),
             )
         )
         return result.rowcount
@@ -362,10 +343,13 @@ class DeviceRepository(BaseRepository):
         limit: int = 100,
     ) -> list[OneTimePreKey]:
         result = await self.execute(
-            select(OneTimePreKey).where(
+            select(OneTimePreKey)
+            .where(
                 OneTimePreKey.device_id == device_pk,
                 OneTimePreKey.consumed.is_(False),
-            ).order_by(OneTimePreKey.key_id).limit(limit)
+            )
+            .order_by(OneTimePreKey.key_id)
+            .limit(limit)
         )
         return list(result.scalars().all())
 
@@ -388,12 +372,13 @@ class DeviceRepository(BaseRepository):
         consumed_by_device_pk: UUID | None = None,
     ):
         from datetime import datetime
+
         await self.db.execute(
             update(OneTimePreKey)
             .where(OneTimePreKey.id == prekey_pk)
             .values(
                 consumed=True,
-                consumed_at=datetime.now(timezone.utc),
+                consumed_at=datetime.now(UTC),
                 consumed_by_device_id=consumed_by_device_pk,
             )
             .execution_options(synchronize_session=False)
@@ -416,6 +401,7 @@ class DeviceRepository(BaseRepository):
         and receive rowcount=0.
         """
         from datetime import datetime
+
         result = await self.db.execute(
             select(OneTimePreKey)
             .where(
@@ -438,7 +424,7 @@ class DeviceRepository(BaseRepository):
                 )
                 .values(
                     consumed=True,
-                    consumed_at=datetime.now(timezone.utc),
+                    consumed_at=datetime.now(UTC),
                 )
                 .execution_options(synchronize_session=False)
             )
@@ -452,9 +438,12 @@ class DeviceRepository(BaseRepository):
         device_pk: UUID,
     ) -> int:
         result = await self.execute(
-            select(OneTimePreKey.key_id).where(
+            select(OneTimePreKey.key_id)
+            .where(
                 OneTimePreKey.device_id == device_pk,
-            ).order_by(OneTimePreKey.key_id.desc()).limit(1)
+            )
+            .order_by(OneTimePreKey.key_id.desc())
+            .limit(1)
         )
         latest = result.scalar_one_or_none()
         return (latest or 0) + 1

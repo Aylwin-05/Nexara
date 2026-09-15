@@ -41,6 +41,7 @@ router = APIRouter(
 # Get My Profile
 # ==========================================================
 
+
 @router.get(
     "/me",
     response_model=UserResponse,
@@ -56,8 +57,7 @@ async def get_my_profile(
 
     return profile.model_copy(
         update={
-            "has_recovery_key":
-                current_user.recovery_wrapped_key is not None,
+            "has_recovery_key": current_user.recovery_wrapped_key is not None,
         }
     )
 
@@ -65,6 +65,7 @@ async def get_my_profile(
 # ==========================================================
 # Update My Profile
 # ==========================================================
+
 
 @router.patch(
     "/me",
@@ -91,6 +92,7 @@ async def update_my_profile(
 # ==========================================================
 # Search Users
 # ==========================================================
+
 
 @router.get(
     "/search",
@@ -123,6 +125,7 @@ async def search_users(
 # Check Username Availability
 # ==========================================================
 
+
 @router.get(
     "/check-username",
     response_model=UsernameAvailabilityResponse,
@@ -141,9 +144,7 @@ async def check_username(
     repository = UserRepository(db)
     service = UserService(repository)
 
-    available = await service.is_username_available(
-        username
-    )
+    available = await service.is_username_available(username)
 
     if available:
         return UsernameAvailabilityResponse(
@@ -160,6 +161,7 @@ async def check_username(
 # ==========================================================
 # Upload Avatar
 # ==========================================================
+
 
 @router.post(
     "/avatar",
@@ -217,6 +219,7 @@ async def upload_avatar(
 # Get Avatar (self or friends only)
 # ==========================================================
 
+
 @router.get(
     "/{user_id}/avatar",
 )
@@ -243,7 +246,6 @@ async def get_avatar(
         )
 
     if target_user.id != current_user.id:
-
         from app.core.enums import FriendRequestStatus
         from app.repositories.block_repository import BlockRepository
         from app.repositories.friend_repository import FriendRepository
@@ -265,9 +267,7 @@ async def get_avatar(
             FriendRepository(db),
         )
 
-        privacy = await block_service.get_privacy(
-            target_user
-        )
+        privacy = await block_service.get_privacy(target_user)
 
         level = privacy["profile_photo"]
 
@@ -279,8 +279,7 @@ async def get_avatar(
         )
 
         is_friend = (
-            friendship is not None
-            and friendship.status == FriendRequestStatus.ACCEPTED.value
+            friendship is not None and friendship.status == FriendRequestStatus.ACCEPTED.value
         )
 
         if level == "nobody":

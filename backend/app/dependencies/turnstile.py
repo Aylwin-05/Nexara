@@ -15,9 +15,7 @@ from fastapi import HTTPException, Request
 
 logger = logging.getLogger("app.dependencies.turnstile")
 
-TURNSTILE_VERIFY_URL = (
-    "https://challenges.cloudflare.com/turnstile/v0/siteverify"
-)
+TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
 # Fail-closed: if the secret is misconfigured, reject all
 # requests rather than silently skipping the check.
@@ -47,11 +45,7 @@ async def verify_turnstile(
                 data={
                     "secret": settings.TURNSTILE_SECRET_KEY,
                     "response": token,
-                    "remoteip": (
-                        request.client.host
-                        if request.client
-                        else ""
-                    ),
+                    "remoteip": (request.client.host if request.client else ""),
                 },
             )
             result = resp.json()
@@ -73,4 +67,4 @@ async def verify_turnstile(
         raise HTTPException(
             status_code=503,
             detail="CAPTCHA service unavailable.",
-        )
+        ) from None

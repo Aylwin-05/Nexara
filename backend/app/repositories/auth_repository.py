@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from app.models.otp import OTPCode
@@ -23,11 +23,7 @@ class AuthRepository(BaseRepository):
         email: str,
     ) -> User | None:
 
-        result = await self.execute(
-            select(User).where(
-                User.email == email
-            )
-        )
+        result = await self.execute(select(User).where(User.email == email))
 
         return result.scalar_one_or_none()
 
@@ -36,11 +32,7 @@ class AuthRepository(BaseRepository):
         username: str,
     ) -> User | None:
 
-        result = await self.execute(
-            select(User).where(
-                User.username == username
-            )
-        )
+        result = await self.execute(select(User).where(User.username == username))
 
         return result.scalar_one_or_none()
 
@@ -52,11 +44,7 @@ class AuthRepository(BaseRepository):
         from app.models.user import User
         from sqlalchemy import select
 
-        result = await self.execute(
-            select(User).where(
-                User.id == user_id
-            )
-        )
+        result = await self.execute(select(User).where(User.id == user_id))
 
         return result.scalar_one_or_none()
 
@@ -99,11 +87,7 @@ class AuthRepository(BaseRepository):
         user_id: UUID,
     ) -> UserKey | None:
 
-        result = await self.execute(
-            select(UserKey).where(
-                UserKey.user_id == user_id
-            )
-        )
+        result = await self.execute(select(UserKey).where(UserKey.user_id == user_id))
 
         return result.scalar_one_or_none()
 
@@ -125,18 +109,10 @@ class AuthRepository(BaseRepository):
 
         result = await self.execute(
             select(OTPCode)
-            .where(
-                OTPCode.email == email
-            )
-            .where(
-                OTPCode.is_used.is_(False)
-            )
-            .where(
-                OTPCode.expires_at > datetime.now(timezone.utc)
-            )
-            .order_by(
-                OTPCode.created_at.desc()
-            )
+            .where(OTPCode.email == email)
+            .where(OTPCode.is_used.is_(False))
+            .where(OTPCode.expires_at > datetime.now(UTC))
+            .order_by(OTPCode.created_at.desc())
             .limit(1)
         )
 
@@ -156,9 +132,7 @@ class AuthRepository(BaseRepository):
             .values(
                 is_used=True,
             )
-            .execution_options(
-                synchronize_session=False
-            )
+            .execution_options(synchronize_session=False)
         )
 
         if updated.rowcount == 0:
@@ -179,11 +153,7 @@ class AuthRepository(BaseRepository):
         email: str,
     ):
 
-        await self.execute(
-            delete(OTPCode).where(
-                OTPCode.email == email
-            )
-        )
+        await self.execute(delete(OTPCode).where(OTPCode.email == email))
 
         await self.update()
 
@@ -191,12 +161,7 @@ class AuthRepository(BaseRepository):
         self,
     ):
 
-        await self.execute(
-            delete(OTPCode).where(
-                OTPCode.expires_at
-                < datetime.now(timezone.utc)
-            )
-        )
+        await self.execute(delete(OTPCode).where(OTPCode.expires_at < datetime.now(UTC)))
 
         await self.update()
 
@@ -213,8 +178,7 @@ class AuthRepository(BaseRepository):
             delete(OTPCode).where(
                 OTPCode.email == email,
                 OTPCode.is_used.is_(True),
-                OTPCode.updated_at < datetime.now(timezone.utc) -
-                timedelta(hours=24),
+                OTPCode.updated_at < datetime.now(UTC) - timedelta(hours=24),
             )
         )
 

@@ -37,70 +37,62 @@ router = APIRouter(
     tags=["Messages"],
 )
 
+
 # ==========================================================
 # Convert DB model -> API response
 # ==========================================================
 def serialize_message(message):
 
-    attachments = [    {
-        "id": attachment.id,
-        "original_name": attachment.original_name,
-        "filename": attachment.filename,
-        "mime_type": attachment.mime_type,
-        "attachment_type": attachment.attachment_type,
-        "extension": attachment.extension,
-        "size": attachment.size,
-        "download_url": f"/api/v1/attachments/{attachment.id}",
-        "created_at": attachment.created_at,
-        "encrypted": attachment.encrypted,
-        "encrypted_key_sender": attachment.encrypted_key_sender,
-        "encrypted_key_receiver": attachment.encrypted_key_receiver,
-        "nonce": attachment.nonce,
-        "wrapped_keys": attachment.wrapped_keys or [],
-        "sync_blob": attachment.sync_blob,
-        "view_once": attachment.view_once,
-    }
-    for attachment in message.attachments]
+    attachments = [
+        {
+            "id": attachment.id,
+            "original_name": attachment.original_name,
+            "filename": attachment.filename,
+            "mime_type": attachment.mime_type,
+            "attachment_type": attachment.attachment_type,
+            "extension": attachment.extension,
+            "size": attachment.size,
+            "download_url": f"/api/v1/attachments/{attachment.id}",
+            "created_at": attachment.created_at,
+            "encrypted": attachment.encrypted,
+            "encrypted_key_sender": attachment.encrypted_key_sender,
+            "encrypted_key_receiver": attachment.encrypted_key_receiver,
+            "nonce": attachment.nonce,
+            "wrapped_keys": attachment.wrapped_keys or [],
+            "sync_blob": attachment.sync_blob,
+            "view_once": attachment.view_once,
+        }
+        for attachment in message.attachments
+    ]
 
     # Only serialize if SQLAlchemy has already loaded them
     if "attachments" in message.__dict__:
-        attachments = [
-            AttachmentResponse.model_validate(a)
-            for a in message.attachments
-        ]
+        attachments = [AttachmentResponse.model_validate(a) for a in message.attachments]
 
     return MessageResponse(
         id=message.id,
         conversation_id=message.conversation_id,
         sender_id=message.sender_id,
-
         ciphertext=message.ciphertext,
         encrypted_key_sender=message.encrypted_key_sender,
         encrypted_key_receiver=message.encrypted_key_receiver,
         nonce=message.nonce,
         crypto_version=message.crypto_version,
-
         message_type=message.message_type,
         reply_to_id=message.reply_to_id,
-
         edited=message.edited,
         is_forwarded=message.is_forwarded,
         forwarded_count=message.forwarded_count,
         deleted_for_everyone=message.deleted_for_everyone,
         is_starred=getattr(message, "is_starred", False),
-
         is_read=message.is_read,
         delivered_at=message.delivered_at,
         read_at=message.read_at,
         expires_at=message.expires_at,
-
         view_once_opened=message.view_once_opened,
-
         created_at=message.created_at,
         updated_at=message.updated_at,
-
         attachments=attachments,
-
         reactions=[
             ReactionResponse(
                 user_id=reaction.user_id,
@@ -109,7 +101,6 @@ def serialize_message(message):
             )
             for reaction in message.reactions
         ],
-
         recipient_keys=[
             {
                 "user_id": key.user_id,
@@ -119,9 +110,7 @@ def serialize_message(message):
         ]
         if "recipient_keys" in message.__dict__
         else [],
-
         envelopes=message.envelopes or [],
-
         sync_envelope=message.sync_envelope,
     )
 
@@ -129,6 +118,7 @@ def serialize_message(message):
 # ==========================================================
 # SEND ENCRYPTED MESSAGE
 # ==========================================================
+
 
 @router.post(
     "/send",
@@ -147,9 +137,7 @@ async def send_message(
     conversation_repository = ConversationRepository(db)
     attachment_repository = AttachmentRepository(db)
 
-    conversation = await conversation_repository.get_by_id(
-        request.conversation_id
-    )
+    conversation = await conversation_repository.get_by_id(request.conversation_id)
 
     if conversation is None:
         raise HTTPException(
@@ -167,17 +155,11 @@ async def send_message(
         )
 
     if conversation.conversation_type == "private":
-
         block_repository = BlockRepository(db)
 
-        participants = (
-            await conversation_repository.get_participants(
-                request.conversation_id
-            )
-        )
+        participants = await conversation_repository.get_participants(request.conversation_id)
 
         for participant in participants:
-
             other_id = participant.user_id
 
             if other_id == current_user.id:
@@ -192,9 +174,7 @@ async def send_message(
                     detail="You cannot send messages to this user.",
                 )
 
-    attachment_service = AttachmentService(
-        attachment_repository
-    )
+    attachment_service = AttachmentService(attachment_repository)
 
     service = MessageService(
         message_repository,
@@ -204,23 +184,19 @@ async def send_message(
     )
 
     try:
-
         message = await service.send_message(
-                current_user=current_user,
-                conversation_id=request.conversation_id,
-                ciphertext=request.ciphertext,
-                encrypted_key_sender=request.encrypted_key_sender,
-                encrypted_key_receiver=request.encrypted_key_receiver,
-                nonce=request.nonce,
-                message_type=request.message_type,
-                reply_to_id=request.reply_to_id,
-                is_forwarded=request.is_forwarded,
-                forwarded_count=request.forwarded_count,
-                client_message_id=request.client_message_id,
-                recipient_keys=[
-                (key.user_id, key.encrypted_key)
-                for key in request.recipient_keys
-            ]
+            current_user=current_user,
+            conversation_id=request.conversation_id,
+            ciphertext=request.ciphertext,
+            encrypted_key_sender=request.encrypted_key_sender,
+            encrypted_key_receiver=request.encrypted_key_receiver,
+            nonce=request.nonce,
+            message_type=request.message_type,
+            reply_to_id=request.reply_to_id,
+            is_forwarded=request.is_forwarded,
+            forwarded_count=request.forwarded_count,
+            client_message_id=request.client_message_id,
+            recipient_keys=[(key.user_id, key.encrypted_key) for key in request.recipient_keys]
             if request.recipient_keys
             else None,
             envelopes=[
@@ -237,24 +213,23 @@ async def send_message(
         await db.commit()
 
         await db.refresh(
-        message,
-        [
-            "attachments",
-            "reactions",
-            "recipient_keys",
-        ]
+            message,
+            [
+                "attachments",
+                "reactions",
+                "recipient_keys",
+            ],
         )
 
         return serialize_message(message)
 
     except ValueError as e:
-
         await db.rollback()
 
         raise HTTPException(
             status_code=400,
             detail=str(e),
-        )
+        ) from e
 
 
 # ==========================================================
@@ -264,6 +239,7 @@ async def send_message(
 # re-encrypts it (Signal ratchet) and sends the new ciphertext
 # + wrapped keys, exactly like a fresh send.
 # ==========================================================
+
 
 @router.put(
     "/{message_id}/edit",
@@ -283,9 +259,7 @@ async def edit_message(
     conversation_repository = ConversationRepository(db)
     attachment_repository = AttachmentRepository(db)
 
-    attachment_service = AttachmentService(
-        attachment_repository
-    )
+    attachment_service = AttachmentService(attachment_repository)
 
     service = MessageService(
         message_repository,
@@ -295,7 +269,6 @@ async def edit_message(
     )
 
     try:
-
         message = await service.edit_message(
             current_user=current_user,
             message_id=message_id,
@@ -303,10 +276,7 @@ async def edit_message(
             encrypted_key_sender=request.encrypted_key_sender,
             encrypted_key_receiver=request.encrypted_key_receiver,
             nonce=request.nonce,
-            recipient_keys=[
-                (key.user_id, key.encrypted_key)
-                for key in request.recipient_keys
-            ]
+            recipient_keys=[(key.user_id, key.encrypted_key) for key in request.recipient_keys]
             if request.recipient_keys
             else None,
             envelopes=[
@@ -332,9 +302,7 @@ async def edit_message(
         # Full reload: a partial refresh would expire the other
         # columns (updated_at is DB-computed by onupdate) and
         # serialize_message would then trigger an async lazy load.
-        message = await message_repository.reload_with_relations(
-            message.id
-        )
+        message = await message_repository.reload_with_relations(message.id)
 
         await manager.broadcast(
             message.conversation_id,
@@ -347,9 +315,7 @@ async def edit_message(
                 "encrypted_key_receiver": message.encrypted_key_receiver,
                 "nonce": message.nonce,
                 "edited": True,
-                "updated_at": message.updated_at.isoformat()
-                if message.updated_at
-                else None,
+                "updated_at": message.updated_at.isoformat() if message.updated_at else None,
                 "envelopes": message.envelopes or [],
             },
         )
@@ -357,13 +323,12 @@ async def edit_message(
         return serialize_message(message)
 
     except ValueError as e:
-
         await db.rollback()
 
         raise HTTPException(
             status_code=400,
             detail=str(e),
-        )
+        ) from e
 
 
 # ==========================================================
@@ -372,6 +337,7 @@ async def edit_message(
 # WhatsApp behaviour: tapping the same emoji again removes
 # the reaction; a different emoji replaces it.
 # ==========================================================
+
 
 @router.put(
     "/{message_id}/reaction",
@@ -390,9 +356,7 @@ async def toggle_reaction(
     conversation_repository = ConversationRepository(db)
     attachment_repository = AttachmentRepository(db)
 
-    attachment_service = AttachmentService(
-        attachment_repository
-    )
+    attachment_service = AttachmentService(attachment_repository)
 
     service = MessageService(
         message_repository,
@@ -402,7 +366,6 @@ async def toggle_reaction(
     )
 
     try:
-
         result = await service.toggle_reaction(
             current_user=current_user,
             message_id=message_id,
@@ -427,18 +390,18 @@ async def toggle_reaction(
         return result
 
     except ValueError as e:
-
         await db.rollback()
 
         raise HTTPException(
             status_code=400,
             detail=str(e),
-        )
+        ) from e
 
 
 # ==========================================================
 # STAR / UNSTAR MESSAGE (per-user, personal)
 # ==========================================================
+
 
 @router.put(
     "/{message_id}/star",
@@ -457,9 +420,7 @@ async def set_star(
     conversation_repository = ConversationRepository(db)
     attachment_repository = AttachmentRepository(db)
 
-    attachment_service = AttachmentService(
-        attachment_repository
-    )
+    attachment_service = AttachmentService(attachment_repository)
 
     service = MessageService(
         message_repository,
@@ -469,7 +430,6 @@ async def set_star(
     )
 
     try:
-
         result = await service.set_star(
             current_user=current_user,
             message_id=message_id,
@@ -481,18 +441,18 @@ async def set_star(
         return result
 
     except ValueError as e:
-
         await db.rollback()
 
         raise HTTPException(
             status_code=400,
             detail=str(e),
-        )
+        ) from e
 
 
 # ==========================================================
 # GET STARRED MESSAGES (optionally filtered by conversation)
 # ==========================================================
+
 
 @router.get(
     "/starred",
@@ -511,9 +471,7 @@ async def get_starred_messages(
     conversation_repository = ConversationRepository(db)
     attachment_repository = AttachmentRepository(db)
 
-    attachment_service = AttachmentService(
-        attachment_repository
-    )
+    attachment_service = AttachmentService(attachment_repository)
 
     service = MessageService(
         message_repository,
@@ -523,28 +481,24 @@ async def get_starred_messages(
     )
 
     try:
-
         messages = await service.get_starred_messages(
             current_user=current_user,
             conversation_id=conversation_id,
         )
 
-        return [
-            serialize_message(message)
-            for message in messages
-        ]
+        return [serialize_message(message) for message in messages]
 
     except ValueError as e:
-
         raise HTTPException(
             status_code=400,
             detail=str(e),
-        )
+        ) from e
 
 
 # ==========================================================
 # VIEW ONCE MEDIA: recipient reports the media as opened
 # ==========================================================
+
 
 @router.post(
     "/{message_id}/view-once-opened",
@@ -562,9 +516,7 @@ async def mark_view_once_opened(
     conversation_repository = ConversationRepository(db)
     attachment_repository = AttachmentRepository(db)
 
-    attachment_service = AttachmentService(
-        attachment_repository
-    )
+    attachment_service = AttachmentService(attachment_repository)
 
     service = MessageService(
         message_repository,
@@ -574,7 +526,6 @@ async def mark_view_once_opened(
     )
 
     try:
-
         result = await service.mark_view_once_opened(
             current_user=current_user,
             message_id=message_id,
@@ -595,18 +546,18 @@ async def mark_view_once_opened(
         return result
 
     except ValueError as e:
-
         await db.rollback()
 
         raise HTTPException(
             status_code=400,
             detail=str(e),
-        )
+        ) from e
 
 
 # ==========================================================
 # GET CONVERSATION MESSAGES
 # ==========================================================
+
 
 @router.get(
     "/{conversation_id}",
@@ -627,9 +578,7 @@ async def get_messages(
     conversation_repository = ConversationRepository(db)
     attachment_repository = AttachmentRepository(db)
 
-    attachment_service = AttachmentService(
-        attachment_repository
-    )
+    attachment_service = AttachmentService(attachment_repository)
 
     service = MessageService(
         message_repository,
@@ -639,7 +588,6 @@ async def get_messages(
     )
 
     try:
-
         messages = await service.get_messages(
             current_user=current_user,
             conversation_id=conversation_id,
@@ -647,17 +595,13 @@ async def get_messages(
             before=before,
         )
 
-        return [
-            serialize_message(message)
-            for message in messages
-        ]
+        return [serialize_message(message) for message in messages]
 
     except ValueError as e:
-
         raise HTTPException(
             status_code=400,
             detail=str(e),
-        )
+        ) from e
 
 
 # ==========================================================
@@ -668,6 +612,7 @@ async def get_messages(
 # plaintext here, so browsers that register later can read the
 # message after unlocking the secret with the recovery code.
 # ==========================================================
+
 
 @router.put(
     "/{message_id}/sync-envelope",
@@ -687,9 +632,7 @@ async def upsert_sync_envelope(
     conversation_repository = ConversationRepository(db)
     attachment_repository = AttachmentRepository(db)
 
-    attachment_service = AttachmentService(
-        attachment_repository
-    )
+    attachment_service = AttachmentService(attachment_repository)
 
     service = MessageService(
         message_repository,
@@ -699,7 +642,6 @@ async def upsert_sync_envelope(
     )
 
     try:
-
         message = await service.upsert_sync_envelope(
             current_user=current_user,
             message_id=message_id,
@@ -712,25 +654,23 @@ async def upsert_sync_envelope(
 
         await db.commit()
 
-        message = await message_repository.reload_with_relations(
-            message.id
-        )
+        message = await message_repository.reload_with_relations(message.id)
 
         return serialize_message(message)
 
     except ValueError as e:
-
         await db.rollback()
 
         raise HTTPException(
             status_code=400,
             detail=str(e),
-        )
+        ) from e
 
 
 # ==========================================================
 # DELETE FOR EVERYONE
 # ==========================================================
+
 
 @router.delete(
     "/{message_id}",
@@ -749,9 +689,7 @@ async def delete_for_everyone(
     conversation_repository = ConversationRepository(db)
     attachment_repository = AttachmentRepository(db)
 
-    attachment_service = AttachmentService(
-        attachment_repository
-    )
+    attachment_service = AttachmentService(attachment_repository)
 
     service = MessageService(
         message_repository,
@@ -761,7 +699,6 @@ async def delete_for_everyone(
     )
 
     try:
-
         _, attachment_paths = await service.delete_for_everyone(
             current_user=current_user,
             message_id=message_id,
@@ -770,21 +707,18 @@ async def delete_for_everyone(
         await db.commit()
 
     except ValueError as e:
-
         await db.rollback()
 
         raise HTTPException(
             status_code=400,
             detail=str(e),
-        )
+        ) from e
 
     # Attachment rows are gone: only the physical files remain.
     # Unlink AFTER the commit so a rolled-back delete keeps its
     # files (and a lost unlink leaves a file, not a broken row).
     for file_path, thumb_path in attachment_paths:
-
         for path in (file_path, thumb_path):
-
             if path:
                 Path(path).unlink(missing_ok=True)
 
@@ -792,6 +726,7 @@ async def delete_for_everyone(
 # ==========================================================
 # DELETE FOR ME
 # ==========================================================
+
 
 @router.delete(
     "/{message_id}/me",
@@ -810,9 +745,7 @@ async def delete_for_me(
     conversation_repository = ConversationRepository(db)
     attachment_repository = AttachmentRepository(db)
 
-    attachment_service = AttachmentService(
-        attachment_repository
-    )
+    attachment_service = AttachmentService(attachment_repository)
 
     service = MessageService(
         message_repository,
@@ -822,7 +755,6 @@ async def delete_for_me(
     )
 
     try:
-
         await service.delete_for_me(
             current_user=current_user,
             message_id=message_id,
@@ -831,13 +763,12 @@ async def delete_for_me(
         await db.commit()
 
     except ValueError as e:
-
         await db.rollback()
 
         raise HTTPException(
             status_code=400,
             detail=str(e),
-        )
+        ) from e
 
 
 # ==========================================================
@@ -861,9 +792,7 @@ async def search_messages(
 
     stmt = (
         select(Message)
-        .options(
-            *_message_options()
-        )
+        .options(*_message_options())
         .where(
             Message.conversation_id == conversation_id,
             Message.deleted_for_everyone.is_(False),
@@ -888,6 +817,7 @@ async def search_messages(
 # ==========================================================
 # Pin / Unpin message
 # ==========================================================
+
 
 @router.put("/{message_id}/pin")
 async def pin_message(
@@ -961,9 +891,7 @@ async def get_pinned_messages(
 
     stmt = (
         select(Message)
-        .options(
-            *_message_options()
-        )
+        .options(*_message_options())
         .where(
             Message.conversation_id == conversation_id,
             Message.is_pinned,
@@ -985,6 +913,7 @@ async def get_pinned_messages(
 # ==========================================================
 # Mark all messages as read in a conversation
 # ==========================================================
+
 
 @router.post("/read-all/{conversation_id}")
 async def mark_all_read(

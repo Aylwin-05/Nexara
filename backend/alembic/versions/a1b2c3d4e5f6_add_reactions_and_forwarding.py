@@ -5,6 +5,7 @@ Revises: 9d6e5f4a1c2b
 Create Date: 2026-08-12 10:00:00.000000
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -12,8 +13,8 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'a1b2c3d4e5f6'
-down_revision: str | Sequence[str] | None = '9d6e5f4a1c2b'
+revision: str = "a1b2c3d4e5f6"
+down_revision: str | Sequence[str] | None = "9d6e5f4a1c2b"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

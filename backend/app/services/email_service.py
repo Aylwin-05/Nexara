@@ -35,11 +35,7 @@ class EmailService:
         self.base_delay_seconds = base_delay_seconds
 
     def _template_path(self) -> Path:
-        return (
-            Path(__file__).parent.parent
-            / "templates"
-            / "otp_email.html"
-        )
+        return Path(__file__).parent.parent / "templates" / "otp_email.html"
 
     async def send_otp_email(
         self,
@@ -65,9 +61,7 @@ class EmailService:
         last_error: Exception | None = None
 
         for attempt in range(1, self.retries + 1):
-
             try:
-
                 await asyncio.to_thread(
                     self._send_sync,
                     recipient_email,
@@ -82,7 +76,6 @@ class EmailService:
                 return
 
             except Exception as exc:
-
                 last_error = exc
 
                 logger.warning(
@@ -94,10 +87,7 @@ class EmailService:
                 )
 
                 if attempt < self.retries:
-
-                    await asyncio.sleep(
-                        self.base_delay_seconds * (2 ** (attempt - 1))
-                    )
+                    await asyncio.sleep(self.base_delay_seconds * (2 ** (attempt - 1)))
 
         raise last_error
 

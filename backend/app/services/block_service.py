@@ -40,9 +40,7 @@ class BlockService:
         from app.models.user import User
         from sqlalchemy import select
 
-        result = await self.block_repository.execute(
-            select(User).where(User.id == target_id)
-        )
+        result = await self.block_repository.execute(select(User).where(User.id == target_id))
 
         target_user = result.scalar_one_or_none()
 
@@ -57,21 +55,15 @@ class BlockService:
         if existing:
             raise ValueError("User is already blocked.")
 
-        await self.block_repository.block_user(
-            current_user.id,
-            target_id
-        )
+        await self.block_repository.block_user(current_user.id, target_id)
 
         await self.block_repository.commit()
 
         # Unfriend automatically (WhatsApp removes the chat too).
         if self.friend_repository is not None:
-
-            friendship = (
-                await self.friend_repository.get_existing_friendship(
-                    current_user.id,
-                    target_id,
-                )
+            friendship = await self.friend_repository.get_existing_friendship(
+                current_user.id,
+                target_id,
             )
 
             if friendship is not None:
@@ -117,9 +109,7 @@ class BlockService:
         current_user: User,
     ) -> list[dict]:
 
-        users = await self.block_repository.get_blocked_users(
-            current_user.id
-        )
+        users = await self.block_repository.get_blocked_users(current_user.id)
 
         return [
             {
@@ -167,10 +157,7 @@ class BlockService:
         value = (value or "").strip().lower()
 
         if value not in PRIVACY_LEVELS:
-            raise ValueError(
-                f"Invalid {field} setting. "
-                f"Use one of: {', '.join(PRIVACY_LEVELS)}."
-            )
+            raise ValueError(f"Invalid {field} setting. Use one of: {', '.join(PRIVACY_LEVELS)}.")
 
         return value
 
@@ -179,15 +166,11 @@ class BlockService:
         current_user: User,
     ) -> dict:
 
-        setting = await self.block_repository.get_privacy(
-            current_user.id
-        )
+        setting = await self.block_repository.get_privacy(current_user.id)
 
         return {
             "last_seen": setting.last_seen if setting else "everyone",
-            "profile_photo": (
-                setting.profile_photo if setting else "everyone"
-            ),
+            "profile_photo": (setting.profile_photo if setting else "everyone"),
             "story": setting.story if setting else "my_contacts",
         }
 
@@ -200,9 +183,7 @@ class BlockService:
         story: str | None = None,
     ) -> dict:
 
-        setting = await self.block_repository.get_or_create_privacy(
-            current_user.id
-        )
+        setting = await self.block_repository.get_or_create_privacy(current_user.id)
 
         if last_seen is not None:
             setting.last_seen = self._validate(
@@ -256,9 +237,7 @@ class BlockService:
         ):
             return False
 
-        setting = await self.block_repository.get_privacy(
-            owner_id
-        )
+        setting = await self.block_repository.get_privacy(owner_id)
 
         level = setting.story if setting else "my_contacts"
 
@@ -272,14 +251,9 @@ class BlockService:
         if self.friend_repository is None:
             return False
 
-        friendship = (
-            await self.friend_repository.get_existing_friendship(
-                viewer_id,
-                owner_id,
-            )
+        friendship = await self.friend_repository.get_existing_friendship(
+            viewer_id,
+            owner_id,
         )
 
-        return (
-            friendship is not None
-            and friendship.status == FriendRequestStatus.ACCEPTED.value
-        )
+        return friendship is not None and friendship.status == FriendRequestStatus.ACCEPTED.value

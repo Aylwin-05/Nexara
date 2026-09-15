@@ -43,8 +43,10 @@ class SignalSession(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "device_id", "remote_device_id", "conversation_id",
-            name="uq_session_device_remote_conversation"
+            "device_id",
+            "remote_device_id",
+            "conversation_id",
+            name="uq_session_device_remote_conversation",
         ),
         Index("ix_sessions_device_id", "device_id"),
         Index("ix_sessions_remote_device_id", "remote_device_id"),

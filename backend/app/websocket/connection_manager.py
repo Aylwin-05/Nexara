@@ -93,33 +93,24 @@ class ConnectionManager:
         first_socket = not self.user_connections[user_id]
 
         if first_socket:
-            self.user_connected_at[user_id] = (
-                time.time()
-            )
+            self.user_connected_at[user_id] = time.time()
 
         # Prevent a single user from exhausting memory with
         # thousands of connections. Drop the oldest socket.
-        if (
-            len(self.user_connections[user_id])
-            >= self.MAX_CONNECTIONS_PER_USER
-        ):
+        if len(self.user_connections[user_id]) >= self.MAX_CONNECTIONS_PER_USER:
             oldest = self.user_connections[user_id].pop(0)
             try:
                 await oldest.close(code=1000)
-            except Exception:
+            except Exception:  # noqa: S110 - best-effort cleanup
                 pass
 
-        self.user_connections[user_id].append(
-            websocket
-        )
+        self.user_connections[user_id].append(websocket)
 
         from app.metrics import set_gauge
+
         set_gauge(
             "active_ws_connections",
-            sum(
-                len(conns)
-                for conns in self.user_connections.values()
-            ),
+            sum(len(conns) for conns in self.user_connections.values()),
         )
 
         if redis_bus.active and first_socket:
@@ -129,9 +120,7 @@ class ConnectionManager:
                     self.user_connected_at[user_id],
                 )
             except Exception as e:
-                logger.warning(
-                    "Presence registry write failed: %s", e
-                )
+                logger.warning("Presence registry write failed: %s", e)
 
         logger.debug(
             "WS connect: user=%s online=%s",
@@ -152,11 +141,7 @@ class ConnectionManager:
 
         if user_id in self.user_connections:
             self.user_connections[user_id] = [
-                ws
-                for ws in self.user_connections[
-                    user_id
-                ]
-                if ws != websocket
+                ws for ws in self.user_connections[user_id] if ws != websocket
             ]
 
             if not self.user_connections[user_id]:
@@ -168,12 +153,10 @@ class ConnectionManager:
                 went_offline = True
 
         from app.metrics import set_gauge
+
         set_gauge(
             "active_ws_connections",
-            sum(
-                len(conns)
-                for conns in self.user_connections.values()
-            ),
+            sum(len(conns) for conns in self.user_connections.values()),
         )
 
         if redis_bus.active and went_offline:
@@ -183,9 +166,7 @@ class ConnectionManager:
             try:
                 await redis_bus.mark_offline(user_id)
             except Exception as e:
-                logger.warning(
-                    "Presence registry delete failed: %s", e
-                )
+                logger.warning("Presence registry delete failed: %s", e)
 
         logger.debug(
             "User disconnect: user=%s remaining=%s",
@@ -212,50 +193,32 @@ class ConnectionManager:
         member_ids = set()
 
         result = await db.execute(
-            select(
-                ConversationParticipant
-            ).where(
-                ConversationParticipant.user_id
-                == user_id
-            )
+            select(ConversationParticipant).where(ConversationParticipant.user_id == user_id)
         )
 
         for participant in result.scalars().all():
             peers = await db.execute(
-                select(
-                    ConversationParticipant.user_id
-                ).where(
-                    ConversationParticipant.conversation_id
-                    == participant.conversation_id
+                select(ConversationParticipant.user_id).where(
+                    ConversationParticipant.conversation_id == participant.conversation_id
                 )
             )
-            member_ids.update(
-                peers.scalars().all()
-            )
+            member_ids.update(peers.scalars().all())
 
         self.user_members[user_id] = member_ids
 
         from app.models.block import Block
 
         blocked_result = await db.execute(
-            select(Block.blocked_id).where(
-                Block.blocker_id == user_id
-            )
+            select(Block.blocked_id).where(Block.blocker_id == user_id)
         )
 
-        self.user_blocked[user_id] = set(
-            blocked_result.scalars().all()
-        )
+        self.user_blocked[user_id] = set(blocked_result.scalars().all())
 
         blocked_by_result = await db.execute(
-            select(Block.blocker_id).where(
-                Block.blocked_id == user_id
-            )
+            select(Block.blocker_id).where(Block.blocked_id == user_id)
         )
 
-        self.user_blocked_by[user_id] = set(
-            blocked_by_result.scalars().all()
-        )
+        self.user_blocked_by[user_id] = set(blocked_by_result.scalars().all())
 
         logger.debug(
             "WS members cached: user=%s members=%d",
@@ -271,8 +234,7 @@ class ConnectionManager:
         from app.models.conversation_participant import (
             ConversationParticipant,
         )
-        from sqlalchemy import select
-        from sqlalchemy import text
+        from sqlalchemy import select, text
 
         # Enumerate peers from the caller's perspective. With no
         # user in hand (broadcast fan-out from system tasks) the
@@ -281,18 +243,13 @@ class ConnectionManager:
         async with AsyncSessionLocal() as db:
             if db.bind.dialect.name == "postgresql":
                 await db.execute(
-                    text(
-                        "SELECT set_config('app.current_user_id', :uid, true)"
-                    ),
+                    text("SELECT set_config('app.current_user_id', :uid, true)"),
                     {"uid": str(user_id) if user_id else "system"},
                 )
 
             result = await db.execute(
-                select(
-                    ConversationParticipant.user_id
-                ).where(
-                    ConversationParticipant.conversation_id
-                    == conversation_id
+                select(ConversationParticipant.user_id).where(
+                    ConversationParticipant.conversation_id == conversation_id
                 )
             )
 
@@ -305,24 +262,18 @@ class ConnectionManager:
         from app.models.conversation_participant import (
             ConversationParticipant,
         )
-        from sqlalchemy import select
-        from sqlalchemy import text
+        from sqlalchemy import select, text
 
         async with AsyncSessionLocal() as db:
             if db.bind.dialect.name == "postgresql":
                 await db.execute(
-                    text(
-                        "SELECT set_config('app.current_user_id', :uid, true)"
-                    ),
+                    text("SELECT set_config('app.current_user_id', :uid, true)"),
                     {"uid": str(user_id)},
                 )
 
             result = await db.execute(
-                select(
-                    ConversationParticipant.conversation_id
-                ).where(
-                    ConversationParticipant.user_id
-                    == user_id
+                select(ConversationParticipant.conversation_id).where(
+                    ConversationParticipant.user_id == user_id
                 )
             )
 
@@ -337,16 +288,12 @@ class ConnectionManager:
         if cached is not None:
             return cached
 
-        conversation_ids = (
-            await self._user_conversation_ids(user_id)
-        )
+        conversation_ids = await self._user_conversation_ids(user_id)
 
         peers = set()
 
         for conversation_id in conversation_ids:
-            peers.update(
-                await self._member_ids(conversation_id)
-            )
+            peers.update(await self._member_ids(conversation_id))
 
         self.user_members[user_id] = peers
 
@@ -371,37 +318,24 @@ class ConnectionManager:
         blocked_by = self.user_blocked_by.get(user_id)
 
         if blocked is None or blocked_by is None:
-
             if cached_only:
-                return (
-                    (blocked or set())
-                    | (blocked_by or set())
-                )
+                return (blocked or set()) | (blocked_by or set())
 
             from app.models.block import Block
             from sqlalchemy import select
 
             async with AsyncSessionLocal() as db:
-
                 blocked_result = await db.execute(
-                    select(Block.blocked_id).where(
-                        Block.blocker_id == user_id
-                    )
+                    select(Block.blocked_id).where(Block.blocker_id == user_id)
                 )
 
                 blocked_by_result = await db.execute(
-                    select(Block.blocker_id).where(
-                        Block.blocked_id == user_id
-                    )
+                    select(Block.blocker_id).where(Block.blocked_id == user_id)
                 )
 
-                blocked = set(
-                    blocked_result.scalars().all()
-                )
+                blocked = set(blocked_result.scalars().all())
 
-                blocked_by = set(
-                    blocked_by_result.scalars().all()
-                )
+                blocked_by = set(blocked_by_result.scalars().all())
 
                 self.user_blocked[user_id] = blocked
                 self.user_blocked_by[user_id] = blocked_by
@@ -495,13 +429,10 @@ class ConnectionManager:
         """
 
         if redis_bus.active:
-
             try:
                 entries = await redis_bus.pending_calls()
             except Exception as e:
-                logger.warning(
-                    "Pending-call lookup failed: %s", e
-                )
+                logger.warning("Pending-call lookup failed: %s", e)
                 return
 
             for entry in entries:
@@ -524,14 +455,12 @@ class ConnectionManager:
             return
 
         for _call_id, pending in list(self.pending_calls.items()):
-
             members = await self._member_ids(
                 UUID(pending["conversation_id"]),
                 user_id=user_id,
             )
 
             if user_id in members:
-
                 await self.deliver_local(
                     user_id,
                     pending["payload"],
@@ -553,9 +482,7 @@ class ConnectionManager:
                     PENDING_CALL_TTL_SECONDS,
                 )
             except Exception as e:
-                logger.warning(
-                    "Pending-call store failed: %s", e
-                )
+                logger.warning("Pending-call store failed: %s", e)
             return
 
         self._sweep_pending_calls()
@@ -563,10 +490,7 @@ class ConnectionManager:
         self.pending_calls[payload["call_id"]] = {
             "conversation_id": str(conversation_id),
             "payload": payload,
-            "expires_at": (
-                time.monotonic()
-                + PENDING_CALL_TTL_SECONDS
-            ),
+            "expires_at": (time.monotonic() + PENDING_CALL_TTL_SECONDS),
         }
 
     async def drop_pending_call(self, call_id: str) -> None:
@@ -576,9 +500,7 @@ class ConnectionManager:
             try:
                 await redis_bus.drop_pending_call(call_id)
             except Exception as e:
-                logger.warning(
-                    "Pending-call drop failed: %s", e
-                )
+                logger.warning("Pending-call drop failed: %s", e)
             return
 
         self.pending_calls.pop(call_id, None)
@@ -598,15 +520,9 @@ class ConnectionManager:
         if redis_bus.active:
             try:
                 raw = await redis_bus.online_user_ids()
-                return {
-                    UUID(value)
-                    for value in raw
-                    if value
-                }
+                return {UUID(value) for value in raw if value}
             except Exception as e:
-                logger.warning(
-                    "Online-set lookup failed: %s", e
-                )
+                logger.warning("Online-set lookup failed: %s", e)
 
         return set(self.user_connections.keys())
 
@@ -641,16 +557,11 @@ class ConnectionManager:
         message: dict,
         exclude_user_ids: set[UUID] | None = None,
     ):
-        member_ids = await self._member_ids(
-            conversation_id
-        )
+        member_ids = await self._member_ids(conversation_id)
 
         if exclude_user_ids:
-
             member_ids = [
-                member_id
-                for member_id in member_ids
-                if member_id not in exclude_user_ids
+                member_id for member_id in member_ids if member_id not in exclude_user_ids
             ]
 
         for member_id in member_ids:
@@ -664,9 +575,7 @@ class ConnectionManager:
         conversation_id: UUID,
         message: dict,
     ):
-        member_ids = await self._member_ids(
-            conversation_id
-        )
+        member_ids = await self._member_ids(conversation_id)
 
         for member_id in member_ids:
             await self.send_to_user(
@@ -736,9 +645,7 @@ class ConnectionManager:
                 dead.append(websocket)
 
         if dead:
-
             for ws in dead:
-
                 await self.disconnect_user(
                     user_id,
                     ws,
@@ -763,10 +670,7 @@ class ConnectionManager:
                     e,
                 )
 
-        return (
-            user_id in self.user_connections
-            and len(self.user_connections[user_id]) > 0
-        )
+        return user_id in self.user_connections and len(self.user_connections[user_id]) > 0
 
     async def _connected_at(
         self,
@@ -832,18 +736,13 @@ class ConnectionManager:
             if not await self.is_online(peer_id):
                 continue
 
-            peer_connected_at = (
-                await self._connected_at(peer_id)
-            )
+            peer_connected_at = await self._connected_at(peer_id)
 
             # Only peers who were already online when this user
             # connected belong in the snapshot: a peer who connects
             # later announces themselves in their own connect
             # broadcast, so echoing them here would be a duplicate.
-            if (
-                peer_connected_at is None
-                or peer_connected_at > connected_at
-            ):
+            if peer_connected_at is None or peer_connected_at > connected_at:
                 continue
 
             await self.send_to_user(
@@ -861,9 +760,7 @@ class ConnectionManager:
 
     def online_users(self):
 
-        return list(
-            self.user_connections.keys()
-        )
+        return list(self.user_connections.keys())
 
 
 manager = ConnectionManager()

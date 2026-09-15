@@ -21,9 +21,7 @@ class OTPCode(Base, TimestampMixin):
 
     __tablename__ = "otp_codes"
 
-    __table_args__ = (
-        Index("ix_otp_email_expires", "email", "expires_at"),
-    )
+    __table_args__ = (Index("ix_otp_email_expires", "email", "expires_at"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         Uuid,

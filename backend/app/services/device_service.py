@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from app.models.device import (
@@ -45,12 +45,12 @@ class DeviceService:
         device_name: str | None = None,
         platform_version: str | None = None,
         app_version: str | None = None,
-        identity_key_public: str,                # b64 Ed25519 public
-        identity_key_x25519: str,                # b64 X25519 public
-        signed_prekey_public: str,               # b64 X25519 public
+        identity_key_public: str,  # b64 Ed25519 public
+        identity_key_x25519: str,  # b64 X25519 public
+        signed_prekey_public: str,  # b64 X25519 public
         signed_prekey_id: int,
-        signed_prekey_signature: str,            # b64 Ed25519 sig
-        one_time_prekeys: list[dict],            # [{key_id, public_key}]
+        signed_prekey_signature: str,  # b64 Ed25519 sig
+        one_time_prekeys: list[dict],  # [{key_id, public_key}]
     ) -> tuple[Device, dict | None]:
         """Register (or re-register) a device with its PUBLIC key material.
 
@@ -65,15 +65,12 @@ class DeviceService:
         existing = await self.repository.get_by_device_id(device_id)
         recovery_info: dict | None = None
         if existing is not None:
-
             # A device_id is client-chosen ("web-<uuid>") but must be
             # bound to the account that created it. Overwriting key
             # material of another user's device would let anyone
             # hijack that device's identity (permanent MITM).
             if existing.user_id != user.id:
-                raise PermissionError(
-                    "This device is registered to another account."
-                )
+                raise PermissionError("This device is registered to another account.")
 
             existing.identity_key_public = identity_key_public
             existing.identity_key_x25519 = identity_key_x25519
@@ -122,10 +119,7 @@ class DeviceService:
             # First device on the account -> mint the recovery key
             # (unless one already exists). The plaintext code lives
             # only in this return value; server keeps salt + blob.
-            if (
-                user.recovery_salt is None
-                and user.recovery_wrapped_key is None
-            ):
+            if user.recovery_salt is None and user.recovery_wrapped_key is None:
                 recovery = create_recovery_key()
                 user.recovery_salt = recovery["salt"]
                 user.recovery_wrapped_key = recovery["wrapped_key"]
@@ -136,13 +130,9 @@ class DeviceService:
                 }
 
         # Signed prekey (the latest id from the client replaces the old one)
-        existing_spk = await self.repository.get_signed_prekey(
-            device.id, signed_prekey_id
-        )
+        existing_spk = await self.repository.get_signed_prekey(device.id, signed_prekey_id)
         if existing_spk is None:
-            expires = datetime.now(timezone.utc) + timedelta(
-                days=SIGNED_PREKEY_TTL_DAYS
-            )
+            expires = datetime.now(UTC) + timedelta(days=SIGNED_PREKEY_TTL_DAYS)
             await self.repository.create_signed_prekey(
                 SignedPreKey(
                     device_id=device.id,
@@ -187,9 +177,7 @@ class DeviceService:
         """
         stored = []
         for opk in one_time_prekeys:
-            existing = await self.repository.get_one_time_prekey(
-                device.id, opk["key_id"]
-            )
+            existing = await self.repository.get_one_time_prekey(device.id, opk["key_id"])
             if existing is not None:
                 continue
             row = OneTimePreKey(
@@ -223,9 +211,7 @@ class DeviceService:
         previous SPKs as expired, and garbage-collects old
         expired entries that are no longer the latest.
         """
-        expires = datetime.now(timezone.utc) + timedelta(
-            days=SIGNED_PREKEY_TTL_DAYS
-        )
+        expires = datetime.now(UTC) + timedelta(days=SIGNED_PREKEY_TTL_DAYS)
         new_spk = await self.repository.rotate_signed_prekey(
             device.id,
             key_id=key_id,
@@ -233,18 +219,14 @@ class DeviceService:
             signature=signature,
             expires_at=expires,
         )
-        purged = await self.repository.purge_superseded_signed_prekeys(
-            device.id
-        )
+        purged = await self.repository.purge_superseded_signed_prekeys(device.id)
         await self.repository.commit()
 
         return {
             "key_id": new_spk.key_id,
             "public_key": new_spk.public_key,
             "signature": new_spk.signature,
-            "expires_at": new_spk.expires_at.isoformat()
-            if new_spk.expires_at
-            else None,
+            "expires_at": new_spk.expires_at.isoformat() if new_spk.expires_at else None,
             "purged": purged,
         }
 
@@ -272,16 +254,18 @@ class DeviceService:
             spk = spks[0]
 
             if spk.expires_at:
-                exp = spk.expires_at.replace(tzinfo=timezone.utc) if spk.expires_at.tzinfo is None else spk.expires_at
-                if exp < datetime.now(timezone.utc):
+                exp = (
+                    spk.expires_at.replace(tzinfo=UTC)
+                    if spk.expires_at.tzinfo is None
+                    else spk.expires_at
+                )
+                if exp < datetime.now(UTC):
                     continue
 
             # One-time prekeys are single-use: serving one consumes
             # it (atomic conditional UPDATE), so two handshakes can
             # never be built on the same prekey.
-            opks = await self.repository.reserve_one_time_prekeys(
-                device.id, limit=1
-            )
+            opks = await self.repository.reserve_one_time_prekeys(device.id, limit=1)
             opk_data = None
             if opks:
                 opk_data = {
@@ -289,17 +273,19 @@ class DeviceService:
                     "public_key": opks[0].public_key,
                 }
 
-            devices_data.append({
-                "device_id": device.device_id,
-                "identity_key": device.identity_key_public,
-                "x25519_identity_key": device.identity_key_x25519,
-                "signed_prekey": {
-                    "key_id": spk.key_id,
-                    "public_key": spk.public_key,
-                    "signature": spk.signature,
-                },
-                "one_time_prekeys": [opk_data] if opk_data else [],
-            })
+            devices_data.append(
+                {
+                    "device_id": device.device_id,
+                    "identity_key": device.identity_key_public,
+                    "x25519_identity_key": device.identity_key_x25519,
+                    "signed_prekey": {
+                        "key_id": spk.key_id,
+                        "public_key": spk.public_key,
+                        "signature": spk.signature,
+                    },
+                    "one_time_prekeys": [opk_data] if opk_data else [],
+                }
+            )
 
         await self.repository.commit()
         return {"user_id": str(user_id), "devices": devices_data}
@@ -323,10 +309,12 @@ class DeviceService:
             opks = await self.repository.get_unconsumed_one_time_prekeys(
                 device.id, limit=ONE_TIME_PREKEY_TARGET
             )
-            total.append({
-                "device_id": device.device_id,
-                "count": len(opks),
-            })
+            total.append(
+                {
+                    "device_id": device.device_id,
+                    "count": len(opks),
+                }
+            )
         return total
 
     # ================================================================

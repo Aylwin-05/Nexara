@@ -7,7 +7,6 @@ from sqlalchemy import select
 
 
 class AttachmentRepository(BaseRepository):
-
     """
     Repository for Attachment CRUD operations.
     """
@@ -21,23 +20,16 @@ class AttachmentRepository(BaseRepository):
         attachment: Attachment,
     ) -> Attachment:
 
-        return await self.create(
-            attachment
-        )
+        return await self.create(attachment)
 
     async def get_all_storage_filenames(
         self,
     ) -> set[str]:
         """Basenames of every attachment file the DB knows about."""
 
-        result = await self.execute(
-            select(Attachment.storage_path)
-        )
+        result = await self.execute(select(Attachment.storage_path))
 
-        return {
-            Path(path).name
-            for (path,) in result.all()
-        }
+        return {Path(path).name for (path,) in result.all()}
 
     # ==========================================================
     # Get By ID
@@ -48,15 +40,7 @@ class AttachmentRepository(BaseRepository):
         attachment_id: UUID,
     ) -> Attachment | None:
 
-        result = await self.execute(
-
-            select(Attachment).where(
-
-                Attachment.id == attachment_id
-
-            )
-
-        )
+        result = await self.execute(select(Attachment).where(Attachment.id == attachment_id))
 
         return result.scalar_one_or_none()
 
@@ -69,15 +53,7 @@ class AttachmentRepository(BaseRepository):
         message_id: UUID,
     ):
 
-        result = await self.execute(
-
-            select(Attachment)
-
-            .where(
-                Attachment.message_id == message_id
-            )
-
-        )
+        result = await self.execute(select(Attachment).where(Attachment.message_id == message_id))
 
         return result.scalars().all()
 
@@ -90,9 +66,7 @@ class AttachmentRepository(BaseRepository):
         attachment: Attachment,
     ):
 
-        await self.delete(
-            attachment
-        )
+        await self.delete(attachment)
 
     async def delete_attachments_for_message(
         self,
@@ -109,10 +83,7 @@ class AttachmentRepository(BaseRepository):
 
         attachments = await self.get_by_message(message_id)
 
-        paths = [
-            (attachment.storage_path, attachment.thumbnail_path)
-            for attachment in attachments
-        ]
+        paths = [(attachment.storage_path, attachment.thumbnail_path) for attachment in attachments]
 
         for attachment in attachments:
             await self.db.delete(attachment)

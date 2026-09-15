@@ -34,6 +34,6 @@ def rate_limit(
                 status_code=429,
                 detail="Too many requests. Try again later.",
                 headers={"Retry-After": str(exc.retry_after)},
-            )
+            ) from exc
 
     return Depends(dependency)

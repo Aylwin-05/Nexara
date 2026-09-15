@@ -23,12 +23,8 @@ class PushRepository(BaseRepository):
 
         result = await self.execute(
             select(PushSubscription)
-            .where(
-                PushSubscription.user_id == user_id
-            )
-            .order_by(
-                PushSubscription.created_at.asc()
-            )
+            .where(PushSubscription.user_id == user_id)
+            .order_by(PushSubscription.created_at.asc())
         )
 
         return result.scalars().all()
@@ -60,11 +56,7 @@ class PushRepository(BaseRepository):
         endpoint: str,
     ) -> None:
 
-        await self.execute(
-            delete(PushSubscription).where(
-                PushSubscription.endpoint == endpoint
-            )
-        )
+        await self.execute(delete(PushSubscription).where(PushSubscription.endpoint == endpoint))
 
     # ==========================================================
     # App settings (VAPID keypair)
@@ -75,11 +67,7 @@ class PushRepository(BaseRepository):
         key: str,
     ) -> str | None:
 
-        result = await self.execute(
-            select(AppSetting).where(
-                AppSetting.key == key
-            )
-        )
+        result = await self.execute(select(AppSetting).where(AppSetting.key == key))
 
         setting = result.scalar_one_or_none()
 
@@ -91,16 +79,11 @@ class PushRepository(BaseRepository):
         value: str,
     ) -> None:
 
-        result = await self.execute(
-            select(AppSetting).where(
-                AppSetting.key == key
-            )
-        )
+        result = await self.execute(select(AppSetting).where(AppSetting.key == key))
 
         setting = result.scalar_one_or_none()
 
         if setting is None:
-
             await self.create(
                 AppSetting(
                     key=key,
@@ -109,7 +92,6 @@ class PushRepository(BaseRepository):
             )
 
         else:
-
             setting.value = value
 
     async def flush(self):

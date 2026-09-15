@@ -25,7 +25,6 @@ always safe (a uuid string never equals 'system' or '').
 """
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision = "b4d6f8h0j2l4"
@@ -109,9 +108,7 @@ def upgrade() -> None:
     bind = op.get_bind()
 
     for table in ("messages", "conversation_participants", "attachments"):
-        bind.execute(
-            sa.text(f"DROP POLICY IF EXISTS np_{table}_scope ON {table}")
-        )
+        bind.execute(sa.text(f"DROP POLICY IF EXISTS np_{table}_scope ON {table}"))
 
     for stmt in _policies().values():
         bind.execute(stmt)
@@ -125,9 +122,7 @@ def downgrade() -> None:
     uid = "current_setting('app.current_user_id', true)::uuid"
 
     for table in ("messages", "conversation_participants", "attachments"):
-        bind.execute(
-            sa.text(f"DROP POLICY IF EXISTS np_{table}_scope ON {table}")
-        )
+        bind.execute(sa.text(f"DROP POLICY IF EXISTS np_{table}_scope ON {table}"))
 
     bind.execute(
         sa.text(

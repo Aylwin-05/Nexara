@@ -2,7 +2,7 @@ import base64
 import json
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 from uuid import UUID
 
@@ -31,9 +31,7 @@ _client: httpx.AsyncClient | None = None
 
 
 def _b64url_decode(value: str) -> bytes:
-    return base64.urlsafe_b64decode(
-        value + "=" * (-len(value) % 4)
-    )
+    return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
 
 
 def _b64url_encode(value: bytes) -> str:
@@ -132,21 +130,16 @@ class PushService:
         subscription is dead (404/410) and should be dropped.
         """
 
-        private_pem, public_b64 = (
-            await self._ensure_vapid_keys(repo)
-        )
+        private_pem, public_b64 = await self._ensure_vapid_keys(repo)
 
         origin = urlparse(subscription.endpoint)
 
-        audience = (
-            f"{origin.scheme}://{origin.netloc}"
-        )
+        audience = f"{origin.scheme}://{origin.netloc}"
 
         token = jwt.encode(
             {
                 "aud": audience,
-                "exp": int(time.time())
-                + VAPID_TOKEN_TTL_SECONDS,
+                "exp": int(time.time()) + VAPID_TOKEN_TTL_SECONDS,
                 "sub": f"mailto:{settings.SMTP_FROM_EMAIL}",
             },
             private_pem,
@@ -175,8 +168,7 @@ class PushService:
         )
 
         headers = {
-            "Authorization":
-                f"vapid t={token}, k={public_b64}",
+            "Authorization": f"vapid t={token}, k={public_b64}",
             "Content-Encoding": "aes128gcm",
             "TTL": str(ttl or PUSH_TTL_SECONDS),
             "Content-Type": "application/octet-stream",
@@ -220,28 +212,21 @@ class PushService:
     ) -> None:
 
         try:
-
             async with AsyncSessionLocal() as db:
-
                 repo = PushRepository(db)
 
-                subscriptions = (
-                    await repo.get_subscriptions(user_id)
-                )
+                subscriptions = await repo.get_subscriptions(user_id)
 
                 if not subscriptions:
                     return
 
                 for subscription in subscriptions:
-
-                    alive = (
-                        await self._send_to_subscription(
-                            repo,
-                            subscription,
-                            payload,
-                            ttl=ttl,
-                            urgency=urgency,
-                        )
+                    alive = await self._send_to_subscription(
+                        repo,
+                        subscription,
+                        payload,
+                        ttl=ttl,
+                        urgency=urgency,
                     )
 
                     if not alive:
@@ -276,16 +261,12 @@ class PushService:
             return
 
         try:
-
             async with AsyncSessionLocal() as db:
-
                 if db.bind.dialect.name == "postgresql":
                     from sqlalchemy import text
 
                     await db.execute(
-                        text(
-                            "SELECT set_config('app.current_user_id', 'system', true)"
-                        )
+                        text("SELECT set_config('app.current_user_id', 'system', true)")
                     )
 
                 from app.models.conversation_participant import (
@@ -293,32 +274,25 @@ class PushService:
                 )
                 from sqlalchemy import select
 
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
 
                 result = await db.execute(
                     select(
                         ConversationParticipant.user_id,
                         ConversationParticipant.muted_until,
                     ).where(
-                        ConversationParticipant.conversation_id
-                        == conversation_id,
-                        ConversationParticipant.user_id.in_(
-                            recipient_ids
-                        ),
+                        ConversationParticipant.conversation_id == conversation_id,
+                        ConversationParticipant.user_id.in_(recipient_ids),
                     )
                 )
 
                 muted = {
                     user_id
                     for user_id, muted_until in result.all()
-                    if (
-                        muted_until is not None
-                        and self._muted_at(muted_until) > now
-                    )
+                    if (muted_until is not None and self._muted_at(muted_until) > now)
                 }
 
                 for recipient_id in recipient_ids:
-
                     if recipient_id == sender_id:
                         continue
 
@@ -363,14 +337,11 @@ class PushService:
 
         try:
             async with AsyncSessionLocal() as db:
-
                 if db.bind.dialect.name == "postgresql":
                     from sqlalchemy import text
 
                     await db.execute(
-                        text(
-                            "SELECT set_config('app.current_user_id', 'system', true)"
-                        )
+                        text("SELECT set_config('app.current_user_id', 'system', true)")
                     )
 
                 from app.models.conversation_participant import (
@@ -378,26 +349,20 @@ class PushService:
                 )
                 from sqlalchemy import select
 
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 result = await db.execute(
                     select(
                         ConversationParticipant.user_id,
                         ConversationParticipant.muted_until,
                     ).where(
-                        ConversationParticipant.conversation_id
-                        == conversation_id,
-                        ConversationParticipant.user_id.in_(
-                            recipient_ids
-                        ),
+                        ConversationParticipant.conversation_id == conversation_id,
+                        ConversationParticipant.user_id.in_(recipient_ids),
                     )
                 )
                 muted = {
                     uid
                     for uid, muted_until in result.all()
-                    if (
-                        muted_until is not None
-                        and self._muted_at(muted_until) > now
-                    )
+                    if (muted_until is not None and self._muted_at(muted_until) > now)
                 }
 
                 for recipient_id in recipient_ids:
@@ -422,7 +387,7 @@ class PushService:
 
     def _muted_at(self, muted_until):
         if muted_until.tzinfo is None:
-            return muted_until.replace(tzinfo=timezone.utc)
+            return muted_until.replace(tzinfo=UTC)
         return muted_until
 
     # ==========================================================
@@ -449,9 +414,7 @@ class PushService:
             return
 
         try:
-
             for recipient_id in recipient_ids:
-
                 if recipient_id == sender_id:
                     continue
 
@@ -471,7 +434,6 @@ class PushService:
                 )
 
         except Exception:
-
             logger.exception(
                 "Call push fan-out failed for call=%s",
                 call_id,
@@ -490,7 +452,6 @@ class PushService:
     ) -> None:
 
         for friend_id in friend_ids:
-
             await self.notify_user(
                 friend_id,
                 {

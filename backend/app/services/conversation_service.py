@@ -1,5 +1,5 @@
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -59,27 +59,18 @@ class ConversationService:
         a, b = sorted((current_user.id, other_user_id))
         conversation_key = f"{a}:{b}"
 
-        conversation = (
-            await self.conversation_repository.get_by_conversation_key(
-                conversation_key
-            )
-        )
+        conversation = await self.conversation_repository.get_by_conversation_key(conversation_key)
 
         if conversation:
             return conversation
 
         try:
-
             conversation = Conversation(
                 conversation_key=conversation_key,
                 created_by=current_user.id,
             )
 
-            conversation = (
-                await self.conversation_repository.create_conversation(
-                    conversation
-                )
-            )
+            conversation = await self.conversation_repository.create_conversation(conversation)
 
             participant1 = ConversationParticipant(
                 conversation_id=conversation.id,
@@ -91,13 +82,9 @@ class ConversationService:
                 user_id=other_user_id,
             )
 
-            await self.conversation_repository.add_participant(
-                participant1
-            )
+            await self.conversation_repository.add_participant(participant1)
 
-            await self.conversation_repository.add_participant(
-                participant2
-            )
+            await self.conversation_repository.add_participant(participant2)
 
             # --------------------------------------
             # SAVE EVERYTHING
@@ -108,17 +95,13 @@ class ConversationService:
             return conversation
 
         except Exception:
-
             await self.conversation_repository.rollback()
 
             # Two users racing to create the same private chat: one
             # insert wins, the other hits the unique conversation_key
             # constraint. Return the winner's conversation instead of
             # failing or leaving an orphan.
-            winner = (
-                await self.conversation_repository
-                .get_by_conversation_key(conversation_key)
-            )
+            winner = await self.conversation_repository.get_by_conversation_key(conversation_key)
 
             if winner is not None:
                 return winner
@@ -142,9 +125,7 @@ class ConversationService:
             raise ValueError("Group name is required.")
 
         if len(cleaned_name) > 100:
-            raise ValueError(
-                "Group name must be at most 100 characters."
-            )
+            raise ValueError("Group name must be at most 100 characters.")
 
         # Dedupe preserving order and drop the creator — they are
         # added separately as the group's first admin.
@@ -152,43 +133,27 @@ class ConversationService:
         unique_members: list[UUID] = []
 
         for member_id in member_ids:
-            if (
-                member_id == current_user.id
-                or member_id in seen
-            ):
+            if member_id == current_user.id or member_id in seen:
                 continue
             seen.add(member_id)
             unique_members.append(member_id)
 
         if len(unique_members) + 1 > MAX_GROUP_MEMBERS:
-            raise ValueError(
-                f"A group can have at most "
-                f"{MAX_GROUP_MEMBERS} members."
-            )
+            raise ValueError(f"A group can have at most {MAX_GROUP_MEMBERS} members.")
 
         # A group of only the creator makes no sense.
         if not unique_members:
-            raise ValueError(
-                "Add at least one other member to the group."
-            )
+            raise ValueError("Add at least one other member to the group.")
 
         # Members must be accepted friends of the creator.
         if self.friend_repository is not None:
             for member_id in unique_members:
-                friendship = (
-                    await self.friend_repository.get_existing_friendship(
-                        current_user.id,
-                        member_id,
-                    )
+                friendship = await self.friend_repository.get_existing_friendship(
+                    current_user.id,
+                    member_id,
                 )
-                if (
-                    friendship is None
-                    or friendship.status
-                    != FriendRequestStatus.ACCEPTED.value
-                ):
-                    raise ValueError(
-                        "All members must be your friends."
-                    )
+                if friendship is None or friendship.status != FriendRequestStatus.ACCEPTED.value:
+                    raise ValueError("All members must be your friends.")
 
         conversation = Conversation(
             name=cleaned_name,
@@ -196,37 +161,28 @@ class ConversationService:
             created_by=current_user.id,
         )
 
-        conversation = (
-            await self.conversation_repository.create_conversation(
-                conversation
-            )
-        )
+        conversation = await self.conversation_repository.create_conversation(conversation)
 
         creator_participant = ConversationParticipant(
             conversation_id=conversation.id,
             user_id=current_user.id,
             is_admin=True,
         )
-        await self.conversation_repository.add_participant(
-            creator_participant
-        )
+        await self.conversation_repository.add_participant(creator_participant)
 
         for member_id in unique_members:
             participant = ConversationParticipant(
                 conversation_id=conversation.id,
                 user_id=member_id,
             )
-            await self.conversation_repository.add_participant(
-                participant
-            )
+            await self.conversation_repository.add_participant(participant)
 
         # Plaintext membership notice visible to every member.
         await self.message_repository.create_message(
             self._system_message(
                 current_user,
                 conversation.id,
-                f"{current_user.display_name} created "
-                f"the group",
+                f"{current_user.display_name} created the group",
             )
         )
 
@@ -241,36 +197,23 @@ class ConversationService:
         current_user: User,
     ):
 
-        conversations = (
-            await self.conversation_repository.get_user_conversations(
-                current_user.id
-            )
-        )
+        conversations = await self.conversation_repository.get_user_conversations(current_user.id)
 
-        conversation_ids = [
-            conversation.id
-            for conversation in conversations
-        ]
+        conversation_ids = [conversation.id for conversation in conversations]
 
         # Batched lookups: a fixed handful of queries instead of
         # 3-5 per conversation (N+1 on the hot sidebar path).
-        participants_by_conversation = (
-            await self.conversation_repository.get_participants_for_user(
-                conversation_ids,
-                current_user.id,
-            )
+        participants_by_conversation = await self.conversation_repository.get_participants_for_user(
+            conversation_ids,
+            current_user.id,
         )
-        last_messages_by_conversation = (
-            await self.message_repository.get_last_messages_for_user(
-                conversation_ids,
-                current_user.id,
-            )
+        last_messages_by_conversation = await self.message_repository.get_last_messages_for_user(
+            conversation_ids,
+            current_user.id,
         )
-        unread_by_conversation = (
-            await self.message_repository.count_unread_by_conversation(
-                conversation_ids,
-                current_user.id,
-            )
+        unread_by_conversation = await self.message_repository.count_unread_by_conversation(
+            conversation_ids,
+            current_user.id,
         )
         participant_counts_by_conversation = (
             await self.conversation_repository.get_participant_counts(
@@ -281,24 +224,17 @@ class ConversationService:
                 ]
             )
         )
-        other_users_by_conversation = (
-            await self.conversation_repository.get_other_users(
-                conversation_ids,
-                current_user.id,
-            )
+        other_users_by_conversation = await self.conversation_repository.get_other_users(
+            conversation_ids,
+            current_user.id,
         )
 
         response = []
 
         for conversation in conversations:
+            participant = participants_by_conversation.get(conversation.id)
 
-            participant = participants_by_conversation.get(
-                conversation.id
-            )
-
-            last_message = last_messages_by_conversation.get(
-                conversation.id
-            )
+            last_message = last_messages_by_conversation.get(conversation.id)
 
             unread_count = unread_by_conversation.get(
                 conversation.id,
@@ -308,15 +244,12 @@ class ConversationService:
             muted = False
 
             if participant is not None and participant.muted_until:
-
                 muted_until = participant.muted_until
 
                 if muted_until.tzinfo is None:
-                    muted_until = muted_until.replace(
-                        tzinfo=timezone.utc
-                    )
+                    muted_until = muted_until.replace(tzinfo=UTC)
 
-                muted = muted_until > datetime.now(timezone.utc)
+                muted = muted_until > datetime.now(UTC)
 
             payload = {
                 "id": conversation.id,
@@ -337,42 +270,25 @@ class ConversationService:
                     else None
                 ),
                 "unread_count": unread_count or 0,
-                "is_pinned": (
-                    participant.is_pinned
-                    if participant is not None
-                    else False
-                ),
-                "is_archived": (
-                    participant.is_archived
-                    if participant is not None
-                    else False
-                ),
+                "is_pinned": (participant.is_pinned if participant is not None else False),
+                "is_archived": (participant.is_archived if participant is not None else False),
                 "muted": muted,
-                "disappear_after_seconds": (
-                    conversation.disappear_after_seconds
-                ),
+                "disappear_after_seconds": (conversation.disappear_after_seconds),
                 "delete_requested_by": conversation.delete_requested_by,
                 "delete_requested_at": conversation.delete_requested_at,
             }
 
             if conversation.conversation_type == "group":
-                payload["participant_count"] = (
-                    participant_counts_by_conversation.get(
-                        conversation.id
-                    )
-                )
-
-            else:
-                other_user = other_users_by_conversation.get(
+                payload["participant_count"] = participant_counts_by_conversation.get(
                     conversation.id
                 )
 
-                if other_user is not None:
+            else:
+                other_user = other_users_by_conversation.get(conversation.id)
 
+                if other_user is not None:
                     other_user.online_status = (
-                        "online"
-                        if await manager.is_online(other_user.id)
-                        else "offline"
+                        "online" if await manager.is_online(other_user.id) else "offline"
                     )
 
                     payload["other_user"] = other_user
@@ -385,9 +301,7 @@ class ConversationService:
                 bool(item["is_pinned"]),
                 item["updated_at"]
                 if item["updated_at"].tzinfo
-                else item["updated_at"].replace(
-                    tzinfo=timezone.utc
-                ),
+                else item["updated_at"].replace(tzinfo=UTC),
             ),
             reverse=True,
         )
@@ -402,9 +316,7 @@ class ConversationService:
         self,
         conversation_id: UUID,
     ):
-        return await self.conversation_repository.get_participants(
-            conversation_id
-        )
+        return await self.conversation_repository.get_participants(conversation_id)
 
     # ==========================================================
     # Internal Helpers (groups / deletion / settings)
@@ -415,20 +327,13 @@ class ConversationService:
         conversation_id: UUID,
     ) -> Conversation:
 
-        conversation = (
-            await self.conversation_repository.get_by_id(
-                conversation_id
-            )
-        )
+        conversation = await self.conversation_repository.get_by_id(conversation_id)
 
         if conversation is None:
             raise ValueError("Conversation not found.")
 
         if conversation.conversation_type != "group":
-            raise ValueError(
-                "This action applies only to group "
-                "conversations."
-            )
+            raise ValueError("This action applies only to group conversations.")
 
         return conversation
 
@@ -438,17 +343,13 @@ class ConversationService:
         user_id: UUID,
     ) -> ConversationParticipant:
 
-        participant = (
-            await self.conversation_repository.get_participant(
-                conversation_id,
-                user_id,
-            )
+        participant = await self.conversation_repository.get_participant(
+            conversation_id,
+            user_id,
         )
 
         if participant is None:
-            raise PermissionError(
-                "You are not a member of this group."
-            )
+            raise PermissionError("You are not a member of this group.")
 
         return participant
 
@@ -477,11 +378,7 @@ class ConversationService:
             "token": link.token,
             "conversation_id": str(link.conversation_id),
             "revoked": link.revoked,
-            "expires_at": (
-                link.expires_at.isoformat()
-                if link.expires_at
-                else None
-            ),
+            "expires_at": (link.expires_at.isoformat() if link.expires_at else None),
         }
 
     async def _purge_conversation(
@@ -490,26 +387,17 @@ class ConversationService:
     ) -> None:
         """Full wipe used by two-party consent deletion."""
 
-        attachments = (
-            await self.message_repository
-            .get_conversation_attachments(conversation_id)
-        )
+        attachments = await self.message_repository.get_conversation_attachments(conversation_id)
 
         for attachment in attachments:
-
             if attachment.storage_path:
-
                 path = Path(attachment.storage_path)
 
                 path.unlink(missing_ok=True)
 
-        await self.message_repository.delete_conversation_content(
-            conversation_id
-        )
+        await self.message_repository.delete_conversation_content(conversation_id)
 
-        await self.conversation_repository.delete_conversation_record(
-            conversation_id
-        )
+        await self.conversation_repository.delete_conversation_record(conversation_id)
 
     # ==========================================================
     # Group Detail
@@ -521,47 +409,35 @@ class ConversationService:
         conversation_id: UUID,
     ) -> dict:
 
-        conversation = await self._group_conversation(
-            conversation_id
-        )
+        conversation = await self._group_conversation(conversation_id)
 
         me = await self._require_participant(
             conversation_id,
             current_user.id,
         )
 
-        rows = (
-            await self.conversation_repository
-            .get_participants_with_users(conversation_id)
-        )
+        rows = await self.conversation_repository.get_participants_with_users(conversation_id)
 
         participants = []
 
         for participant, user, public_key in rows:
-
-            participants.append({
-                "user_id": str(user.id),
-                "display_name": user.display_name,
-                "username": user.username,
-                "public_key": public_key,
-                "is_admin": participant.is_admin,
-                "online_status": (
-                    "online"
-                    if await manager.is_online(user.id)
-                    else "offline"
-                ),
-            })
+            participants.append(
+                {
+                    "user_id": str(user.id),
+                    "display_name": user.display_name,
+                    "username": user.username,
+                    "public_key": public_key,
+                    "is_admin": participant.is_admin,
+                    "online_status": ("online" if await manager.is_online(user.id) else "offline"),
+                }
+            )
 
         return {
             "id": str(conversation.id),
             "name": conversation.name,
             "description": conversation.description,
             "avatar_url": conversation.avatar_url,
-            "created_by": (
-                str(conversation.created_by)
-                if conversation.created_by
-                else None
-            ),
+            "created_by": (str(conversation.created_by) if conversation.created_by else None),
             "is_admin": me.is_admin,
             "participant_count": len(participants),
             "participants": participants,
@@ -578,9 +454,7 @@ class ConversationService:
         admin_only: bool = True,
     ) -> Conversation:
 
-        conversation = await self._group_conversation(
-            conversation_id
-        )
+        conversation = await self._group_conversation(conversation_id)
 
         participant = await self._require_participant(
             conversation_id,
@@ -588,9 +462,7 @@ class ConversationService:
         )
 
         if admin_only and not participant.is_admin:
-            raise PermissionError(
-                "Only group admins can change the group avatar."
-            )
+            raise PermissionError("Only group admins can change the group avatar.")
 
         return conversation
 
@@ -605,8 +477,7 @@ class ConversationService:
             self._system_message(
                 actor,
                 conversation.id,
-                f"{actor.display_name} changed "
-                f"the group photo",
+                f"{actor.display_name} changed the group photo",
             )
         )
 
@@ -633,9 +504,7 @@ class ConversationService:
         member_ids: list[UUID],
     ) -> dict:
 
-        conversation = await self._group_conversation(
-            conversation_id
-        )
+        conversation = await self._group_conversation(conversation_id)
 
         await self._require_participant(
             conversation_id,
@@ -643,38 +512,24 @@ class ConversationService:
         )
 
         if not await self._is_admin(conversation, current_user.id):
-            raise PermissionError(
-                "Only group admins can add members."
-            )
+            raise PermissionError("Only group admins can add members.")
 
         if self.friend_repository is not None:
-
             for member_id in member_ids:
-
                 if member_id == current_user.id:
                     continue
 
-                friendship = (
-                    await self.friend_repository.get_existing_friendship(
-                        current_user.id,
-                        member_id,
-                    )
+                friendship = await self.friend_repository.get_existing_friendship(
+                    current_user.id,
+                    member_id,
                 )
 
-                if (
-                    friendship is None
-                    or friendship.status
-                    != FriendRequestStatus.ACCEPTED.value
-                ):
-                    raise ValueError(
-                        "All members must be your friends."
-                    )
+                if friendship is None or friendship.status != FriendRequestStatus.ACCEPTED.value:
+                    raise ValueError("All members must be your friends.")
 
         existing = {
             row.user_id
-            for row in await self.conversation_repository.get_participants(
-                conversation_id
-            )
+            for row in await self.conversation_repository.get_participants(conversation_id)
         }
 
         added_ids: list[UUID] = []
@@ -682,12 +537,7 @@ class ConversationService:
         seen: set[UUID] = set()
 
         for member_id in member_ids:
-
-            if (
-                member_id == current_user.id
-                or member_id in existing
-                or member_id in seen
-            ):
+            if member_id == current_user.id or member_id in existing or member_id in seen:
                 continue
 
             seen.add(member_id)
@@ -696,15 +546,11 @@ class ConversationService:
         count = len(existing)
 
         if count + len(added_ids) > MAX_GROUP_MEMBERS:
-            raise ValueError(
-                f"A group can have at most "
-                f"{MAX_GROUP_MEMBERS} members."
-            )
+            raise ValueError(f"A group can have at most {MAX_GROUP_MEMBERS} members.")
 
         added_users: list[User] = []
 
         for member_id in added_ids:
-
             user = await self._get_user(member_id)
 
             if user is None:
@@ -720,11 +566,7 @@ class ConversationService:
             added_users.append(user)
 
         if added_users:
-
-            names = ", ".join(
-                user.display_name or user.email
-                for user in added_users
-            )
+            names = ", ".join(user.display_name or user.email for user in added_users)
 
             message = self._system_message(
                 current_user,
@@ -742,15 +584,9 @@ class ConversationService:
             # Cached peer sets are stale now - refresh them
             # everywhere so presence fan-out reaches the new
             # member without waiting for reconnects.
-            members = (
-                await self.conversation_repository.get_participants(
-                    conversation_id
-                )
-            )
+            members = await self.conversation_repository.get_participants(conversation_id)
 
-            await manager.invalidate_members(
-                [row.user_id for row in members]
-            )
+            await manager.invalidate_members([row.user_id for row in members])
 
         return {
             "status": "added",
@@ -763,16 +599,12 @@ class ConversationService:
         user_id: UUID,
     ) -> bool:
 
-        participant = (
-            await self.conversation_repository.get_participant(
-                conversation.id,
-                user_id,
-            )
+        participant = await self.conversation_repository.get_participant(
+            conversation.id,
+            user_id,
         )
 
-        return bool(
-            participant is not None and participant.is_admin
-        )
+        return bool(participant is not None and participant.is_admin)
 
     async def _get_user(self, user_id: UUID) -> User | None:
 
@@ -780,9 +612,7 @@ class ConversationService:
             UserRepository,
         )
 
-        repository = UserRepository(
-            self.conversation_repository.db
-        )
+        repository = UserRepository(self.conversation_repository.db)
 
         return await repository.get_by_id(user_id)
 
@@ -796,9 +626,7 @@ class ConversationService:
         conversation_id: UUID,
     ) -> dict:
 
-        await self._group_conversation(
-            conversation_id
-        )
+        await self._group_conversation(conversation_id)
 
         leaver = await self._require_participant(
             conversation_id,
@@ -812,34 +640,23 @@ class ConversationService:
             current_user.id,
         )
 
-        remaining_rows = (
-            await self.conversation_repository
-            .get_participants_with_users(conversation_id)
+        remaining_rows = await self.conversation_repository.get_participants_with_users(
+            conversation_id
         )
 
         if not remaining_rows:
+            await self.conversation_repository.revoke_invite_links(conversation_id)
 
-            await self.conversation_repository.revoke_invite_links(
-                conversation_id
-            )
+            await self.message_repository.delete_conversation_content(conversation_id)
 
-            await self.message_repository.delete_conversation_content(
-                conversation_id
-            )
-
-            await self.conversation_repository.delete_conversation_record(
-                conversation_id
-            )
+            await self.conversation_repository.delete_conversation_record(conversation_id)
 
             await self.conversation_repository.commit()
 
             return {"status": "deleted"}
 
         if was_admin:
-
-            remaining_rows.sort(
-                key=lambda row: row[0].joined_at
-            )
+            remaining_rows.sort(key=lambda row: row[0].joined_at)
 
             successor = remaining_rows[0][0]
 
@@ -855,9 +672,7 @@ class ConversationService:
 
         await self.conversation_repository.commit()
 
-        await manager.invalidate_members(
-            [row[0].user_id for row in remaining_rows]
-        )
+        await manager.invalidate_members([row[0].user_id for row in remaining_rows])
 
         return {"status": "left"}
 
@@ -873,60 +688,44 @@ class ConversationService:
         description: str | None = None,
     ) -> dict:
 
-        conversation = await self._group_conversation(
-            conversation_id
-        )
+        conversation = await self._group_conversation(conversation_id)
 
         if not await self._is_admin(conversation, current_user.id):
-            raise PermissionError(
-                "Only group admins can update the group."
-            )
+            raise PermissionError("Only group admins can update the group.")
 
         if name is not None:
-
             cleaned = name.strip()
 
             if not cleaned:
                 raise ValueError("Group name is required.")
 
             if len(cleaned) > 100:
-                raise ValueError(
-                    "Group name must be at most 100 characters."
-                )
+                raise ValueError("Group name must be at most 100 characters.")
 
             if cleaned != conversation.name:
-
                 conversation.name = cleaned
 
                 message = self._system_message(
                     current_user,
                     conversation_id,
-                    f"{current_user.display_name} changed "
-                    f"the group name to \"{cleaned}\"",
+                    f'{current_user.display_name} changed the group name to "{cleaned}"',
                 )
 
-                await self.message_repository.create_message(
-                    message
-                )
+                await self.message_repository.create_message(message)
 
         if description is not None:
-
             cleaned_description = description.strip() or None
 
             if cleaned_description != conversation.description:
-
                 conversation.description = cleaned_description
 
                 message = self._system_message(
                     current_user,
                     conversation_id,
-                    f"{current_user.display_name} changed "
-                    f"the group description",
+                    f"{current_user.display_name} changed the group description",
                 )
 
-                await self.message_repository.create_message(
-                    message
-                )
+                await self.message_repository.create_message(message)
 
         await self.conversation_repository.save()
 
@@ -949,19 +748,13 @@ class ConversationService:
         user_id: UUID,
     ) -> dict:
 
-        conversation = await self._group_conversation(
-            conversation_id
-        )
+        conversation = await self._group_conversation(conversation_id)
 
         if not await self._is_admin(conversation, current_user.id):
-            raise PermissionError(
-                "Only group admins can remove members."
-            )
+            raise PermissionError("Only group admins can remove members.")
 
         if user_id == conversation.created_by:
-            raise ValueError(
-                "The group creator cannot be removed."
-            )
+            raise ValueError("The group creator cannot be removed.")
 
         target = await self._require_participant(
             conversation_id,
@@ -977,32 +770,22 @@ class ConversationService:
         )
 
         target_name = (
-            target_user.display_name
-            or target_user.email
-            if target_user is not None
-            else "a member"
+            target_user.display_name or target_user.email if target_user is not None else "a member"
         )
 
         message = self._system_message(
             current_user,
             conversation_id,
-            f"{current_user.display_name} removed "
-            f"{target_name}",
+            f"{current_user.display_name} removed {target_name}",
         )
 
         await self.message_repository.create_message(message)
 
         await self.conversation_repository.commit()
 
-        members = (
-            await self.conversation_repository.get_participants(
-                conversation_id
-            )
-        )
+        members = await self.conversation_repository.get_participants(conversation_id)
 
-        await manager.invalidate_members(
-            [row.user_id for row in members] + [user_id]
-        )
+        await manager.invalidate_members([row.user_id for row in members] + [user_id])
 
         return {"status": "removed"}
 
@@ -1018,14 +801,10 @@ class ConversationService:
         is_admin: bool,
     ) -> dict:
 
-        conversation = await self._group_conversation(
-            conversation_id
-        )
+        conversation = await self._group_conversation(conversation_id)
 
         if not await self._is_admin(conversation, current_user.id):
-            raise PermissionError(
-                "Only group admins can change roles."
-            )
+            raise PermissionError("Only group admins can change roles.")
 
         target = await self._require_participant(
             conversation_id,
@@ -1035,31 +814,19 @@ class ConversationService:
         target_user = await self._get_user(user_id)
 
         target_name = (
-            target_user.display_name
-            or target_user.email
-            if target_user is not None
-            else "a member"
+            target_user.display_name or target_user.email if target_user is not None else "a member"
         )
 
         if not is_admin:
-
             if user_id == conversation.created_by:
-                raise ValueError(
-                    "The group creator cannot be demoted."
-                )
+                raise ValueError("The group creator cannot be demoted.")
 
             if user_id == current_user.id:
-                raise ValueError(
-                    "You cannot demote yourself."
-                )
+                raise ValueError("You cannot demote yourself.")
 
         target.is_admin = is_admin
 
-        action = (
-            f"made {target_name} an admin"
-            if is_admin
-            else f"demoted {target_name}"
-        )
+        action = f"made {target_name} an admin" if is_admin else f"demoted {target_name}"
 
         message = self._system_message(
             current_user,
@@ -1086,19 +853,13 @@ class ConversationService:
         conversation_id: UUID,
     ) -> dict:
 
-        conversation = await self._group_conversation(
-            conversation_id
-        )
+        conversation = await self._group_conversation(conversation_id)
 
         if not await self._is_admin(conversation, current_user.id):
-            raise PermissionError(
-                "Only group admins can manage invite links."
-            )
+            raise PermissionError("Only group admins can manage invite links.")
 
         # Generating a new link invalidates every previous one.
-        await self.conversation_repository.revoke_invite_links(
-            conversation_id
-        )
+        await self.conversation_repository.revoke_invite_links(conversation_id)
 
         link = GroupInviteLink(
             conversation_id=conversation_id,
@@ -1108,9 +869,7 @@ class ConversationService:
             revoked=False,
         )
 
-        link = await self.conversation_repository.add_invite_link(
-            link
-        )
+        link = await self.conversation_repository.add_invite_link(link)
 
         await self.conversation_repository.commit()
 
@@ -1122,20 +881,12 @@ class ConversationService:
         conversation_id: UUID,
     ) -> dict | None:
 
-        conversation = await self._group_conversation(
-            conversation_id
-        )
+        conversation = await self._group_conversation(conversation_id)
 
         if not await self._is_admin(conversation, current_user.id):
-            raise PermissionError(
-                "Only group admins can view invite links."
-            )
+            raise PermissionError("Only group admins can view invite links.")
 
-        link = (
-            await self.conversation_repository.get_active_invite_link(
-                conversation_id
-            )
-        )
+        link = await self.conversation_repository.get_active_invite_link(conversation_id)
 
         if link is None:
             return None
@@ -1148,18 +899,12 @@ class ConversationService:
         conversation_id: UUID,
     ) -> dict:
 
-        conversation = await self._group_conversation(
-            conversation_id
-        )
+        conversation = await self._group_conversation(conversation_id)
 
         if not await self._is_admin(conversation, current_user.id):
-            raise PermissionError(
-                "Only group admins can revoke invite links."
-            )
+            raise PermissionError("Only group admins can revoke invite links.")
 
-        await self.conversation_repository.revoke_invite_links(
-            conversation_id
-        )
+        await self.conversation_repository.revoke_invite_links(conversation_id)
 
         await self.conversation_repository.commit()
 
@@ -1181,55 +926,33 @@ class ConversationService:
         if "/" in raw_token:
             raw_token = raw_token.rstrip("/").rsplit("/", 1)[-1]
 
-        link = (
-            await self.conversation_repository.get_invite_link_by_token(
-                raw_token
-            )
-        )
+        link = await self.conversation_repository.get_invite_link_by_token(raw_token)
 
-        invalid = PermissionError(
-            "This invite link is invalid or has been revoked."
-        )
+        invalid = PermissionError("This invite link is invalid or has been revoked.")
 
         if link is None:
             raise invalid
 
-        active = (
-            await self.conversation_repository.get_active_invite_link(
-                link.conversation_id
-            )
-        )
+        active = await self.conversation_repository.get_active_invite_link(link.conversation_id)
 
         if active is None or active.id != link.id:
             raise invalid
 
-        conversation = (
-            await self.conversation_repository.get_by_id(
-                link.conversation_id
-            )
-        )
+        conversation = await self.conversation_repository.get_by_id(link.conversation_id)
 
-        if (
-            conversation is None
-            or conversation.conversation_type != "group"
-        ):
+        if conversation is None or conversation.conversation_type != "group":
             raise invalid
 
-        existing = (
-            await self.conversation_repository.get_participant(
-                conversation.id,
-                current_user.id,
-            )
+        existing = await self.conversation_repository.get_participant(
+            conversation.id,
+            current_user.id,
         )
 
-        participant_count = (
-            await self.conversation_repository.get_participant_count(
-                conversation.id
-            )
+        participant_count = await self.conversation_repository.get_participant_count(
+            conversation.id
         )
 
         if existing is not None:
-
             return {
                 "status": "already_member",
                 "conversation_id": str(conversation.id),
@@ -1253,15 +976,9 @@ class ConversationService:
 
         await self.conversation_repository.commit()
 
-        members = (
-            await self.conversation_repository.get_participants(
-                conversation.id
-            )
-        )
+        members = await self.conversation_repository.get_participants(conversation.id)
 
-        await manager.invalidate_members(
-            [row.user_id for row in members]
-        )
+        await manager.invalidate_members([row.user_id for row in members])
 
         return {
             "status": "joined",
@@ -1279,20 +996,13 @@ class ConversationService:
         conversation_id: UUID,
     ) -> Conversation:
 
-        conversation = (
-            await self.conversation_repository.get_by_id(
-                conversation_id
-            )
-        )
+        conversation = await self.conversation_repository.get_by_id(conversation_id)
 
         if conversation is None:
             raise ValueError("Conversation not found.")
 
         if conversation.conversation_type != "private":
-            raise ValueError(
-                "Two-party deletion applies only to private "
-                "conversations."
-            )
+            raise ValueError("Two-party deletion applies only to private conversations.")
 
         await self._require_participant(
             conversation_id,
@@ -1312,14 +1022,9 @@ class ConversationService:
             conversation_id,
         )
 
-        already_requested = (
-            conversation.delete_requested_by is not None
-        )
+        already_requested = conversation.delete_requested_by is not None
 
-        if already_requested and (
-            conversation.delete_requested_by != current_user.id
-        ):
-
+        if already_requested and (conversation.delete_requested_by != current_user.id):
             # The other party already asked: this request IS the
             # mutual consent. Wipe everything immediately.
             await self._purge_conversation(conversation_id)
@@ -1337,25 +1042,16 @@ class ConversationService:
             return {"status": "deleted"}
 
         if not already_requested:
-
             conversation.delete_requested_by = current_user.id
 
-            conversation.delete_requested_at = datetime.now(
-                timezone.utc
+            conversation.delete_requested_at = datetime.now(UTC)
+
+            other_user = await self.conversation_repository.get_other_user(
+                conversation_id,
+                current_user.id,
             )
 
-            other_user = (
-                await self.conversation_repository.get_other_user(
-                    conversation_id,
-                    current_user.id,
-                )
-            )
-
-            exclude = (
-                {other_user.id}
-                if other_user is not None
-                else None
-            )
+            exclude = {other_user.id} if other_user is not None else None
 
             # Persist BEFORE broadcasting: a broadcast opens its
             # own DB session and would discard an open flush.
@@ -1372,10 +1068,7 @@ class ConversationService:
                         if conversation.delete_requested_at
                         else None
                     ),
-                    "requested_by_name": (
-                        current_user.display_name
-                        or current_user.email
-                    ),
+                    "requested_by_name": (current_user.display_name or current_user.email),
                 },
                 exclude_user_ids=exclude,
             )
@@ -1401,12 +1094,9 @@ class ConversationService:
 
         if (
             conversation.delete_requested_by is None
-            or conversation.delete_requested_by
-            == current_user.id
+            or conversation.delete_requested_by == current_user.id
         ):
-            raise ValueError(
-                "No pending deletion request to confirm."
-            )
+            raise ValueError("No pending deletion request to confirm.")
 
         await self._purge_conversation(conversation_id)
 
@@ -1470,26 +1160,18 @@ class ConversationService:
         disappear_after_seconds: int | object | None = _UNSET,
     ) -> dict:
 
-        conversation = (
-            await self.conversation_repository.get_by_id(
-                conversation_id
-            )
-        )
+        conversation = await self.conversation_repository.get_by_id(conversation_id)
 
         if conversation is None:
             raise ValueError("Invalid conversation id.")
 
-        participant = (
-            await self.conversation_repository.get_participant(
-                conversation_id,
-                current_user.id,
-            )
+        participant = await self.conversation_repository.get_participant(
+            conversation_id,
+            current_user.id,
         )
 
         if participant is None:
-            raise PermissionError(
-                "You are not a participant of this conversation."
-            )
+            raise PermissionError("You are not a participant of this conversation.")
 
         if is_pinned is not None:
             participant.is_pinned = bool(is_pinned)
@@ -1501,45 +1183,28 @@ class ConversationService:
             participant.muted_until = muted_until
 
         if disappear_after_seconds is not _UNSET:
-
-            if (
-                conversation.conversation_type == "group"
-                and not await self._is_admin(
-                    conversation, current_user.id
-                )
+            if conversation.conversation_type == "group" and not await self._is_admin(
+                conversation, current_user.id
             ):
-                raise PermissionError(
-                    "Only group admins can change disappearing "
-                    "messages."
-                )
+                raise PermissionError("Only group admins can change disappearing messages.")
 
-            conversation.disappear_after_seconds = (
-                disappear_after_seconds
-                or None
-            )
+            conversation.disappear_after_seconds = disappear_after_seconds or None
 
         await self.conversation_repository.save()
 
         muted = False
 
         if participant.muted_until:
-
             effective_until = participant.muted_until
 
             if effective_until.tzinfo is None:
-                effective_until = effective_until.replace(
-                    tzinfo=timezone.utc
-                )
+                effective_until = effective_until.replace(tzinfo=UTC)
 
-            muted = (
-                effective_until > datetime.now(timezone.utc)
-            )
+            muted = effective_until > datetime.now(UTC)
 
         return {
             "is_pinned": participant.is_pinned,
             "is_archived": participant.is_archived,
             "muted": muted,
-            "disappear_after_seconds": (
-                conversation.disappear_after_seconds
-            ),
+            "disappear_after_seconds": (conversation.disappear_after_seconds),
         }

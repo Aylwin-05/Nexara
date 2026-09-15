@@ -27,7 +27,7 @@ logger = logging.getLogger("app.core.rate_limit")
 # ==========================================================
 
 
-class RateLimitExceeded(Exception):
+class RateLimitExceeded(Exception):  # noqa: N818 - name is descriptive
     def __init__(self, retry_after: int):
         super().__init__("Too many requests.")
         self.retry_after = retry_after

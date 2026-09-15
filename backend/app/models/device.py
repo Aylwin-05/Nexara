@@ -41,7 +41,13 @@ class Device(Base):
     __table_args__ = (
         Index("ix_devices_user_id", "user_id"),
         Index("ix_devices_device_id", "device_id"),
-        Index("ix_devices_user_primary", "user_id", "is_primary", unique=True, postgresql_where="is_primary = true"),
+        Index(
+            "ix_devices_user_primary",
+            "user_id",
+            "is_primary",
+            unique=True,
+            postgresql_where="is_primary = true",
+        ),
     )
 
     # ==========================================================

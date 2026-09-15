@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.core.config import settings
@@ -28,16 +28,10 @@ class JWTService:
             self._sign_key = settings.SECRET_KEY
             self._verify_key = settings.SECRET_KEY
 
-        self.access_token_expire = (
-            settings.ACCESS_TOKEN_EXPIRE_MINUTES
-        )
-        self.refresh_token_expire = (
-            settings.REFRESH_TOKEN_EXPIRE_DAYS
-        )
+        self.access_token_expire = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        self.refresh_token_expire = settings.REFRESH_TOKEN_EXPIRE_DAYS
 
-        self.two_fa_token_expire = (
-            settings.TWO_FA_TOKEN_EXPIRE_MINUTES
-        )
+        self.two_fa_token_expire = settings.TWO_FA_TOKEN_EXPIRE_MINUTES
 
     # ======================================================
     # Access Token
@@ -51,9 +45,7 @@ class JWTService:
         ver: int = 0,
     ) -> str:
 
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=self.access_token_expire
-        )
+        expire = datetime.now(UTC) + timedelta(minutes=self.access_token_expire)
 
         payload = {
             "sub": user_id,
@@ -80,9 +72,7 @@ class JWTService:
         jti: str | None = None,
     ) -> str:
 
-        expire = datetime.now(timezone.utc) + timedelta(
-            days=self.refresh_token_expire
-        )
+        expire = datetime.now(UTC) + timedelta(days=self.refresh_token_expire)
 
         payload: dict[str, Any] = {
             "sub": user_id,
@@ -115,9 +105,7 @@ class JWTService:
         email: str,
     ) -> str:
 
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=self.two_fa_token_expire
-        )
+        expire = datetime.now(UTC) + timedelta(minutes=self.two_fa_token_expire)
 
         payload = {
             "sub": user_id,
@@ -157,7 +145,6 @@ class JWTService:
     ) -> dict[str, Any] | None:
 
         try:
-
             return jwt.decode(
                 token,
                 self._verify_key,
@@ -165,7 +152,6 @@ class JWTService:
             )
 
         except JWTError:
-
             return None
 
     # ======================================================

@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
 import time
+from datetime import UTC, datetime
 from uuid import UUID
 
 from app.core.config import settings
@@ -30,6 +30,7 @@ router = APIRouter(
 # per user here; this static config is safe to extend.
 # ==========================================================
 
+
 @router.get(
     "/config",
     dependencies=[
@@ -47,14 +48,9 @@ async def call_config(
         },
     ]
 
-    turn_urls = [
-        url.strip()
-        for url in settings.TURN_URLS.split(",")
-        if url.strip()
-    ]
+    turn_urls = [url.strip() for url in settings.TURN_URLS.split(",") if url.strip()]
 
     if turn_urls:
-
         ice_servers.append(
             {
                 "urls": turn_urls,
@@ -103,6 +99,7 @@ def _turn_credential(user) -> str:
 # Call History
 # ==========================================================
 
+
 @router.post(
     "/log",
     dependencies=[
@@ -148,10 +145,7 @@ async def end_call_log(
     if not log:
         raise HTTPException(status_code=404, detail="Call log not found.")
 
-    if (
-        log.caller_id != current_user.id
-        and log.receiver_id != current_user.id
-    ):
+    if log.caller_id != current_user.id and log.receiver_id != current_user.id:
         raise HTTPException(
             status_code=403,
             detail="Not authorized to update this call log.",
@@ -159,7 +153,7 @@ async def end_call_log(
 
     log.status = "answered"
     log.duration_seconds = duration_seconds
-    log.ended_at = datetime.now(timezone.utc)
+    log.ended_at = datetime.now(UTC)
     if not log.started_at:
         log.started_at = log.ended_at
 
@@ -175,10 +169,7 @@ async def get_call_logs(
 ):
     stmt = (
         select(CallLog)
-        .where(
-            (CallLog.caller_id == current_user.id)
-            | (CallLog.receiver_id == current_user.id)
-        )
+        .where((CallLog.caller_id == current_user.id) | (CallLog.receiver_id == current_user.id))
         .order_by(CallLog.created_at.desc())
         .limit(min(limit, 100))
     )
@@ -187,28 +178,16 @@ async def get_call_logs(
     logs = result.scalars().all()
 
     peer_ids = {
-        log.receiver_id
-        if log.caller_id == current_user.id
-        else log.caller_id
-        for log in logs
+        log.receiver_id if log.caller_id == current_user.id else log.caller_id for log in logs
     }
     peers: dict[UUID, User] = {}
     if peer_ids:
-        peer_result = await db.execute(
-            select(User).where(User.id.in_(peer_ids))
-        )
-        peers = {
-            peer.id: peer
-            for peer in peer_result.scalars().all()
-        }
+        peer_result = await db.execute(select(User).where(User.id.in_(peer_ids)))
+        peers = {peer.id: peer for peer in peer_result.scalars().all()}
 
     calls = []
     for log in logs:
-        peer_id = (
-            log.receiver_id
-            if log.caller_id == current_user.id
-            else log.caller_id
-        )
+        peer_id = log.receiver_id if log.caller_id == current_user.id else log.caller_id
         peer = peers.get(peer_id)
         calls.append(
             {
@@ -223,12 +202,8 @@ async def get_call_logs(
                 "ended_at": log.ended_at.isoformat() if log.ended_at else None,
                 "created_at": log.created_at.isoformat() if log.created_at else None,
                 "peer_id": str(peer_id),
-                "peer_display_name": (
-                    peer.display_name if peer else str(peer_id)
-                ),
-                "peer_avatar_url": (
-                    peer.avatar_url if peer else None
-                ),
+                "peer_display_name": (peer.display_name if peer else str(peer_id)),
+                "peer_avatar_url": (peer.avatar_url if peer else None),
             }
         )
 

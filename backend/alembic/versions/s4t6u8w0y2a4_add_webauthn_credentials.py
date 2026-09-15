@@ -5,13 +5,14 @@ Revises: q2r4s6t8u0v2
 Create Date: 2026-09-03 12:00:00.000000
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = 's4t6u8w0y2a4'
-down_revision: str | Sequence[str] | None = 'q2r4s6t8u0v2'
+revision: str = "s4t6u8w0y2a4"
+down_revision: str | Sequence[str] | None = "q2r4s6t8u0v2"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -7,8 +7,8 @@ from pydantic import BaseModel, ConfigDict
 # Attachment Response
 # ==========================================================
 
-class AttachmentResponse(BaseModel):
 
+class AttachmentResponse(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
     )
@@ -59,8 +59,8 @@ class AttachmentResponse(BaseModel):
 # Upload Response
 # ==========================================================
 
-class UploadResponse(BaseModel):
 
+class UploadResponse(BaseModel):
     success: bool
 
     message: str
