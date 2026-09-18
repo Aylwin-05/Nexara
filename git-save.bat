@@ -7,4 +7,4 @@ if not exist .git (
 )
 git add -A
 git commit -m "chore: auto save"
-git push
+git push -u origin main
