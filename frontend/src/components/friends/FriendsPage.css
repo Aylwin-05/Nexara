@@ -1,0 +1,327 @@
+/* ==========================================================
+   Friends page (full stage) — layout shell is the shared
+   .stage-panel primitive in index.css
+   ========================================================== */
+
+.friends-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.friends-header h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 28px;
+    letter-spacing: -0.4px;
+    flex: 1;
+    min-width: 0;
+}
+
+.friends-header p {
+    width: 100%;
+    margin: 6px 0 0;
+    color: var(--text-3);
+    font-size: 13.5px;
+    line-height: 1.5;
+}
+
+/* search */
+
+.friends-search {
+    max-width: 460px;
+}
+
+.friends-search input {
+    padding-left: 44px;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+}
+
+.friends-search input:focus {
+    border-color: var(--accent-focus);
+}
+
+/* generic card */
+
+.f-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 13px 16px;
+    border-radius: var(--radius);
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    transition:
+        background 0.16s ease,
+        transform 0.15s var(--ease),
+        border-color 0.16s ease,
+        box-shadow 0.2s ease;
+    animation: riseIn 0.3s var(--ease);
+}
+
+.f-card:hover {
+    background: var(--panel-bg-2);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow);
+    transform: translateY(-1px);
+}
+
+.f-avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 16px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 15px;
+    box-shadow: inset 0 0 0 1.5px var(--avatar-ring);
+}
+
+.f-meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.f-meta strong {
+    font-size: 14.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.f-meta small {
+    color: var(--text-3);
+    font-size: 12.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.f-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.btn-sm {
+    padding: 8px 14px;
+    font-size: 13px;
+}
+
+/* sections */
+
+.friends-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.friends-section-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.friends-section-head h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 16px;
+}
+
+.section-count {
+    min-width: 24px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    padding: 0 8px;
+    border-radius: var(--radius-pill);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
+    color: var(--accent-2);
+    font-size: 11.5px;
+    font-weight: 700;
+    box-shadow: inset 0 0 0 1px var(--accent-border);
+}
+
+.pending-list,
+.friends-list,
+.friends-search-results {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* hint / empty */
+
+.friends-hint {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px;
+    margin: 0;
+    border-radius: var(--radius);
+    border: 1px dashed var(--border-strong);
+    background: var(--surface);
+    color: var(--text-3);
+    font-size: 13.5px;
+    line-height: 1.6;
+}
+
+.spinner-sm {
+    width: 18px;
+    height: 18px;
+    border-width: 2px;
+}
+
+/* modal */
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+@media (max-width: 640px) {
+    .friends-page {
+        padding: 20px 18px 28px;
+    }
+
+    .f-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+/* ------- add friend modal ------- */
+
+.af-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: grid;
+    place-items: center;
+    z-index: 120;
+    padding: 16px;
+}
+
+.af-modal {
+    width: min(420px, 100%);
+    max-height: 80vh;
+    overflow-y: auto;
+    background: var(--surface);
+    color: var(--text-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.af-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.af-modal-header h3 {
+    margin: 0;
+    font-size: 17px;
+}
+
+.af-close {
+    border: none;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 8px;
+}
+
+.af-close:hover {
+    background: rgba(127, 127, 127, 0.15);
+}
+
+.af-search input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    background: var(--bg-0);
+    color: var(--text-1);
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.af-results {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.af-hint {
+    margin: 0;
+    padding: 14px;
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius);
+    color: var(--text-3);
+    font-size: 13.5px;
+    text-align: center;
+}
+
+.af-result {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg-0);
+}
+
+.af-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.af-meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.af-meta strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+}
+
+.af-meta small {
+    color: var(--text-3);
+    font-size: 12.5px;
+}
+
+.btn-sm.danger {
+    color: #ff5a5f;
+}

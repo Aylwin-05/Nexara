@@ -1,0 +1,112 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nexara
+      POSTGRES_PASSWORD: nexara_dev
+      POSTGRES_DB: nexara
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexara"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  coturn:
+    build: ./coturn
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/tcp"
+      - "49152-65535:49152-65535/udp"
+    environment:
+      TURN_SECRET: "${TURN_SECRET:-dev-turn-secret-change-in-production}"
+      TURN_REALM: "${TURN_REALM:-localhost}"
+    volumes:
+      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -tuln | grep 3478 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - uploads:/app/uploads
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://nexara:nexara_dev@postgres:5432/nexara"
+      REDIS_URL: "redis://redis:6379/0"
+      SECRET_KEY: "dev-only-do-not-use-in-production"
+      JWT_ALGORITHM: "HS256"
+      CORS_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
+      ALLOWED_HOSTS: "*"
+      APP_ENV: "development"
+      DEBUG: "true"
+      SMTP_HOST: "${SMTP_HOST:-}"
+      SMTP_PORT: "${SMTP_PORT:-587}"
+      SMTP_USERNAME: "${SMTP_USERNAME:-}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
+      SMTP_FROM_EMAIL: "${SMTP_FROM_EMAIL:-noreply@nexara.local}"
+      SMTP_FROM_NAME: "${SMTP_FROM_NAME:-Nexara}"
+      FRONTEND_URL: "http://localhost:5173"
+      TURN_URLS: "turn:coturn:3478?transport=udp"
+      TURN_USERNAME: "nexara"
+      TURN_PASSWORD: "${TURN_SECRET:-dev-turn-secret-change-in-production}"
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      coturn:
+        condition: service_started
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+
+  postgres-backup:
+    image: postgres:16-alpine
+    profiles: ["backup"]
+    environment:
+      PGHOST: postgres
+      PGUSER: nexara
+      PGPASSWORD: nexara_dev
+      PGDATABASE: nexara
+    volumes:
+      - ./scripts:/scripts:ro
+      - pgbackups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "chmod +x /scripts/backup-db.sh && /scripts/backup-db.sh /backups"
+
+volumes:
+  pgdata:
+  pgbackups:
+  uploads:

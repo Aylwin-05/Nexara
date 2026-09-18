@@ -1,0 +1,394 @@
+/* ==========================================================
+   Status page (full stage) — 24h stories section. Layout shell
+   is the shared .stage-panel primitive in index.css
+   ========================================================== */
+
+/* ---------- header ---------- */
+
+.status-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.status-header h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 28px;
+    letter-spacing: -0.4px;
+}
+
+.status-header p {
+    margin: 6px 0 0;
+    color: var(--text-3);
+    font-size: 13.5px;
+    max-width: 520px;
+    line-height: 1.5;
+}
+
+.status-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: var(--radius-pill);
+    background: var(--grad);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(124, 92, 255, 0.3);
+    transition:
+        transform 0.15s var(--ease),
+        box-shadow 0.2s ease,
+        filter 0.2s ease;
+    white-space: nowrap;
+}
+
+.status-add-btn:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+    box-shadow: 0 10px 28px rgba(124, 92, 255, 0.4);
+}
+
+.status-section-title {
+    margin: 10px 0 2px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    color: var(--text-3);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-section-title::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border-strong);
+    opacity: 0.7;
+}
+
+/* ---------- story rings (shared) ---------- */
+
+.status-ring {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    min-width: 64px;
+    flex: 0 0 auto;
+}
+
+.status-ring-avatar {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 600;
+    color: #fff;
+    position: relative;
+    padding: 3px;
+    transition: box-shadow 0.2s ease, transform 0.15s var(--ease);
+}
+
+.status-ring.has-unviewed .status-ring-avatar,
+.status-ring.mine.has-stories .status-ring-avatar {
+    background: var(--grad);
+    box-shadow: 0 0 0 3px var(--grad-soft);
+}
+
+.status-ring.mine .status-ring-avatar,
+.status-ring .status-ring-avatar {
+    background: var(--surface-3);
+}
+
+.status-ring-avatar:hover {
+    transform: scale(1.03);
+}
+
+/* Authenticated avatar (UserAvatar wrapper) fills the ring */
+.status-ring-user-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid var(--border-strong);
+    background: var(--surface-2);
+}
+
+.status-ring-user-avatar .avatar-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+}
+
+.status-ring-user-avatar .avatar-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+}
+
+.status-ring-add {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--grad);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 20px;
+    text-align: center;
+    border: 2px solid var(--panel-bg-2, #141a3c);
+    box-shadow: var(--shadow-sm);
+}
+
+.status-ring.mine.has-stories .status-ring-add {
+    background: var(--surface-3);
+    color: var(--text-2);
+}
+
+/* ---------- my status card ---------- */
+
+.status-my-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 18px;
+    border-radius: var(--radius-lg);
+    background: var(--card-bg);
+    border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-sm);
+    transition:
+        background 0.16s ease,
+        border-color 0.16s ease,
+        transform 0.15s var(--ease);
+}
+
+.status-my-card:hover {
+    background: var(--panel-bg-2);
+    border-color: var(--accent-border);
+    transform: translateY(-1px);
+}
+
+.status-my-card .status-ring-name {
+    font-size: 12px;
+    color: var(--text-3);
+    max-width: 64px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.status-my-meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.status-my-name {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.status-my-sub {
+    font-size: 12.5px;
+    color: var(--text-3);
+}
+
+.status-view-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 16px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--accent-border);
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s var(--ease);
+    white-space: nowrap;
+}
+
+.status-view-btn:hover {
+    background: var(--accent);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+/* ---------- friend rows ---------- */
+
+.status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.status-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 11px 16px;
+    border-radius: var(--radius);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+    transition:
+        background 0.16s ease,
+        transform 0.15s var(--ease),
+        border-color 0.16s ease,
+        box-shadow 0.2s ease;
+    animation: riseIn 0.3s var(--ease);
+}
+
+.status-row:hover {
+    background: var(--panel-bg-2);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+}
+
+.status-row-avatar {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    padding: 2.5px;
+}
+
+.status-row.has-unviewed .status-row-avatar {
+    background: var(--grad);
+    box-shadow: 0 0 0 3px var(--grad-soft);
+}
+
+.status-row .status-row-avatar {
+    background: var(--surface-3);
+}
+
+.status-avatar-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 15px;
+    overflow: hidden;
+}
+
+.status-avatar-img .avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.status-row-meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.status-row-name {
+    font-size: 14.5px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.status-row-sub {
+    font-size: 12.5px;
+    color: var(--text-3);
+}
+
+.status-row-kind {
+    color: var(--accent);
+    flex-shrink: 0;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.3));
+}
+
+/* ---------- empty state ---------- */
+
+.status-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 34px 20px;
+    border-radius: var(--radius-lg);
+    border: 1px dashed var(--border-strong);
+    background: var(--surface);
+    color: var(--text-3);
+    text-align: center;
+}
+
+.status-empty-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--grad-soft);
+    color: var(--accent);
+    margin-bottom: 4px;
+    box-shadow: var(--shadow-sm);
+}
+
+.status-empty-title {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--text-2);
+}
+
+.status-empty-sub {
+    margin: 0;
+    font-size: 12.5px;
+}
+
+/* ---------- mobile ---------- */
+
+@media (max-width: 720px) {
+    .status-page {
+        padding: 18px 14px 24px;
+    }
+
+    .status-header {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .status-add-btn {
+        align-self: flex-start;
+    }
+}

@@ -1,0 +1,372 @@
+.story-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.story-viewer-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+}
+
+.story-viewer-card {
+    position: relative;
+    width: min(92vw, 420px);
+    height: min(88vh, 720px);
+    background: #111;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
+/* Progress bars */
+
+.story-progress-row {
+    display: flex;
+    gap: 4px;
+    padding: 10px 12px 6px;
+    flex: 0 0 auto;
+}
+
+.story-progress {
+    flex: 1;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.3);
+    overflow: hidden;
+    position: relative;
+}
+
+.story-progress.done {
+    background: rgba(255, 255, 255, 0.85);
+}
+
+.story-progress-fill {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    transition: width 0.1s linear;
+}
+
+/* Header */
+
+.story-viewer-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 12px 8px;
+    color: #fff;
+    flex: 0 0 auto;
+}
+
+.story-viewer-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #25d366;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 15px;
+    overflow: hidden;
+    flex: 0 0 auto;
+}
+
+.story-viewer-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Authenticated avatar (UserAvatar wrapper) */
+.story-viewer-user-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: inherit;
+    font-weight: inherit;
+    color: inherit;
+}
+
+.story-viewer-user-avatar .avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.story-viewer-name {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.story-viewer-time {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    white-space: nowrap;
+}
+
+.story-viewer-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.story-btn {
+    background: rgba(255, 255, 255, 0.12);
+    border: none;
+    color: #fff;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.story-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.story-btn.active {
+    background: #25d366;
+}
+
+.story-delete-confirm {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.story-delete-confirm button {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    color: #fff;
+    border-radius: 14px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.story-delete-confirm button:first-child {
+    background: #d64545;
+}
+
+/* Media */
+
+.story-viewer-media {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    cursor: pointer;
+}
+
+.story-viewer-media img,
+.story-viewer-media video {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.story-viewer-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+}
+
+.story-spinner {
+    width: 34px;
+    height: 34px;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-top-color: #25d366;
+    border-radius: 50%;
+    animation: story-spin 0.8s linear infinite;
+}
+
+@keyframes story-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Caption */
+
+.story-viewer-caption {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 30px 18px 18px;
+    color: #fff;
+    font-size: 15px;
+    background: linear-gradient(
+        transparent,
+        rgba(0, 0, 0, 0.7)
+    );
+}
+
+/* Friend's story: reaction bar sits at the bottom, so keep the
+   caption above it (and clip over-long captions there too). */
+
+.story-viewer-caption--with-reactions {
+    bottom: 64px;
+    max-height: calc(100% - 64px);
+    overflow: hidden;
+}
+
+/* Viewers panel (own stories) */
+
+.story-viewers-panel {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 55%;
+    overflow-y: auto;
+    background: rgba(15, 15, 15, 0.95);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 14px;
+    color: #fff;
+}
+
+.story-viewers-panel h4 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 600;
+}
+
+.story-viewers-empty {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.story-reactions-section {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.story-reactions-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.story-reaction-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    padding: 4px 10px;
+    font-size: 14px;
+}
+
+.story-reaction-chip-count {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.story-viewer-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+}
+
+.story-viewer-row-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #25d366;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    overflow: hidden;
+    flex: 0 0 auto;
+}
+
+.story-viewer-row-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.story-viewer-row-name {
+    flex: 1;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.story-viewer-row-time {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* ==========================================================
+   Story Reactions
+   ========================================================== */
+
+.story-reaction-bar {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    border-radius: 24px;
+    padding: 6px 12px;
+}
+
+.story-reaction-btn {
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    transition: transform 0.15s, background 0.15s;
+    line-height: 1;
+}
+
+.story-reaction-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: scale(1.15);
+}
+
+.story-reaction-btn.active {
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(1.2);
+}

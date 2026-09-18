@@ -1,0 +1,101 @@
+/* ==========================================================
+   /recover page — recovery code re-issue
+   ========================================================== */
+
+.recover-card h1 {
+    margin: 0 0 10px;
+    font-family: var(--font-display);
+    font-size: 24px;
+    letter-spacing: -0.3px;
+}
+
+.recover-error {
+    margin-top: 12px;
+}
+
+.recover-code-box {
+    margin: 18px 0 6px;
+    padding: 16px;
+    border-radius: var(--radius-lg);
+    background: var(--surface-2);
+    border: 1px dashed var(--accent);
+    text-align: center;
+    font-family: var(--font-mono, monospace);
+    font-size: 20px;
+    letter-spacing: 2px;
+    font-weight: 700;
+    color: var(--text-1);
+    user-select: all;
+    word-break: break-all;
+}
+
+.recover-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.recover-copy {
+    width: 100%;
+}
+
+.recover-saved-hint {
+    margin: 14px 0 0;
+    font-size: 12.5px;
+    color: var(--text-3);
+    line-height: 1.5;
+    text-align: center;
+}
+
+/* ---------- "already have your code?" unlock box ---------- */
+
+.recovery-unlock-box {
+    width: 100%;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+
+.recovery-unlock-box summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    user-select: none;
+}
+
+.recovery-unlock-form {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.recovery-unlock-input {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+    color: var(--text-1);
+    font-size: 13.5px;
+    letter-spacing: 1px;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.recovery-unlock-input:focus {
+    border-color: var(--accent);
+}
+
+.recovery-unlock-submit {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.recovery-unlock-error {
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.45;
+}

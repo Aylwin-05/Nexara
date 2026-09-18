@@ -1,0 +1,72 @@
+.pinned-messages {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+}
+
+.pinned-messages__loading {
+    text-align: center;
+    padding: 8px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.pinned-messages__header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.pinned-messages__icon {
+    font-size: 0.9rem;
+}
+
+.pinned-messages__count {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.pinned-messages__list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pinned-messages__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+
+.pinned-messages__item:hover {
+    background: var(--bg-primary);
+}
+
+.pinned-messages__snippet {
+    font-size: 0.82rem;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.pinned-messages__time {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-left: 8px;
+    white-space: nowrap;
+}
+
+.pinned-messages__more {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-align: center;
+    padding: 4px;
+}

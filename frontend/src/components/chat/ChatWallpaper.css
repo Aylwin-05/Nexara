@@ -1,0 +1,72 @@
+.chat-wallpaper {
+    padding: 16px;
+}
+
+.chat-wallpaper h3 {
+    margin: 0 0 12px;
+    font-size: 1rem;
+}
+
+.chat-wallpaper__grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.chat-wallpaper__swatch {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.12s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1.1rem;
+}
+
+.chat-wallpaper__swatch:hover {
+    transform: scale(1.08);
+}
+
+.chat-wallpaper__swatch.selected {
+    box-shadow: 0 0 0 3px var(--primary);
+}
+
+.chat-wallpaper__preview {
+    margin-bottom: 16px;
+}
+
+.chat-wallpaper__preview-box {
+    border-radius: 12px;
+    padding: 20px 16px;
+    min-height: 80px;
+    display: flex;
+    align-items: flex-end;
+}
+
+.chat-wallpaper__preview-bubble {
+    background: rgba(0, 0, 0, 0.35);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 10px 10px 10px 2px;
+    font-size: 0.85rem;
+    max-width: 70%;
+}
+
+.chat-wallpaper__apply {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.chat-wallpaper__apply:disabled {
+    opacity: 0.5;
+}

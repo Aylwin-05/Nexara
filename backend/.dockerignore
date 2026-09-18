@@ -1,0 +1,13 @@
+__pycache__
+.pytest_cache
+*.pyc
+.env
+.venv
+uploads
+tests
+
+# Test suites / dev tooling never ship in the image
+test_all.py
+test_crypto.py
+test_jwt.py
+scripts

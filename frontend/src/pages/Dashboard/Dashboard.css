@@ -1,0 +1,84 @@
+/* ==========================================================
+   Dashboard: app shell (rail + stage)
+   The .app-shell / .app-stage primitives live in index.css
+   (shared with SidebarShell routes).
+   ========================================================== */
+
+/* Privacy blur: when the app loses focus (tab switch / window
+   minimize) and privacy blur is enabled, the last message must
+   not leak through the OS app-switcher snapshot. The stage is
+   hidden behind an opaque gradient placeholder. */
+
+.app-shell[data-privacy-blurred="true"] .app-stage,
+.app-shell[data-privacy-blurred="true"] .conv-panel {
+    visibility: hidden;
+}
+
+/* ---------- conversation panel ---------- */
+
+.conv-panel {
+    width: 340px;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    animation: riseIn 0.35s var(--ease);
+}
+
+/* chat panel */
+
+.chat-panel {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel-bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    position: relative;
+    animation: riseIn 0.35s var(--ease);
+}
+
+/* status as the full stage */
+
+.status-stage {
+    flex: 1;
+    min-width: 0;
+}
+
+/* friends as the full stage */
+
+.friends-stage {
+    flex: 1;
+    min-width: 0;
+}
+
+/* settings as the full stage */
+
+.settings-stage {
+    flex: 1;
+    min-width: 0;
+}
+
+@media (max-width: 900px) {
+    .conv-panel {
+        width: 300px;
+        min-width: 260px;
+    }
+}
+
+@media (max-width: 720px) {
+    .app-stage {
+        padding: 8px;
+        gap: 8px;
+    }
+
+    .conv-panel {
+        width: 86px;
+        min-width: 0;
+    }
+}

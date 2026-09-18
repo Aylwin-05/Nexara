@@ -1,0 +1,371 @@
+/* ==========================================================
+   Conversation list (left panel inside the stage)
+   ========================================================== */
+
+.conv-list {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.conv-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 20px 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+.conv-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+}
+
+.conv-count {
+    min-width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    padding: 0 8px;
+    border-radius: var(--radius-pill);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-2);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.conv-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.conv-new-group-btn {
+    min-width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-pill);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-2);
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.conv-new-group-btn:hover {
+    background: var(--accent-soft);
+    border-color: rgba(124, 92, 255, 0.4);
+    color: var(--accent);
+}
+
+.conv-group-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 17px;
+    background: linear-gradient(
+        135deg,
+        #7c5cff,
+        #22d3ee
+    );
+    box-shadow:
+        inset 0 0 0 1.5px rgba(255, 255, 255, 0.25),
+        0 4px 12px rgba(124, 92, 255, 0.25);
+}
+
+.conv-group-avatar-img {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.conv-list-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* ---------- item ---------- */
+
+.conv-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition:
+        background 0.16s ease,
+        transform 0.14s var(--ease);
+}
+
+.conv-item:hover {
+    background: var(--surface);
+}
+
+.conv-item.active {
+    background: var(--accent-soft);
+    box-shadow:
+        inset 0 0 0 1px rgba(124, 92, 255, 0.35),
+        0 4px 18px rgba(124, 92, 255, 0.12);
+}
+
+/* avatar */
+
+.conv-avatar {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.conv-avatar-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 16px;
+    box-shadow: inset 0 0 0 1.5px var(--avatar-ring);
+}
+
+.presence-dot {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    border: 3px solid var(--ring);
+    background: var(--text-3);
+    box-shadow: none;
+}
+
+.presence-dot.online {
+    background: var(--success);
+    box-shadow: 0 0 8px rgba(52, 211, 153, 0.6);
+}
+
+/* meta */
+
+.conv-meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.conv-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.conv-name {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--text-1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.conv-time {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--text-3);
+}
+
+.conv-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.conv-preview {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.unread-pill {
+    flex-shrink: 0;
+    min-width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    padding: 0 6px;
+    border-radius: var(--radius-pill);
+    background: var(--grad);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    box-shadow: 0 2px 10px rgba(124, 92, 255, 0.45);
+}
+
+/* ---------- indicators ---------- */
+
+.conv-pin-icon,
+.conv-mute-icon {
+    display: inline-flex;
+    vertical-align: -2px;
+    margin-right: 5px;
+    color: var(--text-3);
+}
+
+.conv-pin-icon svg,
+.conv-mute-icon svg {
+    display: block;
+}
+
+/* ---------- hover actions ---------- */
+
+.conv-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.conv-action {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-3);
+    cursor: pointer;
+    opacity: 0;
+    transition:
+        opacity 0.14s ease,
+        background 0.14s ease,
+        color 0.14s ease;
+}
+
+.conv-item:hover .conv-action {
+    opacity: 1;
+}
+
+.conv-action:hover {
+    background: var(--surface-2);
+    color: var(--accent);
+}
+
+/* ---------- archived block ---------- */
+
+.conv-archive-block {
+    margin-top: 8px;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+}
+
+.conv-archive-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--text-1);
+    font-size: 14.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.16s ease;
+}
+
+.conv-archive-toggle:hover {
+    background: var(--surface);
+}
+
+.conv-archive-icon {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 11px;
+    background: var(--surface-2);
+    color: var(--text-2);
+    flex-shrink: 0;
+}
+
+.conv-archive-label {
+    flex: 1;
+    text-align: left;
+}
+
+.conv-archive-count {
+    min-width: 20px;
+    font-size: 12px;
+    color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+}
+
+.conv-archive-chevron {
+    color: var(--text-3);
+    transition: transform 0.16s var(--ease);
+}
+
+.conv-archive-chevron.open {
+    transform: rotate(180deg);
+}
+
+.conv-archive-items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* ---------- skeleton row ---------- */
+
+.conv-skeleton {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 12px;
+}
+
+.conv-skeleton-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    flex-shrink: 0;
+}
+
+.conv-skeleton-lines {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}

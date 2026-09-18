@@ -1,0 +1,10 @@
+node_modules/
+
+# Android build artifacts
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/.idea/
+android/app/src/main/assets/public/
+android/capacitor-cordova-android-plugins/

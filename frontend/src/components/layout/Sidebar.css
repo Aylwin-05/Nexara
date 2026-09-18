@@ -1,0 +1,247 @@
+/* ==========================================================
+   Rail navigation (left icon column)
+   ========================================================== */
+
+.rail {
+    width: 84px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 22px;
+    padding: 18px 0 16px;
+    background: var(--rail-bg);
+    border-right: 1px solid var(--border);
+}
+
+/* logo */
+
+.rail-logo {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    background:
+        radial-gradient(
+            40px 40px at 50% 30%,
+            rgba(124, 92, 255, 0.25),
+            transparent 70%
+        );
+}
+
+/* nav items */
+
+.rail-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+}
+
+.rail-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    width: 62px;
+    padding: 11px 0 9px;
+    border-radius: 18px;
+    color: var(--text-3);
+    font-size: 10.5px;
+    font-weight: 600;
+    transition:
+        color 0.18s ease,
+        background 0.18s ease,
+        transform 0.15s var(--ease);
+}
+
+.rail-item:hover {
+    color: var(--text-1);
+    background: var(--surface);
+}
+
+.rail-item.active {
+    color: #fff;
+    background: var(--accent-soft);
+    box-shadow:
+        inset 0 0 0 1px rgba(124, 92, 255, 0.4),
+        0 0 18px rgba(124, 92, 255, 0.18);
+}
+
+/* Click animations: each icon plays its own motion when its rail
+   button is clicked (active moves, retriggering the animation). */
+.rail-nav .rail-item:nth-child(1).active svg circle {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: chat-dot 0.5s ease-in-out;
+}
+
+.rail-nav .rail-item:nth-child(2).active svg circle:first-child {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: status-ring 0.8s cubic-bezier(0.5, 0, 0.5, 1);
+}
+
+.rail-nav .rail-item:nth-child(3).active svg circle {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: friends-nod 0.6s ease-in-out;
+}
+
+.rail-nav .rail-item:nth-child(4).active svg path:first-child {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: phone-ring 0.6s ease-in-out;
+}
+
+.rail-nav .rail-item:nth-child(5).active svg {
+    animation: gear-spin 0.6s var(--ease);
+}
+
+@keyframes chat-dot {
+    0%, 100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    40% {
+        opacity: 0.35;
+        transform: translateY(-2.5px);
+    }
+
+    70% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes status-ring {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes friends-nod {
+    0%, 100% {
+        transform: translateY(0);
+    }
+
+    40% {
+        transform: translateY(-2px);
+    }
+
+    70% {
+        transform: translateY(-1px);
+    }
+}
+
+@keyframes phone-ring {
+    0%, 100% {
+        transform: rotate(0deg);
+    }
+
+    25% {
+        transform: rotate(8deg);
+    }
+
+    50% {
+        transform: rotate(-8deg);
+    }
+
+    75% {
+        transform: rotate(4deg);
+    }
+}
+
+@keyframes gear-spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.rail-item.active::before {
+    content: "";
+    position: absolute;
+    left: -14px;
+    top: 22%;
+    height: 56%;
+    width: 4px;
+    border-radius: 4px;
+    background: var(--grad);
+    box-shadow: 0 0 12px rgba(124, 92, 255, 0.7);
+    transform-origin: top;
+    animation: rail-bar-in 0.28s var(--ease);
+}
+
+@keyframes rail-bar-in {
+    from {
+        transform: scaleY(0);
+    }
+
+    to {
+        transform: scaleY(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rail-item.active::before,
+    .rail-nav .rail-item.active svg,
+    .rail-nav .rail-item.active svg circle,
+    .rail-nav .rail-item.active svg path:first-child {
+        animation: none;
+    }
+}
+
+.rail-item:active {
+    transform: scale(0.94);
+}
+
+/* profile avatar at the bottom */
+
+.rail-profile {
+    margin-top: auto;
+}
+
+.rail-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 15px;
+    box-shadow:
+        0 4px 16px rgba(0, 0, 0, 0.35),
+        inset 0 0 0 2px var(--avatar-ring);
+}
+
+.rail-avatar-skeleton {
+    width: 44px;
+    height: 44px;
+    border-radius: 16px;
+}
+
+@media (max-width: 720px) {
+    .rail {
+        width: 64px;
+    }
+
+    .rail-item {
+        width: 52px;
+    }
+
+    .rail-item span {
+        display: none;
+    }
+}

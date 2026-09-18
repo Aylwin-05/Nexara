@@ -1,0 +1,12 @@
+{
+    "appId": "com.nexara.app",
+    "appName": "Nexara",
+    "webDir": "../frontend/dist",
+    "server": {
+        "androidScheme": "https",
+        "cleartext": true
+    },
+    "android": {
+        "allowMixedContent": true
+    }
+}

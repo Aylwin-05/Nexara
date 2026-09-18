@@ -1,0 +1,825 @@
+/* ==========================================================
+   Nexara — global design system ("Nebula")
+
+   Themes: "blue" (default, below), "dark" and "light" are
+   applied by setting data-theme on <html>:
+     document.documentElement.setAttribute("data-theme", "dark")
+   ========================================================== */
+
+html {
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+:root {
+    --bg-0: #070b18;
+    --bg-1: #0c1126;
+    --bg-2: #111a33;
+    --surface: rgba(255, 255, 255, 0.045);
+    --surface-2: rgba(255, 255, 255, 0.08);
+    --surface-3: rgba(255, 255, 255, 0.12);
+    --border: rgba(255, 255, 255, 0.09);
+    --border-strong: rgba(255, 255, 255, 0.16);
+
+    --text-1: #eef2ff;
+    --text-2: #a7b0d3;
+    --text-3: #6f789e;
+
+    --accent: #7c5cff;
+    --accent-2: #22d3ee;
+    --accent-soft: rgba(124, 92, 255, 0.16);
+    --grad: linear-gradient(135deg, #7c5cff 0%, #22d3ee 100%);
+    --grad-soft: linear-gradient(
+        135deg,
+        rgba(124, 92, 255, 0.35),
+        rgba(34, 211, 238, 0.35)
+    );
+
+    /* full-scene aurora backdrop shared by auth, splash and app shell */
+    --bg-glow: radial-gradient(
+            1200px 600px at 50% -10%,
+            rgba(124, 92, 255, 0.14),
+            transparent 60%
+        ),
+        radial-gradient(
+            900px 500px at 85% 110%,
+            rgba(34, 211, 238, 0.1),
+            transparent 60%
+        );
+
+    --success: #34d399;
+    --danger: #fb7185;
+    --warning: #fbbf24;
+
+    --radius-sm: 10px;
+    --radius-md: 12px;
+    --radius: 14px;
+    --radius-lg: 20px;
+    --radius-pill: 999px;
+
+    --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.25);
+    --shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.5);
+    --shadow-glow: 0 0 24px rgba(124, 92, 255, 0.35);
+
+    /* ---------- themed surfaces ---------- */
+
+    --panel-bg: linear-gradient(
+        175deg,
+        rgba(16, 21, 44, 0.82),
+        rgba(11, 15, 33, 0.9)
+    );
+    --panel-bg-2: linear-gradient(
+        175deg,
+        rgba(14, 18, 38, 0.85),
+        rgba(9, 13, 28, 0.92)
+    );
+
+    /* Solid panel fill + 70%-opaque glass used by floating
+       menus (⋮ dropdown, timer menu, modal cards). */
+    --surface-1: #10152c;
+    --glass-panel: rgba(14, 18, 38, 0.7);
+    --rail-bg: linear-gradient(
+        180deg,
+        rgba(15, 20, 42, 0.92),
+        rgba(8, 11, 25, 0.96)
+    );
+    --header-bg: rgba(10, 14, 30, 0.4);
+    --card-bg: linear-gradient(
+        160deg,
+        rgba(30, 38, 70, 0.9),
+        rgba(14, 19, 40, 0.95)
+    );
+    --overlay: rgba(4, 7, 18, 0.72);
+    --input-bg: rgba(255, 255, 255, 0.055);
+    --input-bar-bg: rgba(255, 255, 255, 0.05);
+    --bubble-other: rgba(255, 255, 255, 0.06);
+    --attachment-bg: rgba(255, 255, 255, 0.08);
+    --attachment-bg-hover: rgba(255, 255, 255, 0.14);
+    --ring: #0d1230;
+    --avatar-ring: rgba(255, 255, 255, 0.16);
+    --scroll-thumb: rgba(255, 255, 255, 0.14);
+    --scroll-thumb-hover: rgba(255, 255, 255, 0.24);
+    --skeleton-grad: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.05) 25%,
+        rgba(255, 255, 255, 0.12) 50%,
+        rgba(255, 255, 255, 0.05) 75%
+    );
+    --msg-deco: radial-gradient(
+            700px 400px at 80% 0%,
+            rgba(124, 92, 255, 0.05),
+            transparent 60%
+        ),
+        radial-gradient(
+            700px 400px at 10% 100%,
+            rgba(34, 211, 238, 0.04),
+            transparent 60%
+        );
+    --accent-border: rgba(124, 92, 255, 0.35);
+    --accent-focus: rgba(124, 92, 255, 0.65);
+    --accent-focus-ring: rgba(124, 92, 255, 0.14);
+    --danger-soft-bg: rgba(251, 113, 133, 0.12);
+    --danger-soft-border: rgba(251, 113, 133, 0.32);
+    --danger-hover: rgba(251, 113, 133, 0.24);
+
+    --font-body: "Inter", system-ui, -apple-system, sans-serif;
+    --font-display: "Outfit", "Inter", system-ui, sans-serif;
+
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+    /* ---------- legacy aliases ----------
+       Older components reference these tokens. Keep them
+       mapped to the current Nebula palette so buttons and
+       text never fall back to hardcoded black (#111). */
+    --text: var(--text-1);
+    --text-primary: var(--text-1);
+    --text-secondary: var(--text-2);
+    --border-color: var(--border);
+    --color-text: var(--text-1);
+    --color-text-secondary: var(--text-3);
+    --color-border: var(--border);
+    --color-border-strong: var(--border-strong);
+    --color-surface-2: var(--surface-2);
+}
+
+/* ==========================================================
+   Theme: dark (neutral, non-navy)
+   ========================================================== */
+
+[data-theme="dark"] {
+    --bg-0: #050607;
+    --bg-1: #0b0d10;
+    --bg-2: #14171c;
+    --surface: rgba(255, 255, 255, 0.05);
+    --surface-2: rgba(255, 255, 255, 0.08);
+    --surface-3: rgba(255, 255, 255, 0.12);
+    --border: rgba(255, 255, 255, 0.09);
+    --border-strong: rgba(255, 255, 255, 0.16);
+
+    --text-1: #f1f2f4;
+    --text-2: #a4a8b0;
+    --text-3: #6b7078;
+
+    --accent-soft: rgba(124, 92, 255, 0.16);
+    --shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+
+    --panel-bg: linear-gradient(
+        175deg,
+        rgba(19, 21, 26, 0.85),
+        rgba(11, 13, 17, 0.95)
+    );
+    --panel-bg-2: linear-gradient(
+        175deg,
+        rgba(16, 18, 23, 0.9),
+        rgba(9, 11, 14, 0.96)
+    );
+
+    /* Solid panel fill + 70%-opaque glass used by floating
+       menus (⋮ dropdown, timer menu, modal cards). */
+    --surface-1: #13151a;
+    --glass-panel: rgba(15, 17, 21, 0.7);
+    --rail-bg: linear-gradient(
+        180deg,
+        rgba(17, 19, 23, 0.94),
+        rgba(7, 8, 10, 0.98)
+    );
+    --header-bg: rgba(12, 14, 17, 0.5);
+    --card-bg: linear-gradient(
+        160deg,
+        rgba(28, 31, 38, 0.92),
+        rgba(12, 14, 18, 0.96)
+    );
+    --overlay: rgba(2, 3, 5, 0.75);
+    --input-bg: rgba(255, 255, 255, 0.055);
+    --input-bar-bg: rgba(255, 255, 255, 0.05);
+    --bubble-other: rgba(255, 255, 255, 0.06);
+    --attachment-bg: rgba(255, 255, 255, 0.08);
+    --attachment-bg-hover: rgba(255, 255, 255, 0.14);
+    --ring: #0a0b0d;
+    --avatar-ring: rgba(255, 255, 255, 0.18);
+    --scroll-thumb: rgba(255, 255, 255, 0.13);
+    --scroll-thumb-hover: rgba(255, 255, 255, 0.24);
+    --skeleton-grad: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.05) 25%,
+        rgba(255, 255, 255, 0.11) 50%,
+        rgba(255, 255, 255, 0.05) 75%
+    );
+    --msg-deco: radial-gradient(
+            700px 400px at 80% 0%,
+            rgba(124, 92, 255, 0.05),
+            transparent 60%
+        ),
+        radial-gradient(
+            700px 400px at 10% 100%,
+            rgba(34, 211, 238, 0.04),
+            transparent 60%
+        );
+    --accent-border: rgba(124, 92, 255, 0.4);
+    --accent-focus: rgba(124, 92, 255, 0.7);
+    --accent-focus-ring: rgba(124, 92, 255, 0.16);
+    --danger-soft-bg: rgba(251, 113, 133, 0.12);
+    --danger-soft-border: rgba(251, 113, 133, 0.32);
+    --danger-hover: rgba(251, 113, 133, 0.24);
+
+    /* legacy aliases (see :root) */
+    --text: var(--text-1);
+    --text-primary: var(--text-1);
+    --text-secondary: var(--text-2);
+    --border-color: var(--border);
+    --color-text: var(--text-1);
+    --color-text-secondary: var(--text-3);
+    --color-border: var(--border);
+    --color-border-strong: var(--border-strong);
+    --color-surface-2: var(--surface-2);
+}
+
+/* ==========================================================
+   Theme: light
+   ========================================================== */
+
+[data-theme="light"] {
+    --bg-0: #eef1f6;
+    --bg-1: #ffffff;
+    --bg-2: #e7ebf2;
+    --surface: rgba(17, 24, 39, 0.045);
+    --surface-2: rgba(17, 24, 39, 0.07);
+    --surface-3: rgba(17, 24, 39, 0.11);
+    --border: rgba(17, 24, 39, 0.1);
+    --border-strong: rgba(17, 24, 39, 0.18);
+
+    --text-1: #101828;
+    --text-2: #475467;
+    --text-3: #98a2b3;
+
+    --accent: #5b3df5;
+    --accent-2: #0e7fb4;
+    --accent-soft: rgba(91, 61, 245, 0.12);
+    --grad: linear-gradient(135deg, #6d4aff 0%, #0ea5e9 100%);
+    --grad-soft: linear-gradient(
+        135deg,
+        rgba(109, 74, 255, 0.25),
+        rgba(14, 165, 233, 0.25)
+    );
+
+    --success: #059669;
+    --danger: #e11d48;
+    --warning: #d97706;
+
+    --shadow-sm: 0 2px 8px rgba(16, 24, 40, 0.08);
+    --shadow: 0 14px 44px rgba(16, 24, 40, 0.16);
+    --shadow-glow: 0 0 24px rgba(109, 74, 255, 0.25);
+
+    --panel-bg: linear-gradient(
+        175deg,
+        rgba(255, 255, 255, 0.96),
+        rgba(247, 249, 252, 0.98)
+    );
+    --panel-bg-2: linear-gradient(
+        175deg,
+        rgba(255, 255, 255, 0.98),
+        rgba(244, 247, 251, 1)
+    );
+
+    /* Solid panel fill + 70%-opaque glass used by floating
+       menus (⋮ dropdown, timer menu, modal cards). */
+    --surface-1: #ffffff;
+    --glass-panel: rgba(255, 255, 255, 0.7);
+    --rail-bg: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.98),
+        rgba(242, 245, 250, 0.99)
+    );
+    --header-bg: rgba(255, 255, 255, 0.7);
+    --card-bg: linear-gradient(
+        160deg,
+        rgba(255, 255, 255, 0.98),
+        rgba(246, 248, 252, 1)
+    );
+    --overlay: rgba(15, 23, 42, 0.45);
+    --input-bg: rgba(17, 24, 39, 0.05);
+    --input-bar-bg: rgba(17, 24, 39, 0.045);
+    --bubble-other: rgba(17, 24, 39, 0.06);
+    --attachment-bg: rgba(17, 24, 39, 0.06);
+    --attachment-bg-hover: rgba(17, 24, 39, 0.1);
+    --ring: #ffffff;
+    --avatar-ring: rgba(255, 255, 255, 0.9);
+    --scroll-thumb: rgba(17, 24, 39, 0.18);
+    --scroll-thumb-hover: rgba(17, 24, 39, 0.3);
+    --skeleton-grad: linear-gradient(
+        90deg,
+        rgba(17, 24, 39, 0.06) 25%,
+        rgba(17, 24, 39, 0.12) 50%,
+        rgba(17, 24, 39, 0.06) 75%
+    );
+    --msg-deco: radial-gradient(
+            700px 400px at 80% 0%,
+            rgba(109, 74, 255, 0.07),
+            transparent 60%
+        ),
+        radial-gradient(
+            700px 400px at 10% 100%,
+            rgba(14, 165, 233, 0.05),
+            transparent 60%
+        );
+    --accent-border: rgba(91, 61, 245, 0.35);
+    --accent-focus: rgba(91, 61, 245, 0.6);
+    --accent-focus-ring: rgba(91, 61, 245, 0.13);
+    --danger-soft-bg: rgba(225, 29, 72, 0.08);
+    --danger-soft-border: rgba(225, 29, 72, 0.3);
+    --danger-hover: rgba(225, 29, 72, 0.14);
+
+    /* legacy aliases (see :root) */
+    --text: var(--text-1);
+    --text-primary: var(--text-1);
+    --text-secondary: var(--text-2);
+    --border-color: var(--border);
+    --color-text: var(--text-1);
+    --color-text-secondary: var(--text-3);
+    --color-border: var(--border);
+    --color-border-strong: var(--border-strong);
+    --color-surface-2: var(--surface-2);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+}
+
+/* The app is a locked, full-viewport shell: everything
+   scrolls inside its own panel, never on the page. */
+
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: var(--font-body);
+    font-size: 15px;
+    color: var(--text-1);
+    background: var(--bg-0);
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: inherit;
+}
+
+input {
+    font-family: inherit;
+    border: none;
+    outline: none;
+    color: var(--text-1);
+}
+
+::selection {
+    background: var(--accent-soft);
+}
+
+/* ---------- scrollbars ---------- */
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: var(--scroll-thumb);
+    border-radius: 8px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: var(--scroll-thumb-hover);
+}
+
+/* ---------- shared primitives ---------- */
+
+.glass {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(18px);
+}
+
+/* ---------- app shell (global, not Dashboard-only) ---------- */
+
+.app-shell {
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    overflow: hidden;
+    background: var(--bg-glow), var(--bg-0);
+}
+
+.app-stage {
+    flex: 1;
+    display: flex;
+    min-width: 0;
+    padding: 14px;
+    gap: 14px;
+}
+
+/* Full-stage panel: one recipe for Settings / Friends / Status /
+   Call History / Legal pages so every route looks and moves alike. */
+
+.stage-panel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 30px 34px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    animation: riseIn 0.35s var(--ease);
+}
+
+/* avatar image (used by UserAvatar inside avatar containers) */
+
+.avatar-img {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    object-fit: cover;
+    display: block;
+}
+
+.shield-mark {
+    display: inline-flex;
+    filter: drop-shadow(0 0 14px rgba(124, 92, 255, 0.55));
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 100%;
+    padding: 32px;
+    text-align: center;
+    color: var(--text-3);
+}
+
+.empty-state .empty-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 22px;
+    display: grid;
+    place-items: center;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--accent-2);
+    margin-bottom: 6px;
+}
+
+.empty-state h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 18px;
+    color: var(--text-1);
+}
+
+.empty-state p {
+    margin: 0;
+    max-width: 260px;
+    line-height: 1.5;
+}
+
+/* ---------- skeleton shimmer ---------- */
+
+@keyframes shimmer {
+    0% {
+        background-position: -400px 0;
+    }
+    100% {
+        background-position: 400px 0;
+    }
+}
+
+.skeleton {
+    background: var(--skeleton-grad);
+    background-size: 800px 100%;
+    animation: shimmer 1.4s infinite linear;
+    border-radius: var(--radius-sm);
+}
+
+/* ---------- spinner ---------- */
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spinner {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 3px solid var(--surface-3);
+    border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+}
+
+.app-loading {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    color: var(--text-3);
+}
+
+/* ---------- modal ---------- */
+
+@keyframes modalIn {
+    from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    background: var(--overlay);
+    backdrop-filter: blur(8px);
+    animation: fadeIn 0.18s ease;
+    padding: 20px;
+}
+
+.modal-card {
+    width: 100%;
+    max-width: 400px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 28px;
+    animation: modalIn 0.22s var(--ease);
+}
+
+.modal-card h3 {
+    margin: 0 0 10px;
+    font-family: var(--font-display);
+    font-size: 20px;
+}
+
+.modal-card p {
+    margin: 0 0 22px;
+    color: var(--text-2);
+    line-height: 1.55;
+}
+
+/* ---------- buttons ---------- */
+
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-radius: var(--radius-pill);
+    background: var(--grad);
+    color: #fff;
+    font-weight: 600;
+    font-size: 14.5px;
+    box-shadow: 0 6px 20px rgba(124, 92, 255, 0.35);
+    transition:
+        transform 0.15s var(--ease),
+        box-shadow 0.2s ease,
+        filter 0.2s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px) scale(1.02);
+    filter: brightness(1.08);
+    box-shadow: 0 10px 28px rgba(124, 92, 255, 0.45);
+}
+
+.btn-primary:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: var(--radius-pill);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-1);
+    font-weight: 600;
+    font-size: 14px;
+    transition: background 0.15s ease, transform 0.15s var(--ease);
+}
+
+.btn-ghost:hover {
+    background: var(--surface-3);
+    transform: translateY(-1px);
+}
+
+.btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: var(--radius-pill);
+    background: rgba(251, 113, 133, 0.14);
+    border: 1px solid rgba(251, 113, 133, 0.35);
+    color: var(--danger);
+    font-weight: 600;
+    font-size: 14px;
+    transition: background 0.15s ease;
+}
+
+.btn-danger:hover {
+    background: rgba(251, 113, 133, 0.24);
+}
+
+/* ---------- form input ---------- */
+
+.field {
+    position: relative;
+    width: 100%;
+}
+
+.field svg {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-3);
+    pointer-events: none;
+}
+
+.field input {
+    width: 100%;
+    padding: 14px 16px 14px 46px;
+    border-radius: var(--radius);
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    font-size: 15px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.field input::placeholder {
+    color: var(--text-3);
+}
+
+.field input:focus {
+    border-color: var(--accent-focus);
+    box-shadow: 0 0 0 4px var(--accent-focus-ring);
+}
+
+.form-error {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    background: var(--danger-soft-bg);
+    border: 1px solid var(--danger-soft-border);
+    color: var(--danger);
+    font-size: 13.5px;
+    line-height: 1.45;
+}
+
+/* ---------- entrance animations ---------- */
+
+@keyframes msgIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes riseIn {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* ---------- typing dots ---------- */
+
+@keyframes typingBounce {
+    0%,
+    60%,
+    100% {
+        transform: translateY(0);
+        opacity: 0.45;
+    }
+    30% {
+        transform: translateY(-4px);
+        opacity: 1;
+    }
+}
+
+.typing-dots {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.typing-dots span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent-2);
+    animation: typingBounce 1.2s infinite ease-in-out;
+}
+
+.typing-dots span:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.typing-dots span:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+/* ---------- focus-visible (keyboard navigation) ---------- */
+
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+:focus-visible:not(:focus) {
+    outline: none;
+}
+
+/* Legal links (Settings page + reusable link rows) */
+
+.legal-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.legal-links a {
+    font-size: 14px;
+    color: var(--accent-2);
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.legal-links a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+}

@@ -1,0 +1,16 @@
+{
+    "name": "Nexara",
+    "short_name": "Nexara",
+    "description": "End-to-end encrypted messaging",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#070b18",
+    "theme_color": "#070b18",
+    "icons": [
+        {
+            "src": "/favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml"
+        }
+    ]
+}

@@ -1,0 +1,166 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint backend
+        working-directory: backend
+        run: ruff check . --output-format=github
+
+      - name: Format check backend
+        working-directory: backend
+        run: ruff format --check .
+
+  lint-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Type check
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+  backend-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nexara
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: nexara_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Verify migrations apply cleanly on a fresh database
+        working-directory: backend
+        env:
+          DATABASE_URL: "postgresql+asyncpg://nexara:test@localhost:5432/nexara_test"
+          SECRET_KEY: "test-key-do-not-use-in-production"
+          SMTP_HOST: "localhost"
+          SMTP_PORT: "587"
+          SMTP_USERNAME: "test"
+          SMTP_PASSWORD: "test"
+          SMTP_FROM_EMAIL: "noreply@example.com"
+          SMTP_FROM_NAME: "Nexara"
+        run: |
+          alembic upgrade head
+          test "$(alembic heads | wc -l)" -eq 1
+
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          DATABASE_URL: "postgresql+asyncpg://nexara:test@localhost:5432/nexara_test"
+          SECRET_KEY: "test-key-do-not-use-in-production"
+          SMTP_HOST: "localhost"
+          SMTP_PORT: "587"
+          SMTP_USERNAME: "test"
+          SMTP_PASSWORD: "test"
+          SMTP_FROM_EMAIL: "noreply@example.com"
+          SMTP_FROM_NAME: "Nexara"
+        run: python -m pytest test_all.py -x -q
+
+  frontend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend crypto tests
+        working-directory: frontend
+        run: node --test all.test.js
+
+      - name: Run Vitest component tests
+        working-directory: frontend
+        run: npx vitest run
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner on backend
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "backend"
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"
+
+      - name: Run Trivy vulnerability scanner on frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "frontend"
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [lint-backend, lint-frontend, backend-test, frontend-test, security]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t nexara-backend ./backend
+
+      - name: Build frontend image
+        run: docker build -t nexara-frontend ./frontend

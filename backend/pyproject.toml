@@ -1,0 +1,62 @@
+[project]
+name = "nexara"
+version = "1.0.0"
+description = "Privacy First End-to-End Encrypted Messaging Platform"
+requires-python = ">=3.10"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E",     # pycodestyle errors
+  "W",     # pycodestyle warnings
+  "F",     # pyflakes
+  "I",     # isort
+  "N",     # pep8-naming
+  "UP",    # pyupgrade
+  "S",     # bandit (security)
+  "B",     # flake8-bugbear
+  "A",     # flake8-builtins
+  "C4",    # flake8-comprehensions
+  "ICN",   # flake8-import-conventions
+  "PIE",   # flake8-pie
+  "PT",    # flake8-pytest-style
+  "RUF",   # ruff-specific
+]
+ignore = [
+  "E501",   # line too long (handled by formatter)
+  "S101",   # assert used (needed in tests)
+  "S603",   # subprocess call - check for untrusted input
+  "S607",   # starting a process with a partial executable path
+  "B008",   # function call in default argument (FastAPI Depends)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = ["S101", "S106", "N801", "N806"]
+"__init__.py" = ["F401"]
+"smoke_rls.py" = ["S311", "S608", "N816"]
+"alembic/versions/*.py" = ["S608"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["."]
+python_files = "test_*.py"
+python_functions = "test_*"
+
+# aiosqlite GC artifact: connections opened in throwaway asyncio.run()
+# loops (and inside TestClient's portal) leave a speculative
+# Connection._cancel coroutine that is never awaited after the loop
+# closes. Test-harness only; production connections live in the app's
+# single event loop. Remove if the harness moves to a persistent loop.
+filterwarnings = [
+  "ignore:coroutine 'Connection._cancel' was never awaited:RuntimeWarning",
+  "ignore::pytest.PytestUnraisableExceptionWarning",
+]

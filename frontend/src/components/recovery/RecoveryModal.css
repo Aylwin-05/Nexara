@@ -1,0 +1,157 @@
+/* ============================================================
+   Recovery code modal: fixed backdrop + centered dialog
+   ============================================================ */
+
+.recovery-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: var(--overlay, rgba(2, 6, 23, 0.6));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    animation: recoveryFade 0.18s ease;
+}
+
+@keyframes recoveryFade {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.recovery-dialog {
+    width: 100%;
+    max-width: 440px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    background: var(--surface, #0f172a);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    border-radius: 14px;
+    padding: 22px 24px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+}
+
+.recovery-head {
+    margin-bottom: 12px;
+}
+
+.recovery-head h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary, #f1f5f9);
+}
+
+.recovery-body {
+    margin: 0 0 16px;
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: var(--text-secondary, #94a3b8);
+}
+
+.recovery-code-box {
+    margin: 0 0 14px;
+    padding: 16px;
+    text-align: center;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 1.15rem;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+    color: var(--text-primary, #f1f5f9);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px dashed var(--border-color, rgba(255, 255, 255, 0.25));
+    border-radius: 10px;
+    user-select: all;
+}
+
+.recovery-hint {
+    margin: 0 0 16px;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text-secondary, #94a3b8);
+}
+
+.recovery-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.recovery-input {
+    width: 100%;
+    padding: 12px 14px;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+    color: var(--text-primary, #f1f5f9);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+    border-radius: 10px;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.recovery-input:focus {
+    border-color: var(--accent, #38bdf8);
+}
+
+.recovery-error {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #f87171;
+}
+
+.recovery-lost-link {
+    margin-top: 12px;
+    padding: 0;
+    border: none;
+    background: none;
+    font-size: 0.85rem;
+    color: var(--accent, #38bdf8);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.recovery-lost-link:hover {
+    opacity: 0.85;
+}
+
+.recovery-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.recovery-button {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        opacity 0.15s ease;
+}
+
+.recovery-button.primary {
+    background: var(--accent, #38bdf8);
+    color: #ffffff;
+}
+
+.recovery-button.ghost {
+    background: transparent;
+    color: var(--text-secondary, #94a3b8);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+}
+
+.recovery-button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}

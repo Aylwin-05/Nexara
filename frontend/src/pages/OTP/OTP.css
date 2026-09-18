@@ -1,0 +1,122 @@
+.otp-wrap {
+    max-width: 430px;
+}
+
+.otp-field input {
+    text-align: center;
+    font-size: 26px;
+    letter-spacing: 14px;
+    font-weight: 600;
+    padding-left: 16px;
+    padding-right: 16px;
+}
+
+.otp-field svg {
+    display: none;
+}
+
+/* ---------- resend OTP (cooldown) ---------- */
+
+.otp-resend {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-top: 6px;
+}
+
+.otp-resend-timer {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-3);
+    font-size: 13px;
+    padding: 8px 16px;
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    border: 1px solid var(--border);
+}
+
+/* circular countdown ring */
+
+.otp-ring {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    transition: background 1s linear;
+}
+
+.otp-ring-inner {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--bg-1);
+    display: grid;
+    place-items: center;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-1);
+    font-variant-numeric: tabular-nums;
+}
+
+.otp-resend-btn {
+    min-width: 180px;
+}
+
+/* ---------- two-step verification (PIN) stage ---------- */
+
+.otp-forgot {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-top: 12px;
+}
+
+.otp-forgot-hint {
+    margin-top: 10px;
+    font-size: 12.5px;
+    color: var(--text-3);
+    text-align: center;
+    line-height: 1.5;
+}
+
+/* ---------- new-account legal consent ---------- */
+
+.otp-consent {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 14px;
+    text-align: left;
+}
+
+.otp-consent-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text-2);
+    line-height: 1.4;
+    cursor: pointer;
+}
+
+.otp-consent-row input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin-top: 1px;
+    flex-shrink: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.otp-consent-row a {
+    color: var(--accent-2);
+    text-decoration: none;
+}
+
+.otp-consent-row a:hover {
+    text-decoration: underline;
+}

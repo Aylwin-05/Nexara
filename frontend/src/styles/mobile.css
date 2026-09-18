@@ -1,0 +1,1008 @@
+/* ============================================================
+   Nexara — Mobile compatibility layer
+   ------------------------------------------------------------
+   A single stylesheet loaded AFTER every component style.
+   It only overrides; nothing here redefines the desktop app.
+
+   Under 720px the app becomes WhatsApp-shaped:
+     • full-bleed screens (list ⇄ chat swap, no side-by-side)
+     • flat conversation rows, round avatars, FAB for groups
+     • native back button in the chat header
+     • flat message bubbles (no gradient / shadow stacking)
+     • bottom-sheet modals, safe-area padding
+
+   Sections:
+     1. Hover-free devices: surface hover-hidden UI
+     2. Single-pane navigation (list ⇄ chat)
+     3. WhatsApp-style conversation list screen
+     4. Chat screen (header / back button / bubbles / input)
+     5. Search & timer dropdown overlays
+     6. Bottom-sheet modals on phones
+     7. Touch targets & iOS text-zoom fixes
+     8. Safe-area (notch / home bar) padding
+   ============================================================ */
+
+/* ============================================================
+   1. Hover-free devices: reveal what desktop shows on hover
+   ============================================================ */
+
+@media (hover: none) {
+
+    /* Message 3-dot actions — always reachable by tap */
+    .bubble-actions {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .bubble-actions-btn {
+        opacity: 0.55;
+    }
+
+    .bubble-actions.open .bubble-actions-btn,
+    .bubble-actions-btn:active {
+        opacity: 1;
+    }
+
+    /* Reaction chips: slightly larger hit area */
+    .reaction-chip {
+        min-height: 28px;
+    }
+
+    /* No sticky-hover halos on touch */
+    * {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .chat-image:hover {
+        transform: none;
+    }
+
+}
+
+/* ============================================================
+   2. Single-pane navigation below 720px
+   ------------------------------------------------------------
+   The desktop shows list + chat side by side. On phones the
+   panels become full-bleed and swap: the conversation list is
+   shown until a chat is selected (marked by .conv-item.active),
+   then the chat fills the screen and the list hides. The back
+   button in section 4 clears that selection.
+   ============================================================ */
+
+@media (max-width: 720px) {
+
+    .app-stage {
+        padding: 0;
+        gap: 0;
+    }
+
+    /* The desktop rail is replaced by the bottom tab bar */
+    .rail {
+        display: none;
+    }
+
+    .conv-panel,
+    .chat-panel {
+        width: 100%;
+        min-width: 0;
+        border: none;
+        border-radius: 0;
+    }
+
+    .conv-panel {
+        display: flex;
+    }
+
+    .chat-panel {
+        display: none;
+    }
+
+    /* Pane swap driven by the .in-chat class that Dashboard
+       puts on .app-shell from React state. CSS :has() is NOT
+       used here: older Android System WebViews (< Chromium 105)
+       don't support it, which froze the list on phones. */
+    .app-shell.in-chat .conv-panel {
+        display: none;
+    }
+
+    .app-shell.in-chat .chat-panel {
+        display: flex;
+    }
+
+}
+
+/* ============================================================
+   2b. WhatsApp-style bottom tab bar
+   ------------------------------------------------------------
+   Chats / Friends / Settings sit in a fixed bar under the
+   screen; the Chats tab carries the total unread count. The
+   bar hides while a conversation is open (chat is full-screen)
+   and never appears on desktop.
+   ============================================================ */
+
+@media (min-width: 721px) {
+
+    .mobile-tab-bar {
+        display: none;
+    }
+
+    /* The ⋮ overflow menu is a phone-only affordance;
+       desktop keeps every chip inline in the header. */
+    .kebab-btn,
+    .kebab-menu,
+    .kebab-backdrop {
+        display: none;
+    }
+
+}
+
+@media (max-width: 720px) {
+
+    .mobile-tab-bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 55;
+        display: flex;
+        align-items: stretch;
+        gap: 2px;
+        padding: 4px 10px
+            calc(6px + env(safe-area-inset-bottom));
+        background: var(--panel-bg);
+        border-top: 1px solid var(--border);
+        box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.18);
+    }
+
+    .mobile-tab-btn {
+        position: relative;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        padding: 7px 0 6px;
+        border: none;
+        border-radius: 14px;
+        background: transparent;
+        color: var(--text-3);
+        font-size: 11px;
+        font-weight: 600;
+        font-family: inherit;
+        transition:
+            color 0.15s ease,
+            background 0.15s ease;
+    }
+
+    .mobile-tab-btn:active {
+        background: var(--surface-2);
+    }
+
+    .mobile-tab-btn.active {
+        color: var(--accent-2);
+    }
+
+    /* Per-icon click animations, matching the desktop rail. Each
+       tab's icon plays its own motion when clicked (active moves). */
+    .mobile-tab-btn:nth-child(1).active svg circle {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: mtab-dot 0.5s ease-in-out;
+    }
+
+    .mobile-tab-btn:nth-child(2).active svg circle:first-child {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: mtab-ring 0.8s cubic-bezier(0.5, 0, 0.5, 1);
+    }
+
+    .mobile-tab-btn:nth-child(3).active svg circle {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: mtab-nod 0.6s ease-in-out;
+    }
+
+    .mobile-tab-btn:nth-child(4).active svg path:first-child {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: mtab-sway 0.6s ease-in-out;
+    }
+
+    .mobile-tab-btn:nth-child(5).active svg {
+        animation: mtab-gear 0.6s var(--ease);
+    }
+
+    @keyframes mtab-dot {
+        0%, 100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        40% {
+            opacity: 0.35;
+            transform: translateY(-2.5px);
+        }
+
+        70% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes mtab-ring {
+        from {
+            transform: rotate(0deg);
+        }
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @keyframes mtab-nod {
+        0%, 100% {
+            transform: translateY(0);
+        }
+
+        40% {
+            transform: translateY(-2px);
+        }
+
+        70% {
+            transform: translateY(-1px);
+        }
+    }
+
+    @keyframes mtab-sway {
+        0%, 100% {
+            transform: rotate(0deg);
+        }
+
+        25% {
+            transform: rotate(8deg);
+        }
+
+        50% {
+            transform: rotate(-8deg);
+        }
+
+        75% {
+            transform: rotate(4deg);
+        }
+    }
+
+    @keyframes mtab-gear {
+        from {
+            transform: rotate(0deg);
+        }
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .mobile-tab-btn.active svg,
+        .mobile-tab-btn.active svg circle,
+        .mobile-tab-btn.active svg path:first-child {
+            animation: none;
+        }
+    }
+
+    .mobile-tab-badge {
+        position: absolute;
+        top: 3px;
+        right: calc(50% - 22px);
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        display: grid;
+        place-items: center;
+        border-radius: 9px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 10.5px;
+        font-weight: 700;
+        line-height: 1;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Content scrolls above the fixed bar */
+    .conv-list-body,
+    .friends-page,
+    .settings-page {
+        padding-bottom: 130px;
+    }
+
+    /* Hide the bar while a chat fills the screen */
+    .app-shell.in-chat .mobile-tab-bar {
+        display: none;
+    }
+
+}
+
+/* ============================================================
+   2c. Native shell always behaves as a phone
+   ------------------------------------------------------------
+   html.native is set by main.jsx when window.Capacitor reports
+   the Capacitor runtime. Inside the shell the desktop rail must
+   never appear and the bottom tab bar must always be available —
+   regardless of the CSS viewport width the WebView reports (older
+   Android System WebViews can report >720px and silently skip the
+   media queries above, resurrecting the desktop rail). These rules
+   win over the width breakpoints.
+   ============================================================ */
+
+html.native .rail {
+    display: none !important;
+}
+
+html.native .mobile-tab-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 55;
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    padding: 4px 10px
+        calc(6px + env(safe-area-inset-bottom));
+    background: var(--panel-bg);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.18);
+}
+
+html.native .app-shell.in-chat .mobile-tab-bar {
+    display: none;
+}
+
+/* Full-bleed single pane: the conversation list fills the stage
+   until a chat is opened (.in-chat), then the chat fills it —
+   never a skinny list beside a chat. */
+html.native .app-stage {
+    padding: 0;
+    gap: 0;
+}
+
+html.native .conv-panel,
+html.native .chat-panel {
+    width: 100%;
+    min-width: 0;
+    border: none;
+    border-radius: 0;
+}
+
+html.native .conv-panel {
+    display: flex;
+}
+
+html.native .chat-panel {
+    display: none;
+}
+
+html.native .app-shell.in-chat .conv-panel {
+    display: none;
+}
+
+html.native .app-shell.in-chat .chat-panel {
+    display: flex;
+}
+
+/* ============================================================
+   3. WhatsApp-style conversation list screen
+   ============================================================ */
+
+@media (max-width: 720px) {
+
+    /* ---------- list header: app brand ---------- */
+
+    .conv-panel-header {
+        padding: 14px 16px 12px;
+        padding-top: max(14px, env(safe-area-inset-top));
+        border-bottom: 1px solid var(--border);
+    }
+
+    /* Brand name: the "Chats" <h2> text is swapped for the
+       app name via a pseudo-element (text nodes can't be
+       changed from CSS) */
+    .conv-title {
+        font-size: 0;
+    }
+
+    .conv-title::before {
+        content: "Nexara";
+        font-size: 21px;
+        font-weight: 700;
+        letter-spacing: -0.4px;
+        font-family: var(--font-display);
+        color: var(--text-1);
+    }
+
+    .conv-count {
+        display: none;
+    }
+
+    /* ---------- "+" becomes a floating FAB ---------- */
+
+    .conv-new-group-btn {
+        position: fixed;
+        right: 20px;
+        bottom: calc(74px + env(safe-area-inset-bottom));
+        z-index: 50;
+        width: 56px;
+        height: 56px;
+        min-width: 0;
+        border-radius: 50%;
+        background: var(--grad);
+        border: none;
+        color: #fff;
+        font-size: 26px;
+        font-weight: 400;
+        box-shadow:
+            0 6px 20px rgba(124, 92, 255, 0.5),
+            0 2px 8px rgba(0, 0, 0, 0.3);
+        animation: fabIn 0.25s var(--ease);
+    }
+
+    .conv-new-group-btn:hover {
+        background: var(--grad);
+        color: #fff;
+    }
+
+    .conv-new-group-btn:active {
+        transform: scale(0.92);
+    }
+
+    /* ---------- list body: flat rows ---------- */
+
+    .conv-list-body {
+        padding: 0;
+        gap: 0;
+    }
+
+    .conv-item {
+        gap: 14px;
+        padding: 11px 16px;
+        border-radius: 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .conv-item:hover {
+        background: transparent;
+    }
+
+    .conv-item.active {
+        background: var(--accent-soft);
+        box-shadow: none;
+    }
+
+    .conv-item:active {
+        background: var(--surface-2);
+    }
+
+    /* round avatars, WhatsApp-size */
+    .conv-avatar-badge,
+    .conv-group-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        font-size: 18px;
+    }
+
+    .conv-skeleton-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+    }
+
+    .conv-skeleton {
+        padding: 11px 16px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    /* two-line row: name + time / preview + unread */
+    .conv-name {
+        font-size: 15.5px;
+        font-weight: 500;
+    }
+
+    .conv-time {
+        font-size: 11.5px;
+    }
+
+    .conv-preview {
+        font-size: 13px;
+        color: var(--text-3);
+    }
+
+    /* pin / mute / archive are hover-actions; on phones they
+       are hidden so the row stays WhatsApp-clean. The unread
+       badge remains, bottom-right. */
+    .conv-actions {
+        gap: 0;
+    }
+
+    .conv-actions .conv-action {
+        display: none;
+    }
+
+    .unread-pill {
+        min-width: 22px;
+        height: 22px;
+        font-size: 11.5px;
+    }
+
+    /* ---------- archived row ---------- */
+
+    .conv-archive-block {
+        margin: 0;
+        padding: 0;
+        border-top: none;
+    }
+
+    .conv-archive-toggle {
+        padding: 11px 16px;
+        border-radius: 0;
+    }
+
+    .conv-archive-icon {
+        border-radius: 50%;
+    }
+
+    /* ---------- empty state ---------- */
+
+    .empty-state {
+        padding: 60px 30px;
+    }
+
+}
+
+/* ============================================================
+   4. Chat screen: header, back button, bubbles, input
+   ============================================================ */
+
+@media (max-width: 720px) {
+
+    /* ---------- header: back button + identity ---------- */
+
+    .chat-header {
+        gap: 6px;
+        padding: 10px 8px;
+        padding-top: max(10px, env(safe-area-inset-top));
+    }
+
+    /* Back arrow lives in the header, left of the avatar
+       (WhatsApp placement) */
+    .chat-back-btn {
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        margin-left: -4px;
+        flex-shrink: 0;
+        border-radius: 50%;
+        border: none;
+        background: transparent;
+        color: var(--text-1);
+    }
+
+    .chat-back-btn:active {
+        background: var(--surface-2);
+    }
+
+    .chat-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        font-size: 14px;
+    }
+
+    .chat-name {
+        font-size: 16px;
+        font-weight: 500;
+    }
+
+    .chat-status {
+        font-size: 12.5px;
+        margin-top: 1px;
+    }
+
+    .chat-status.typing {
+        color: var(--accent-2);
+    }
+
+    .chat-header .chat-status:not(.typing) {
+        color: var(--text-3);
+    }
+
+    /* Header actions: drop the E2E text chip & make the icon
+       chips plain glyphs (PWA-style, no pill frames) */
+    .chat-header-actions {
+        gap: 4px;
+    }
+
+    /* Non-call feature chips move into the ⋮ menu on phones;
+       voice/video call stay in the bar. */
+    .chat-header-actions > .header-extra {
+        display: none;
+    }
+
+    /* ---------- ⋮ overflow menu ---------- */
+
+    .kebab-btn {
+        width: 40px;
+        height: 40px;
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        color: var(--text-2);
+    }
+
+    .kebab-btn:active,
+    .kebab-btn.open {
+        background: var(--surface-2);
+    }
+
+    .kebab-btn.open {
+        color: var(--accent-2);
+    }
+
+    .kebab-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 88;
+    }
+
+    .kebab-menu {
+        position: fixed;
+        top: max(60px, calc(env(safe-area-inset-top) + 58px));
+        right: 8px;
+        z-index: 89;
+        min-width: 240px;
+        max-width: calc(100vw - 24px);
+        padding: 6px;
+        background: var(--glass-panel, rgba(14, 18, 38, 0.7));
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow:
+            0 18px 48px rgba(0, 0, 0, 0.45),
+            0 4px 14px rgba(0, 0, 0, 0.3);
+        animation: mobileSheet 0.22s var(--ease);
+    }
+
+    .kebab-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        padding: 13px 14px;
+        border-radius: 10px;
+        font-size: 14.5px;
+        font-weight: 500;
+        color: var(--text-1);
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .kebab-item svg {
+        flex-shrink: 0;
+        color: var(--text-3);
+    }
+
+    .kebab-item:active {
+        background: var(--surface-2);
+    }
+
+    .kebab-item-on {
+        color: var(--accent-2);
+    }
+
+    /* ---------- message reply/reaction menu ----------
+       Phones use WhatsApp-style gestures instead of the
+       hover ⋯ button: long-press opens the menu, horizontal
+       swipe replies. The dots remain web-only. */
+    .bubble-actions-btn {
+        display: none;
+    }
+
+    /* Long-press must not summon the native selection or
+       callout UI over our own menu. */
+    @media (hover: none) {
+        .message-bubble {
+            -webkit-touch-callout: none;
+            user-select: none;
+        }
+    }
+
+    .bubble-menu-item {
+        padding: 12px 14px;
+        font-size: 14.5px;
+    }
+
+    .bubble-reaction-btn {
+        font-size: 22px;
+        padding: 6px 0;
+    }
+
+    .e2e-chip:not(.icon-chip) {
+        display: none;
+    }
+
+    .e2e-chip.icon-chip {
+        background: transparent;
+        border: none;
+    }
+
+    .e2e-chip.icon-chip.chip-active {
+        background: rgba(251, 191, 36, 0.12);
+        border: 1px solid rgba(251, 191, 36, 0.35);
+        border-radius: var(--radius-pill);
+    }
+
+    /* ---------- back button (ChatWindow.jsx header) ---------- */
+
+    .app-shell:not(.in-chat) .chat-back-btn {
+        visibility: hidden;
+    }
+
+    /* ---------- WhatsApp-flat bubbles ---------- */
+
+    .message-list {
+        padding: 14px 10px 8px;
+    }
+
+    .message-bubble {
+        max-width: 82%;
+        box-shadow: none;
+    }
+
+    .message-row.mine .message-bubble {
+        background: var(--accent);
+        box-shadow: none;
+    }
+
+    .message-row.other .message-bubble {
+        border: none;
+    }
+
+    .message-sender-name {
+        font-size: 12px;
+    }
+
+    .disappear-banner {
+        font-size: 11.5px;
+        padding: 6px 10px;
+    }
+
+    .chat-error-banner {
+        font-size: 12px;
+        margin: 0 10px 6px;
+    }
+
+    /* ---------- input bar ---------- */
+
+    .chat-input {
+        padding: 8px 10px
+            max(12px, env(safe-area-inset-bottom));
+    }
+
+    .chat-input-bar {
+        gap: 4px;
+        padding: 6px 8px;
+    }
+
+    .icon-btn {
+        width: 42px;
+        height: 42px;
+    }
+
+    /* ---------- message info panel: full screen ---------- */
+
+    .msg-info-panel {
+        width: 100%;
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+}
+
+/* Very narrow phones: keep bubbles tight */
+
+@media (max-width: 380px) {
+
+    .message-bubble {
+        max-width: 90%;
+    }
+
+}
+
+/* ============================================================
+   5. Search & timer dropdowns on phones
+   ============================================================ */
+
+@media (max-width: 720px) {
+
+    .chat-search-input {
+        width: min(150px, 38vw);
+        font-size: 13px;
+    }
+
+    /* Results and timer menu drop below the header as
+       full-width overlays */
+    .chat-search-results {
+        position: fixed;
+        top: max(64px, calc(env(safe-area-inset-top) + 64px));
+        left: 10px;
+        right: 10px;
+        width: auto;
+        max-height: 50dvh;
+        z-index: 80;
+    }
+
+    .timer-menu {
+        position: fixed;
+        top: max(64px, calc(env(safe-area-inset-top) + 64px));
+        right: 10px;
+        width: min(240px, calc(100vw - 48px));
+        max-height: calc(100dvh - 88px);
+        z-index: 80;
+    }
+
+}
+
+/* ============================================================
+   6. Bottom-sheet modals on phones
+   ============================================================ */
+
+@media (max-width: 480px) {
+
+    .modal-backdrop {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    .group-modal,
+    .group-info-modal {
+        width: 100%;
+        max-width: 100%;
+        max-height: 88dvh;
+        border-radius: 18px 18px 0 0;
+        animation: mobileSheet 0.28s var(--ease);
+    }
+
+    .modal-overlay {
+        padding: 0;
+        align-items: flex-end;
+    }
+
+    .modal-card,
+    .delete-conv-modal {
+        width: 100%;
+        max-width: 100%;
+        border-radius: 18px 18px 0 0;
+        max-height: 88dvh;
+        overflow-y: auto;
+    }
+
+}
+
+@keyframes mobileSheet {
+
+    from {
+        transform: translateY(48px);
+        opacity: 0;
+    }
+
+    to {
+        transform: none;
+        opacity: 1;
+    }
+
+}
+
+@keyframes fabIn {
+
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.8);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+
+}
+
+/* ============================================================
+   7. Touch targets & iOS text-zoom fixes
+   ============================================================ */
+
+@media (max-width: 720px) {
+
+    .chip-btn {
+        width: 36px;
+        height: 36px;
+    }
+
+    .bubble-actions-btn {
+        width: 34px;
+        height: 34px;
+    }
+
+    .modal-close {
+        width: 38px;
+        height: 38px;
+    }
+
+    .bubble-menu-item {
+        padding: 12px 12px;
+    }
+
+    .bubble-reaction-btn {
+        padding: 8px 4px;
+        font-size: 21px;
+    }
+
+    .timer-option {
+        padding: 12px 10px;
+    }
+
+    .upload-cancel-btn {
+        width: 38px;
+        height: 38px;
+    }
+
+}
+
+/* 16px input font keeps iOS Safari from auto-zooming */
+
+.chat-input-field {
+    font-size: 16px;
+}
+
+/* Keep the send circle reachable next to the keyboard */
+
+.send-btn {
+    width: 44px;
+    height: 44px;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+/* ============================================================
+   9. Native shell (Capacitor) hardening
+   ------------------------------------------------------------
+   main.jsx adds html.native when running inside the Android/iOS
+   wrapper. Dynamic viewport units (100dvh) are mis-evaluated by
+   some Android System WebViews, which collapses the shell and
+   kills every inner scroll area — plain vh is exact in the
+   full-screen WebView (no browser chrome to account for).
+   ============================================================ */
+
+html.native .app-shell {
+    height: 100vh;
+}
+
+@media (max-width: 720px) {
+
+    /* Touch scrolling behaviour for the app's scroll areas */
+    .conv-list-body,
+    .message-list,
+    .settings-page,
+    .friends-page,
+    .status-page {
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+
+}
