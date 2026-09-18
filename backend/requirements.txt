@@ -31,7 +31,7 @@ python-multipart==0.0.32
 cryptography==50.0.1
 
 # Observability
-sentry-sdk[fastapi]==2.19.2
+sentry-sdk[fastapi]==2.69.2
 
 # Tests
 pytest==9.1.1
