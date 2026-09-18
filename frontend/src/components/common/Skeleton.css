@@ -1,0 +1,26 @@
+.skeleton-msg {
+    display: flex;
+    gap: 8px;
+    padding: 8px 0;
+    align-items: center;
+}
+
+.skeleton-msg-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.skeleton-conv {
+    display: flex;
+    gap: 12px;
+    padding: 12px 16px;
+    align-items: center;
+}
+
+.skeleton-conv-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+}

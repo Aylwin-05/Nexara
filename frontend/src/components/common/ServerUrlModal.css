@@ -1,0 +1,40 @@
+/* ---------- server address modal (auth screens) ---------- */
+
+.server-url-modal {
+    text-align: left;
+}
+
+.server-url-hint {
+    margin: 0 0 18px !important;
+    font-size: 13.5px;
+}
+
+.server-url-hint code {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--accent-2);
+    font-size: 12px;
+}
+
+.server-url-field input {
+    padding-left: 16px;
+    font-family: ui-monospace, "Cascadia Mono", monospace;
+    font-size: 14px;
+}
+
+.server-url-field input:not(:placeholder-shown) {
+    color: var(--text-1);
+}
+
+.server-url-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 22px;
+}
+
+.server-url-actions .btn-primary {
+    min-width: 0;
+}

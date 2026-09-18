@@ -1,0 +1,85 @@
+/* ---------- server config (auth screens) ---------- */
+
+.server-config-banner {
+    position: fixed;
+    top: max(14px, env(safe-area-inset-top, 0px));
+    left: 50%;
+    translate: -50% 0;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: min(92vw, 440px);
+    max-width: 92vw;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    background: var(--surface-1);
+    border: 1px solid var(--accent-border);
+    box-shadow: var(--shadow);
+    color: var(--text-2);
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+
+.server-config-banner-text {
+    flex: 1;
+}
+
+.server-config-banner-cta {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--accent-border);
+    background: var(--accent-soft);
+    color: var(--accent-2);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.server-config-banner-cta:hover {
+    background: rgba(124, 92, 255, 0.2);
+}
+
+.server-config-banner-x {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--text-3);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.server-config-banner-x:hover {
+    color: var(--text-1);
+    background: var(--surface);
+}
+
+.server-config-gear {
+    position: fixed;
+    right: max(16px, env(safe-area-inset-right, 0px));
+    bottom: max(16px, env(safe-area-inset-bottom, 0px));
+    z-index: 90;
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow);
+    color: var(--text-3);
+    cursor: pointer;
+    transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.server-config-gear:hover {
+    color: var(--accent-2);
+    transform: rotate(25deg);
+}
