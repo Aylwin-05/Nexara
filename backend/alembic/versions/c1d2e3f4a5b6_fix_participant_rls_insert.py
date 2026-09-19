@@ -46,8 +46,7 @@ def upgrade() -> None:
     bind = op.get_bind()
     bind.execute(
         sa.text(
-            "DROP POLICY IF EXISTS np_conversation_participants_scope "
-            "ON conversation_participants"
+            "DROP POLICY IF EXISTS np_conversation_participants_scope ON conversation_participants"
         )
     )
     bind.execute(
@@ -67,8 +66,7 @@ def downgrade() -> None:
     bind = op.get_bind()
     bind.execute(
         sa.text(
-            "DROP POLICY IF EXISTS np_conversation_participants_scope "
-            "ON conversation_participants"
+            "DROP POLICY IF EXISTS np_conversation_participants_scope ON conversation_participants"
         )
     )
     bind.execute(

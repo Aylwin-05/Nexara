@@ -47,6 +47,7 @@ AsyncSessionLocal = async_sessionmaker(
 # Row-Level Security scope
 # ==========================================================
 
+
 # The auth dependency stores the authenticated user id in
 # session.info["rls_user_id"]. Re-publish it as the transaction-
 # local GUC app.current_user_id whenever a transaction begins.
@@ -70,4 +71,3 @@ def _publish_rls_user(session, transaction, connection) -> None:
             text("SELECT set_config('app.current_user_id', :uid, true)"),
             {"uid": user_id},
         )
-

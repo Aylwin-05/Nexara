@@ -18,16 +18,8 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute(
-        sa.text(
-            "GRANT USAGE ON SCHEMA secure TO nexara_app"
-        )
-    )
+    op.execute(sa.text("GRANT USAGE ON SCHEMA secure TO nexara_app"))
 
 
 def downgrade() -> None:
-    op.execute(
-        sa.text(
-            "REVOKE USAGE ON SCHEMA secure FROM nexara_app"
-        )
-    )
+    op.execute(sa.text("REVOKE USAGE ON SCHEMA secure FROM nexara_app"))

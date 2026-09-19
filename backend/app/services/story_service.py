@@ -307,9 +307,7 @@ class StoryService:
                         "avatar_url": reactor.avatar_url,
                         "emoji": reaction.emoji,
                         "reacted_at": (
-                            reaction.created_at.isoformat()
-                            if reaction.created_at
-                            else None
+                            reaction.created_at.isoformat() if reaction.created_at else None
                         ),
                     }
                 )
@@ -324,8 +322,7 @@ class StoryService:
                     "count": len(items),
                     "reactions": items,
                     "summary": [
-                        {"emoji": emoji, "count": count}
-                        for emoji, count in totals.items()
+                        {"emoji": emoji, "count": count} for emoji, count in totals.items()
                     ],
                 }
 
