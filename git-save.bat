@@ -23,5 +23,27 @@ if /i not "%choice%"=="y" (
     exit /b 1
 )
 git commit -m "chore: auto save"
+if errorlevel 1 (
+    echo.
+    echo *** COMMIT FAILED - NOTHING WAS PUSHED ***
+    pause
+    exit /b 1
+)
+git pull --rebase origin main
+if errorlevel 1 (
+    echo.
+    echo *** PULL FAILED - resolve the conflict, then run "git push origin main" ***
+    pause
+    exit /b 1
+)
 git push -u origin main
+if errorlevel 1 (
+    echo.
+    echo *** PUSH FAILED - your commit is saved locally but NOT on GitHub ***
+    echo *** Fix it, then run "git push origin main" ***
+    pause
+    exit /b 1
+)
+echo.
+echo Pushed successfully.
 pause
