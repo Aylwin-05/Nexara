@@ -206,7 +206,12 @@ export class SignalKeyStore {
 
     async getSyncSecret() {
         const record = await this.peekMeta("sync");
-        return record?.secret ?? null;
+        // Guarantee string|null: an object/value sneaking through
+        // (e.g. a corrupted meta row) must never be passed into a
+        // JSON body where JSON.stringify would blow up.
+        return typeof record?.secret === "string"
+            ? record.secret
+            : null;
     }
 
     async getSyncRecord() {

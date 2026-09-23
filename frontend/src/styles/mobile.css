@@ -573,8 +573,11 @@ html.native .app-shell.in-chat .chat-panel {
     }
 
     /* Back arrow lives in the header, left of the avatar
-       (WhatsApp placement) */
-    .chat-back-btn {
+       (WhatsApp placement). The parent-scoped selector beats
+       Chat.css's base `.chat-back-btn { display: none }`,
+       which otherwise wins because Chat.css is bundled after
+       mobile.css. */
+    .chat-header .chat-back-btn {
         display: grid;
         place-items: center;
         width: 40px;
@@ -587,7 +590,7 @@ html.native .app-shell.in-chat .chat-panel {
         color: var(--text-1);
     }
 
-    .chat-back-btn:active {
+    .chat-header .chat-back-btn:active {
         background: var(--surface-2);
     }
 

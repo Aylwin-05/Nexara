@@ -57,6 +57,9 @@ class UserService:
         if request.avatar_url is not None:
             user.avatar_url = request.avatar_url.strip()
 
+        if request.presence_animal is not None:
+            user.presence_animal = request.presence_animal
+
         return await self.repository.update_user(user)
 
     # ==========================================================

@@ -27,8 +27,6 @@ export const SYNC_KEY_ITERATIONS = 600_000;
 export const SYNC_KEY_SIZE = 32;
 export const SYNC_NONCE_SIZE = 12;
 
-let cachedSyncKey = null;
-
 // The backend stores and serves the PBKDF2 salt as HEX
 // (recovery_service.py: salt.hex()). Earlier client code tried
 // base64 — which silently produced wrong salt bytes and made
@@ -88,15 +86,20 @@ export function unwrapSyncSecret(code, saltB64, wrappedKey) {
 // ==========================================================
 
 export async function getSyncKey() {
-    if (cachedSyncKey) return cachedSyncKey;
+    // Deliberately NO positive module cache: the secret can change
+    // mid-session (unlock, forced new key, account switch on a
+    // long-lived tab/mobile webview) and a stale in-memory key
+    // would silently decrypt every message with the wrong account
+    // secret → permanent "[Locked…]" until a full reload. The
+    // read is a single small IndexedDB get (~1-5 ms); per-message
+    // decryption cost is negligible.
     const secretB64 = await signalKeyStore.getSyncSecret();
     if (!secretB64) return null;
-    cachedSyncKey = b64decode(secretB64);
-    return cachedSyncKey;
+    return b64decode(secretB64);
 }
 
 export function clearSyncKeyCache() {
-    cachedSyncKey = null;
+    // Retained for callers still clearing the (now removed) cache.
 }
 
 // ==========================================================

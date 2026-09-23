@@ -234,6 +234,48 @@
     flex-shrink: 0;
 }
 
+.presence-pet-preview {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.presence-pet-preview .pp-wrap {
+    width: 40px;
+    height: 40px;
+}
+
+.presence-pet-preview .pp-pet {
+    width: 32px;
+    height: 32px;
+}
+
+.presence-pet-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.presence-pet-avatar .avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 /* ---------- danger zone ---------- */
 
 .danger-zone .settings-card-head p {

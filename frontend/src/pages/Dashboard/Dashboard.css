@@ -10,8 +10,58 @@
    hidden behind an opaque gradient placeholder. */
 
 .app-shell[data-privacy-blurred="true"] .app-stage,
-.app-shell[data-privacy-blurred="true"] .conv-panel {
+.app-shell[data-privacy-blurred="true"] .conv-panel,
+.app-shell[data-privacy-blurred="true"] .page-slider {
     visibility: hidden;
+}
+
+/* ---------- WhatsApp-style page slider (mobile) ----------
+   Phones slide Chats → Status → Friends → Calls → Settings
+   horizontally. Dragging is recognized in JS on the wrapper
+   (`touch-action: pan-y` hands horizontal pans to the script
+   while vertical list scroll still belongs to the browser), so
+   a swipe works from any touch point and never eats taps or
+   scrolls. The snap is a short fixed-duration transform, so
+   tab taps feel fast like WhatsApp. Desktop only renders the
+   single-page stage (no slide). */
+
+.page-slider {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    overflow: hidden;
+    touch-action: pan-y;
+}
+
+.page-slider-track {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    will-change: transform;
+    transition: transform 0.18s cubic-bezier(0.25, 0.8, 0.35, 1);
+}
+
+.page-slider-track.dragging {
+    transition: none;
+}
+
+.page-slider-page {
+    flex: 0 0 100%;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+}
+
+.page-slider-page > .app-stage {
+    flex: 1;
+    height: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .page-slider-track {
+        transition: none;
+    }
 }
 
 /* ---------- conversation panel ---------- */

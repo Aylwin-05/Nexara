@@ -519,6 +519,48 @@ class WebSocketService {
     }
 
     // ======================================================
+    // CHAT OPEN / CLOSE (in-conversation presence)
+    // ======================================================
+
+    sendChatOpen(conversationId) {
+
+        this._sendConversationEvent(
+            "chat_open",
+            conversationId,
+        );
+
+    }
+
+    sendChatClose(conversationId) {
+
+        this._sendConversationEvent(
+            "chat_close",
+            conversationId,
+        );
+
+    }
+
+    _sendConversationEvent(event, conversationId) {
+
+        if (
+            !this.socket ||
+            this.socket.readyState !== WebSocket.OPEN
+        ) {
+            return;
+        }
+
+        this.socket.send(
+
+            JSON.stringify({
+                event,
+                conversation_id: conversationId,
+            })
+
+        );
+
+    }
+
+    // ======================================================
     // READ RECEIPT
     // ======================================================
 

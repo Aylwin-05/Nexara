@@ -383,6 +383,18 @@ export function AuthProvider({ children }) {
     };
 
     // ==========================================================
+    // Update Current User
+    // ==========================================================
+
+    const updateUser = (updatedUser) => {
+
+        setUser(updatedUser);
+
+        authService.saveUser(updatedUser);
+
+    };
+
+    // ==========================================================
     // Logout
     // ==========================================================
 
@@ -456,6 +468,7 @@ export function AuthProvider({ children }) {
                 accessToken,
                 login,
                 logout,
+                updateUser,
                 isAuthenticated: !!user,
                 recoveryCode,
                 needsRecoveryEntry,

@@ -11,6 +11,7 @@ import { getApiErrorDetail } from "../../utils/errors";
 import UserAvatar, {
     bustAvatarCache,
 } from "../../components/UserAvatar";
+import PresencePet from "../../components/PresencePet";
 
 import userService from "../../services/userService";
 
@@ -64,6 +65,34 @@ const PRIVACY_FIELDS = [
     },
 ];
 
+const PRESENCE_ANIMALS = [
+    {
+        id: "default",
+        label: "Username",
+        description: "Your profile avatar — the classic look.",
+    },
+    {
+        id: "cat",
+        label: "Cat",
+        description: "Blinking eyes and a twitchy ear.",
+    },
+    {
+        id: "dog",
+        label: "Doggie",
+        description: "Panting tongue, breathing happily.",
+    },
+    {
+        id: "owl",
+        label: "Owl",
+        description: "Sleepy blinks with a little bob.",
+    },
+    {
+        id: "rabbit",
+        label: "Bunny",
+        description: "Wiggly ears while they wait.",
+    },
+];
+
 const THEME_OPTIONS = [
     {
         id: "blue",
@@ -108,6 +137,10 @@ export default function SettingsPage() {
     const [uploading, setUploading] = useState(false);
 
     const [theme, setThemeState] = useState(getTheme());
+
+    const [presenceAnimal, setPresenceAnimal] = useState(
+        user?.presence_animal || "default"
+    );
 
     const [confirmLogout, setConfirmLogout] = useState(false);
     const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
@@ -897,6 +930,44 @@ export default function SettingsPage() {
     }
 
     // ==========================================================
+    // In-chat presence pet
+    // ==========================================================
+
+    async function handlePresenceAnimalChange(animalId) {
+
+        if (animalId === presenceAnimal) return;
+
+        setPresenceAnimal(animalId);
+
+        try {
+
+            const updated =
+                await userService.updateProfile({
+                    presence_animal: animalId,
+                });
+
+            updateUser(updated);
+
+            toast.success("In-chat presence updated.");
+        }
+        catch (error) {
+
+            setPresenceAnimal(
+                user?.presence_animal || "default"
+            );
+
+            toast.error(
+                getApiErrorDetail(
+                    error,
+                    "Unable to update presence.",
+                )
+            );
+
+        }
+
+    }
+
+    // ==========================================================
     // Logout
     // ==========================================================
 
@@ -1083,7 +1154,7 @@ export default function SettingsPage() {
                             }
                             minLength={3}
                             maxLength={30}
-                            pattern="[a-zA-Z0-9_.-]+"
+                            pattern="[a-zA-Z0-9_.\-]+"
                             required
                             autoComplete="off"
                         />
@@ -1176,6 +1247,82 @@ export default function SettingsPage() {
                                         background: `linear-gradient(135deg, ${option.colors[0]}, ${option.colors[1]})`,
                                     }}
                                 />
+
+                                <span className="theme-meta">
+
+                                    <strong>{option.label}</strong>
+
+                                    <small>{option.description}</small>
+
+                                </span>
+
+                                <span className="theme-check">
+                                    {active ? "✓" : ""}
+                                </span>
+
+                            </button>
+
+                        );
+
+                    })}
+
+                </div>
+
+            </section>
+
+            {/* ------- in-chat presence ------- */}
+
+            <section className="settings-card">
+
+                <div className="settings-card-head">
+
+                    <h3>In-chat presence</h3>
+
+                    <p>
+                        When you have a chat open, your friends see
+                        your chosen pet at the bottom of their chat
+                        as a subtle &quot;someone is here&quot; hint.
+                        Online status stays separate — your pet only
+                        shows while you are actually viewing the chat.
+                    </p>
+
+                </div>
+
+                <div className="theme-grid">
+
+                    {PRESENCE_ANIMALS.map((option) => {
+
+                        const active =
+                            presenceAnimal === option.id;
+
+                        return (
+
+                            <button
+                                key={option.id}
+                                type="button"
+                                aria-pressed={active}
+                                className={
+                                    active
+                                        ? "theme-option active"
+                                        : "theme-option"
+                                }
+                                onClick={() =>
+                                    handlePresenceAnimalChange(option.id)
+                                }
+                            >
+
+                                <span className="presence-pet-preview">
+                                    {option.id === "default" ? (
+                                        <UserAvatar
+                                            user={user}
+                                            className="presence-pet-avatar"
+                                        />
+                                    ) : (
+                                        <PresencePet
+                                            style={option.id}
+                                        />
+                                    )}
+                                </span>
 
                                 <span className="theme-meta">
 

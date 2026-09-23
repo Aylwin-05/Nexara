@@ -137,6 +137,7 @@ class ConversationUser(BaseModel):
     email: str
     avatar_url: str | None
     online_status: str
+    presence_animal: str = "default"
 
 
 # ==========================================================

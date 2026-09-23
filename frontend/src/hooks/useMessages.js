@@ -108,6 +108,9 @@ export default function useMessages(
     const [typingUsers, setTypingUsers] =
         useState([]);
 
+    const [chatOpenUsers, setChatOpenUsers] =
+        useState([]);
+
     const [loading, setLoading] =
         useState(false);
 
@@ -655,13 +658,25 @@ export default function useMessages(
 
             setMessages([]);
 
+            setChatOpenUsers([]);
+
             clearSearch();
 
             return;
 
         }
 
+        setChatOpenUsers([]);
+
         void initialize();
+
+        return () => {
+
+            websocketService.sendChatClose(
+                conversation.id
+            );
+
+        };
 
     }, [conversation?.id]);
 
@@ -906,6 +921,108 @@ export default function useMessages(
                                     )
 
                             );
+
+                            break;
+
+                        //--------------------------------------------------
+                        // Chat Open / Close / Snapshot
+                        //--------------------------------------------------
+
+                        case "chat_open":
+
+                            if (
+                                event.user_id !==
+                                user?.id
+                            ) {
+
+                                setChatOpenUsers(
+                                    previous => {
+
+                                        const exists =
+                                            previous.some(
+                                                item =>
+                                                    item.id ===
+                                                    event.user_id
+                                            );
+
+                                        if (exists) {
+
+                                            return previous.map(
+                                                item =>
+                                                    item.id ===
+                                                    event.user_id
+                                                        ? {
+                                                            ...item,
+                                                            style:
+                                                                event.presence_animal ??
+                                                                "default",
+                                                        }
+                                                        : item
+                                            );
+
+                                        }
+
+                                        return [
+
+                                            ...previous,
+
+                                            {
+                                                id: event.user_id,
+                                                style:
+                                                    event.presence_animal ??
+                                                    "default",
+                                            },
+
+                                        ];
+
+                                    }
+                                );
+
+                            }
+
+                            break;
+
+                        case "chat_open_snapshot":
+
+                            setChatOpenUsers(
+                                (event.user_ids ?? []).filter(
+                                    id =>
+                                        id !== user?.id
+                                ).map(id => ({
+
+                                    id,
+
+                                    style:
+                                        id ===
+                                        conversation?.other_user?.id
+                                            ? conversation
+                                                .other_user
+                                                .presence_animal ??
+                                                  "default"
+                                            : "default",
+
+                                }))
+                            );
+
+                            break;
+
+                        case "chat_close":
+
+                            if (
+                                event.user_id !==
+                                user?.id
+                            ) {
+
+                                setChatOpenUsers(
+                                    previous =>
+                                        previous.filter(
+                                            item =>
+                                                item.id !==
+                                                event.user_id
+                                        )
+                                );
+
+                            }
 
                             break;
 
@@ -1605,6 +1722,15 @@ try {
                 );
 
             }
+
+            //--------------------------------------------------
+            // Announce we're viewing this chat (Snapchat-style
+            // "in chat" presence for the other participant)
+            //--------------------------------------------------
+
+            websocketService.sendChatOpen(
+                conversation.id
+            );
 
             //--------------------------------------------------
             // Download all image attachments
@@ -3258,6 +3384,8 @@ const history =
         imageUrls,
 
         typingUsers,
+
+        chatOpenUsers,
 
         loading,
 

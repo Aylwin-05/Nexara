@@ -149,11 +149,18 @@ const recoveryService = {
 
     async requestRecoveryCode(secretB64 = null, forceNew = false) {
 
+        // Coerce to primitives: callers pass localStorage values
+        // that could be anything; a non-string secret_b64 must
+        // never reach JSON.stringify (a "Converting circular
+        // structure to JSON" crash was seen in this flow).
         const response = await api.post(
             "/recovery/request",
             {
-                secret_b64: secretB64 ?? null,
-                force_new: forceNew,
+                secret_b64:
+                    typeof secretB64 === "string" && secretB64
+                        ? secretB64
+                        : null,
+                force_new: Boolean(forceNew),
             }
         );
 

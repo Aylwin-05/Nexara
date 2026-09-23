@@ -79,6 +79,14 @@ class ConnectionManager:
         # instead of losing the call silently. Removed on call_end.
         self.pending_calls: dict[str, dict] = {}
 
+        # user_id -> set of conversation_ids currently open in the
+        # user's chat UI (Snapchat-style "in chat" indicator).
+        # ponytail: in-memory per worker like user_members; the Redis
+        # bus only fans events and holds no chat-open registry, so a
+        # peer on another worker is missing from snapshots. Move the
+        # registry into redis_bus if the app ever runs >1 worker.
+        self.chat_open: defaultdict[UUID, set] = defaultdict(set)
+
     # ==========================================================
     # Connect
     # ==========================================================
@@ -582,6 +590,40 @@ class ConnectionManager:
                 member_id,
                 message,
             )
+
+    # ==========================================================
+    # Chat-open presence (Snapchat-style "in chat" indicator)
+    # ==========================================================
+
+    def mark_chat_open(
+        self,
+        user_id,
+        conversation_id,
+    ):
+        self.chat_open[user_id].add(conversation_id)
+
+    def mark_chat_closed(
+        self,
+        user_id,
+        conversation_id,
+    ):
+        conversations = self.chat_open.get(user_id)
+
+        if conversations:
+            conversations.discard(conversation_id)
+
+            if not conversations:
+                del self.chat_open[user_id]
+
+    def chat_open_viewers(
+        self,
+        conversation_id,
+    ):
+        return [
+            str(user_id)
+            for user_id, conversations in self.chat_open.items()
+            if conversation_id in conversations
+        ]
 
     # ==========================================================
     # Send to One User (all their devices)

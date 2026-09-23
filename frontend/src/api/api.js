@@ -15,6 +15,17 @@ import { logger } from "../utils/logger.js";
 // address is fixed at build time and must not be mutable in-app.
 export function getConfiguredServer() {
 
+    // Runtime repoint (Settings → Server address) wins; a native
+    // build without one falls back to its baked build-time URL.
+    const override =
+        localStorage.getItem("nexara.server_url");
+
+    if (override) {
+
+        return override;
+
+    }
+
     return (
         import.meta.env.VITE_API_URL ||
         ""

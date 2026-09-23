@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -6,6 +7,15 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 # ==========================================================
 # Public User
 # ==========================================================
+
+# Animated pet shown as the in-chat presence indicator.
+PresenceAnimal = Literal[
+    "default",
+    "cat",
+    "dog",
+    "owl",
+    "rabbit",
+]
 
 
 class UserResponse(BaseModel):
@@ -33,6 +43,8 @@ class UserResponse(BaseModel):
     # was already issued). A browser that has not unlocked the
     # sync secret prompts the user for the code on login.
     has_recovery_key: bool = False
+
+    presence_animal: PresenceAnimal = "default"
 
     created_at: datetime
 
@@ -62,6 +74,8 @@ class UpdateProfileRequest(BaseModel):
     )
 
     avatar_url: str | None = None
+
+    presence_animal: PresenceAnimal | None = None
 
 
 # ==========================================================

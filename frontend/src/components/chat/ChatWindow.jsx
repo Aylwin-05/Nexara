@@ -10,17 +10,20 @@ import ForwardModal from "./ForwardModal";
 import MessageInfoPanel from "./MessageInfoPanel";
 import DeleteConversationModal from "./DeleteConversationModal";
 import GroupInfoModal from "./GroupInfoModal";
+import ContactProfileModal from "./ContactProfileModal";
 import StarredMessagesModal from "./StarredMessagesModal";
 import PinnedMessages from "./PinnedMessages";
 import MediaGallery from "./MediaGallery";
 import ChatWallpaper from "./ChatWallpaper";
 
 import UserAvatar from "../UserAvatar";
+import PresencePet from "../PresencePet";
 import { useAuth } from "../../context/AuthContext";
 import { useAndroidBack } from "../../utils/androidBack";
 import { useChatSocket } from "../../context/ChatSocketContext";
 import { useCall } from "../../context/CallContext";
 import blockService from "../../services/blockService";
+import websocketService from "../../services/websocketService";
 import api from "../../api/api";
 
 import "./Chat.css";
@@ -110,6 +113,7 @@ export default function ChatWindow({
     const {
         messages,
         typingUsers,
+        chatOpenUsers,
         loading,
         hasMore,
         loadingOlder,
@@ -194,6 +198,9 @@ export default function ChatWindow({
     const [groupInfoOpen, setGroupInfoOpen] =
         useState(false);
 
+    const [contactProfileOpen, setContactProfileOpen] =
+        useState(false);
+
     const [searchInput, setSearchInput] =
         useState("");
 
@@ -244,6 +251,11 @@ export default function ChatWindow({
 
         if (groupInfoOpen) {
             setGroupInfoOpen(false);
+            return true;
+        }
+
+        if (contactProfileOpen) {
+            setContactProfileOpen(false);
             return true;
         }
 
@@ -356,6 +368,29 @@ export default function ChatWindow({
         });
 
     }
+
+    // Re-broadcast "in chat" when the presence pet changes so
+    // peers see the new animation immediately. The initial
+    // chat_open is already sent by useMessages.initialize().
+    const presencePetAnnouncedRef = useRef(false);
+
+    useEffect(() => {
+
+        if (!conversation || !user) return;
+
+        if (!presencePetAnnouncedRef.current) {
+
+            presencePetAnnouncedRef.current = true;
+
+            return;
+
+        }
+
+        websocketService.sendChatOpen(
+            conversation.id
+        );
+
+    }, [user?.presence_animal]);
 
     // Close transient panels when switching chats
     useEffect(() => {
@@ -655,6 +690,33 @@ export default function ChatWindow({
             ? senderName(typingUsers[0])
             : null;
 
+    // Peer(s) who currently have this conversation open -
+    // shown as Snapchat-style avatars above the input bar.
+    const chatOpenPeers =
+        chatOpenUsers
+            .map(item => ({
+                id: item.id,
+                style: item.style,
+                display_name:
+                    item.id === otherUser?.id
+                        ? otherUser.display_name
+                        : null,
+                avatar_url:
+                    item.id === otherUser?.id
+                        ? otherUser.avatar_url
+                        : null,
+            }))
+            .filter(peer => peer.display_name)
+            .slice(0, 1);
+
+    const presenceStyle =
+        !isGroup &&
+        chatOpenPeers.length > 0 &&
+        chatOpenPeers[0].style &&
+        chatOpenPeers[0].style !== "default"
+            ? chatOpenPeers[0].style
+            : null;
+
     // Friendly wording for common errors
     const errorMessage = error
         ? /no (registered )?devic|no-such-device|bundle unavailable/i.test(
@@ -694,7 +756,32 @@ export default function ChatWindow({
                     </svg>
                 </button>
 
-                <div className="chat-identity">
+                <div
+                    className="chat-identity chat-identity-tappable"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={
+                        isGroup
+                            ? "Open group info"
+                            : "Open contact profile"
+                    }
+                    onClick={() =>
+                        isGroup
+                            ? setGroupInfoOpen(true)
+                            : setContactProfileOpen(true)
+                    }
+                    onKeyDown={(event) => {
+                        if (
+                            event.key === "Enter" ||
+                            event.key === " "
+                        ) {
+                            event.preventDefault();
+                            isGroup
+                                ? setGroupInfoOpen(true)
+                                : setContactProfileOpen(true);
+                        }
+                    }}
+                >
 
                     <UserAvatar
                         user={isGroup
@@ -775,6 +862,14 @@ export default function ChatWindow({
                     </div>
 
                 </div>
+
+                {presenceStyle && (
+                    <span className="chat-peek">
+                        <PresencePet
+                            style={presenceStyle}
+                        />
+                    </span>
+                )}
 
                 <div className="chat-header-actions">
 
@@ -1540,6 +1635,7 @@ export default function ChatWindow({
                 editTarget={editTarget}
                 onEdit={handleEditSubmit}
                 onCancelEdit={handleCancelEdit}
+                presenceStyle={presenceStyle}
             />
 
             {forwardTarget && (
@@ -1616,6 +1712,17 @@ export default function ChatWindow({
                         setGroupInfoOpen(false);
                         onLeaveGroup?.();
                     }}
+                />
+
+            )}
+
+            {contactProfileOpen && !isGroup && otherUser && (
+
+                <ContactProfileModal
+                    user={otherUser}
+                    onClose={() =>
+                        setContactProfileOpen(false)
+                    }
                 />
 
             )}

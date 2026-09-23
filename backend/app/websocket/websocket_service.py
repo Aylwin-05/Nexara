@@ -23,6 +23,8 @@ WS_RATE_LIMITS = {
     "delete": (30, 60),
     "typing": (120, 60),
     "stop_typing": (120, 60),
+    "chat_open": (120, 60),
+    "chat_close": (120, 60),
     "delivered": (120, 60),
     "read": (120, 60),
     "call_offer": (60, 60),
@@ -75,6 +77,8 @@ class WebSocketService:
             "message": self.handle_message,
             "typing": self.handle_typing,
             "stop_typing": self.handle_stop_typing,
+            "chat_open": self.handle_chat_open,
+            "chat_close": self.handle_chat_close,
             "delivered": self.handle_delivered,
             "read": self.handle_read,
             "edit": self.handle_edit,
@@ -607,6 +611,73 @@ class WebSocketService:
             conversation_id,
             {
                 "event": "stop_typing",
+                "user_id": str(current_user.id),
+                "conversation_id": str(conversation_id),
+            },
+        )
+
+    # ======================================================
+    # CHAT OPEN
+    #
+    # Snapchat-style "I'm viewing this conversation" signal.
+    # Anyone who already had the chat open when this user
+    # opened it missed this broadcast, so a one-shot snapshot
+    # of current viewers makes up the gap (the frontend
+    # filters the sender's own id / its own snapshot).
+    # ======================================================
+
+    async def handle_chat_open(
+        self,
+        conversation_id: UUID,
+        current_user: User,
+        data: dict,
+    ):
+        manager.mark_chat_open(
+            current_user.id,
+            conversation_id,
+        )
+
+        await manager.broadcast(
+            conversation_id,
+            {
+                "event": "chat_open",
+                "user_id": str(current_user.id),
+                "conversation_id": str(conversation_id),
+                "presence_animal": (current_user.presence_animal or "default"),
+            },
+        )
+
+        viewers = manager.chat_open_viewers(conversation_id)
+
+        if viewers:
+            await manager.send_to_user(
+                current_user.id,
+                {
+                    "event": "chat_open_snapshot",
+                    "conversation_id": str(conversation_id),
+                    "user_ids": viewers,
+                },
+            )
+
+    # ======================================================
+    # CHAT CLOSE
+    # ======================================================
+
+    async def handle_chat_close(
+        self,
+        conversation_id: UUID,
+        current_user: User,
+        data: dict,
+    ):
+        manager.mark_chat_closed(
+            current_user.id,
+            conversation_id,
+        )
+
+        await manager.broadcast(
+            conversation_id,
+            {
+                "event": "chat_close",
                 "user_id": str(current_user.id),
                 "conversation_id": str(conversation_id),
             },

@@ -121,6 +121,14 @@ class User(Base, TimestampMixin):
         comment="Current user presence status.",
     )
 
+    presence_animal: Mapped[str] = mapped_column(
+        String(32),
+        default="default",
+        nullable=False,
+        server_default="default",
+        comment="Animated pet shown as the in-chat presence indicator (default | cat | dog | owl | rabbit).",
+    )
+
     last_seen: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

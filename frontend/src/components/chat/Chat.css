@@ -18,6 +18,7 @@
     padding: 14px 20px;
     border-bottom: 1px solid var(--border);
     background: var(--header-bg);
+    position: relative;
 }
 
 /* Action icons always go to the far right; the identity
@@ -34,8 +35,18 @@
 .chat-identity {
     display: flex;
     align-items: center;
-    gap: 13px;
+    gap: 12px;
     min-width: 0;
+}
+
+.chat-identity-tappable {
+    cursor: pointer;
+}
+
+.chat-identity-tappable:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 12px;
 }
 
 .chat-avatar {
@@ -1037,6 +1048,211 @@
     background: var(--header-bg);
 }
 
+/* Snapchat-style "in chat" presence: the friend's pet stands on
+   the topbar's bottom border and peeks into the chat. Floating and
+   decorative - pointer-events none means it never blocks the header
+   or messages, and it reserves no layout space. */
+.chat-header:has(.chat-peek) .chat-identity {
+    margin-left: 76px;
+}
+
+.chat-peek {
+    position: absolute;
+    left: 6px;
+    bottom: 0;
+    width: 88px;
+    height: 88px;
+    pointer-events: none;
+    z-index: 5;
+    overflow: hidden;
+}
+
+.chat-peek .pp-wrap {
+    position: absolute;
+    left: 0;
+    bottom: -2px;
+    width: 88px;
+    height: 88px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    animation: pp-idle 2.8s ease-in-out infinite;
+}
+
+.chat-peek .pp-pet {
+    display: block;
+    width: 88px;
+    height: 88px;
+    animation: pp-peek-in 0.5s var(--ease);
+}
+
+@keyframes pp-peek-in {
+    0% { transform: translateY(14px); opacity: 0; }
+    70% { transform: translateY(-2px); opacity: 1; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+
+/* ---------- animated presence pets ---------- */
+
+.pp-wrap {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pp-idle 2.4s ease-in-out infinite;
+}
+
+.pp-wrap .pp-pet {
+    width: 27px;
+    height: 27px;
+    display: block;
+}
+
+.pp-eye {
+    fill: #3a2d23;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pp-blink 3s ease-in-out infinite;
+}
+
+.pp-delay-1 {
+    animation-delay: 0.25s;
+}
+
+.pp-nose {
+    fill: #4a382e;
+}
+
+.pp-pupil {
+    fill: #3a2d23;
+}
+
+.pp-blush {
+    fill: rgba(255, 118, 132, 0.38);
+}
+
+.pp-detail {
+    fill: none;
+    stroke: #3a2d23;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.pp-cat-ears {
+    transform-box: fill-box;
+    transform-origin: center bottom;
+    animation: pp-cat-ear-twitch 1.8s ease-in-out infinite;
+}
+
+.pp-dog {
+    transform-box: fill-box;
+    transform-origin: center bottom;
+    animation: pp-breathe 2.2s ease-in-out infinite;
+}
+
+.pp-tongue {
+    fill: #e0707a;
+    transform-box: fill-box;
+    transform-origin: center top;
+    animation: pp-tongue 2.2s ease-in-out infinite;
+}
+
+.pp-owl-bob {
+    transform-box: fill-box;
+    transform-origin: center top;
+    animation: pp-owl-bob 2.8s ease-in-out infinite;
+}
+
+.pp-rabbit-ear {
+    transform-box: fill-box;
+    transform-origin: center bottom;
+    animation: pp-ear-wiggle 1.6s ease-in-out infinite;
+}
+
+@keyframes pp-idle {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    25% { transform: translateY(-1.3px) rotate(-1.4deg); }
+    50% { transform: translateY(0) rotate(0deg); }
+    75% { transform: translateY(-0.9px) rotate(1.4deg); }
+}
+
+.pp-wrap:hover {
+    animation-name: pp-notice;
+    animation-duration: 0.9s;
+}
+
+@keyframes pp-notice {
+    0%, 100% { transform: translateY(0) scale(1); }
+    30% { transform: translateY(-3px) scale(1.1) rotate(-3deg); }
+    60% { transform: translateY(-1.5px) scale(1.06) rotate(2deg); }
+}
+
+@keyframes pp-blink {
+    0%, 44%, 64%, 100% { transform: scaleY(1); }
+    52% { transform: scaleY(0.1); }
+    60% { transform: scaleY(1); }
+}
+
+@keyframes pp-cat-ear-twitch {
+    0%, 70%, 100% { transform: rotate(0deg); }
+    76% { transform: rotate(10deg); }
+    84% { transform: rotate(-3deg); }
+    90% { transform: rotate(0deg); }
+}
+
+@keyframes pp-breathe {
+    0%, 100% { transform: scaleY(1) scaleX(1); }
+    32% { transform: scaleY(1.05) scaleX(0.975); }
+    55% { transform: scaleY(0.965) scaleX(1.015); }
+}
+
+@keyframes pp-tongue {
+    0%, 28%, 100% { transform: translateY(0); }
+    38% { transform: translateY(6px); }
+    52% { transform: translateY(1px); }
+    68% { transform: translateY(5.5px); }
+    82% { transform: translateY(0); }
+}
+
+@keyframes pp-owl-bob {
+    0%, 72%, 100% { transform: translateY(0) rotate(0deg); }
+    80% { transform: translateY(4px) rotate(-2deg); }
+    88% { transform: translateY(0) rotate(1.5deg); }
+    94% { transform: translateY(2px) rotate(0deg); }
+}
+
+@keyframes pp-ear-wiggle {
+    0%, 62%, 100% { transform: rotate(0deg); }
+    70% { transform: rotate(-16deg); }
+    80% { transform: rotate(10deg); }
+    90% { transform: rotate(0deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chat-peek,
+    .pp-wrap,
+    .pp-wrap .pp-pet,
+    .pp-wrap .pp-body,
+    .pp-wrap .pp-eye,
+    .pp-wrap .pp-tongue,
+    .pp-wrap .pp-rabbit-ear,
+    .pp-wrap .pp-cat-ears,
+    .pp-wrap .pp-owl-bob {
+        animation: none !important;
+    }
+}
+
 .selected-file {
     display: inline-flex;
     align-items: center;
@@ -1536,9 +1752,138 @@
 }
 
 @media (max-width: 720px) {
+    .chat-peek {
+        display: none;
+    }
+
+    /* On phones the pet moves off the top bar and stands on the
+       chat composer's top edge instead — the composer is the
+       anchoring ancestor, so `bottom: 100%` puts its feet exactly
+       on the composer's border with no magic numbers. The header
+       pet stays hidden (rule above); this one replaces it. */
+    .chat-input {
+        position: relative;
+    }
+
+    .chat-peek.composer-peek {
+        display: block;
+        position: absolute;
+        left: 4px;
+        bottom: 100%;
+        width: 56px;
+        height: 56px;
+        overflow: hidden;
+        pointer-events: none;
+        z-index: 5;
+    }
+
+    .chat-peek.composer-peek .pp-wrap {
+        left: 0;
+        bottom: -2px;
+        width: 56px;
+        height: 56px;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .chat-peek.composer-peek .pp-pet {
+        width: 56px;
+        height: 56px;
+    }
+
+    /* The composer pet must not push the header identity right
+       (the desktop rule compensates for the header pet). */
+    .chat-header:has(.chat-peek) .chat-identity {
+        margin-left: 0;
+    }
+
     .message-bubble {
         max-width: 86%;
     }
+}
+
+/* ==========================================================
+   Contact profile (tap the header identity in a private chat)
+   ========================================================== */
+
+.contact-profile {
+    text-align: center;
+}
+
+.contact-profile-avatar {
+    width: 92px;
+    height: 92px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+}
+
+.contact-profile-avatar .avatar-img {
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.contact-profile-name {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 22px;
+    letter-spacing: -0.3px;
+    color: var(--text-1);
+}
+
+.contact-profile-username {
+    color: var(--text-3);
+    font-size: 14px;
+    margin-top: 4px;
+}
+
+.contact-profile-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin-top: 12px;
+    color: var(--text-2);
+    font-size: 14px;
+}
+
+.contact-profile-status .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--text-3);
+}
+
+.contact-profile-status .dot.online {
+    background: var(--success);
+}
+
+.contact-profile-pet {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 16px;
+    color: var(--text-2);
+    font-size: 13px;
+}
+
+.contact-profile-pet .pp-pet {
+    width: 34px;
+    height: 34px;
+}
+
+.contact-profile-actions {
+    margin-top: 22px;
+}
+
+.contact-profile-actions .btn-ghost {
+    width: 100%;
 }
 
 /* ==========================================================

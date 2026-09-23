@@ -7,6 +7,8 @@ import toast from "react-hot-toast";
 
 import VoiceRecorder from "./VoiceRecorder";
 
+import PresencePet from "../PresencePet";
+
 import { useAuth } from "../../context/AuthContext";
 import { animateSendPulse } from "../../utils/animations";
 import { messageSnippet } from "../../utils/message";
@@ -154,6 +156,7 @@ export default function ChatInput({
     editTarget = null,
     onEdit,
     onCancelEdit,
+    presenceStyle = null,
 }) {
 
     const { user } = useAuth();
@@ -467,6 +470,14 @@ export default function ChatInput({
     return (
 
         <div className="chat-input">
+
+            {presenceStyle && (
+                <span className="chat-peek composer-peek">
+                    <PresencePet
+                        style={presenceStyle}
+                    />
+                </span>
+            )}
 
             <input
 
