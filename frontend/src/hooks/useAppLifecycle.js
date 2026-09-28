@@ -1,12 +1,16 @@
 import { useEffect, useRef } from "react";
 
+import { isNative } from "../utils/platform";
+
 /**
  * Hook that detects when the app goes to background / foreground
  * and calls the provided callbacks. Useful for reconnecting
  * WebSockets and flushing offline queues.
  *
- * Supports both web (visibilitychange / online / offline)
- * and Capacitor native shells (@capacitor/app) when available.
+ * Web uses visibilitychange / online / offline. The Capacitor
+ * shell additionally gets @capacitor/app's appStateChange, which
+ * is registered only when isNative() — see the note at the
+ * registration site for why it must not run on the web too.
  *
  * @param {object} opts
  * @param {Function} [opts.onForeground] - called when page becomes visible
@@ -43,29 +47,35 @@ export function useAppLifecycle({
         window.addEventListener("online", handleOnline);
         window.addEventListener("offline", handleOffline);
 
-        // --- Capacitor lifecycle ---
+        // --- Capacitor lifecycle (native shell only) ---
         let capacitorRemove;
 
-        async function initCapacitor() {
-            try {
-                const { App } = await import("@capacitor/app");
-                const handle = await App.addListener(
-                    "appStateChange",
-                    ({ isActive }) => {
-                        if (isActive) {
-                            callbacksRef.current.onForeground?.();
-                        } else {
-                            callbacksRef.current.onBackground?.();
+        // Only the shell gets the Capacitor listener. Registering it
+        // on the web as well meant BOTH paths fired for one physical
+        // background event, because Capacitor's own web shim also
+        // listens to visibilitychange and re-emits appStateChange.
+        // ChatSocketContext then reconnected twice, and the second
+        // connect() closed the still-CONNECTING first socket.
+        if (isNative()) {
+            void (async () => {
+                try {
+                    const { App } = await import("@capacitor/app");
+                    const handle = await App.addListener(
+                        "appStateChange",
+                        ({ isActive }) => {
+                            if (isActive) {
+                                callbacksRef.current.onForeground?.();
+                            } else {
+                                callbacksRef.current.onBackground?.();
+                            }
                         }
-                    }
-                );
-                capacitorRemove = () => handle.remove();
-            } catch {
-                // Not in a Capacitor shell — no-op
-            }
+                    );
+                    capacitorRemove = () => handle.remove();
+                } catch {
+                    // Plugin unavailable — no-op
+                }
+            })();
         }
-
-        initCapacitor();
 
         return () => {
             document.removeEventListener("visibilitychange", handleVisibility);

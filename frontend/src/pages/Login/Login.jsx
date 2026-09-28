@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 
 import authService from "../../services/authService";
+import ServerConfig from "../../components/common/ServerConfig";
 import {
     takeSplashRects,
 } from "../../utils/splashTransition";
@@ -194,6 +195,8 @@ export default function Login() {
 
     return (
         <div className="auth-bg">
+            <ServerConfig />
+
             <div className="auth-orbs" aria-hidden="true">
                 <div className="orb orb-a" />
                 <div className="orb orb-b" />

@@ -14,6 +14,7 @@ import { signalKeyStore } from "../crypto/signal/keyStore";
 import { replenishOneTimePrekeys } from "../crypto/signal/prekeyManager";
 import { clearKeyPair } from "../crypto/keyStorage";
 import { b64encode } from "../crypto/signal/bytes";
+import { nativePlatform } from "../utils/platform.js";
 import {
     generateDeviceIdentity,
     generateOneTimePrekeys,
@@ -77,12 +78,19 @@ function withDeviceLock(fn) {
 }
 
 export function ensureDeviceRegistered({
-    platform = "web",
+    platform = null,
     deviceName = null,
     platformVersion = null,
     appVersion = null,
     email = null,
 } = {}) {
+
+    // Report the real platform rather than always "web": this build
+    // also ships inside the Capacitor Android shell, and a device
+    // list that cannot tell a phone from a browser is useless.
+    if (!platform) {
+        platform = nativePlatform() ?? "web";
+    }
 
     if (registrationPromise) {
 

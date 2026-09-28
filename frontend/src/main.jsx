@@ -10,6 +10,7 @@ import ErrorBoundary from "./components/layout/ErrorBoundary";
 import { applyTheme, getTheme } from "./utils/theme";
 import { registerServiceWorker } from "./services/pushService";
 import { initAndroidBack } from "./utils/androidBack";
+import { isNative } from "./utils/platform";
 
 applyTheme(getTheme());
 
@@ -17,15 +18,16 @@ applyTheme(getTheme());
 // shell (the runtime injects window.Capacitor there, absent in
 // normal browsers). CSS uses it to avoid dynamic-viewport
 // quirks of older Android WebViews.
-if (window.Capacitor?.isNativePlatform?.()) {
+if (isNative()) {
     document.documentElement.classList.add("native");
     initAndroidBack();
+} else {
+    // Web Push only. In the native shell this registered
+    // https://localhost/sw.js inside the WebView, where a service
+    // worker is at best dead weight and at worst able to pin a
+    // stale bundle. The native shell has no web-push origin.
+    void registerServiceWorker();
 }
-
-// Register the service worker for Web Push notifications.
-// Idempotent; safe to run before auth (subscription itself is
-// authenticated later).
-void registerServiceWorker();
 
 ReactDOM.createRoot(
     document.getElementById("root")

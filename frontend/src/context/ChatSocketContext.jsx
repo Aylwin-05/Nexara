@@ -19,6 +19,7 @@ import {
 
 import { useAppLifecycle } from "../hooks/useAppLifecycle";
 import { dequeueMessages } from "../utils/offlineCache";
+import { isDesktopViewport } from "../utils/platform";
 import { logger } from '../utils/logger.js';
 
 const ChatSocketContext = createContext(null);
@@ -38,6 +39,12 @@ export function ChatSocketProvider({ children }) {
 
     const [loading, setLoading] =
         useState(true);
+
+    // Distinguishes "the server said you have no conversations"
+    // from "the request never landed". Without this, any network
+    // fault renders as the empty state and looks like data loss.
+    const [conversationsError, setConversationsError] =
+        useState(null);
 
     // 24h status updates (WhatsApp-style stories)
     const [stories, setStories] =
@@ -104,6 +111,8 @@ export function ChatSocketProvider({ children }) {
 
             setConversations(data);
 
+            setConversationsError(null);
+
             loadedRef.current = true;
 
             lastConversationsLoadAt.current = Date.now();
@@ -111,13 +120,13 @@ export function ChatSocketProvider({ children }) {
             // Desktop shows list + chat side by side, so the
             // first conversation is pre-selected. On phones the
             // chat is a separate full-screen view — land on the
-            // conversation list instead.
+            // conversation list instead. isDesktopViewport() is
+            // native-aware, so a wide WebView still lands on the
+            // list instead of dropping into a chat.
             if (
                 data.length > 0 &&
                 !activeRef.current &&
-                window.matchMedia(
-                    "(min-width: 721px)"
-                ).matches
+                isDesktopViewport()
             ) {
 
                 // Never auto-open an archived conversation.
@@ -139,6 +148,24 @@ export function ChatSocketProvider({ children }) {
         catch (error) {
 
             console.error(error);
+
+            // A 401 means the session is gone, not that the network
+            // is broken - the auth layer owns that case and will
+            // bounce to login on its own.
+            const status =
+                error?.response?.status;
+
+            if (status !== 401) {
+
+                setConversationsError(
+                    error?.response?.data?.detail ||
+                    (error?.request
+                        ? "Cannot reach the server. Check your connection."
+                        : error?.message) ||
+                    "Failed to load conversations."
+                );
+
+            }
 
         }
 
@@ -975,6 +1002,8 @@ export function ChatSocketProvider({ children }) {
         stories,
 
         loading,
+
+        conversationsError,
 
         activeConversationId,
 

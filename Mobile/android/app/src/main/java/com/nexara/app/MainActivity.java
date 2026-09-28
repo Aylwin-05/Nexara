@@ -1,5 +1,6 @@
 package com.nexara.app;
 
+import android.webkit.CookieManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
@@ -17,6 +18,14 @@ public class MainActivity extends BridgeActivity {
                         : null;
 
         if (webView != null) {
+
+            // The WebView serves the app from https://localhost while the
+            // API lives on the deployed domain, so the refresh cookie is
+            // third-party. Android has defaulted this to false since
+            // Lollipop, which silently drops the cookie and logs the user
+            // out on every cold start. Required even with SameSite=None.
+            CookieManager.getInstance()
+                    .setAcceptThirdPartyCookies(webView, true);
 
             WebSettings settings =
                     webView.getSettings();

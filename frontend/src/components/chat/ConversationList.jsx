@@ -27,6 +27,8 @@ export default function ConversationList({
     const {
         presence,
         updateSettings,
+        conversationsError,
+        refreshConversations,
     } = useChatSocket();
 
     const [showArchived, setShowArchived] =
@@ -206,6 +208,26 @@ export default function ConversationList({
 
                     conversations.length === 0 && (
 
+                        conversationsError ? (
+
+                            <div className="empty-state">
+
+                                <h3>Couldn't load chats</h3>
+
+                                <p>{conversationsError}</p>
+
+                                <button
+                                    type="button"
+                                    className="btn-primary"
+                                    onClick={refreshConversations}
+                                >
+                                    Try again
+                                </button>
+
+                            </div>
+
+                        ) : (
+
                         <div className="empty-state">
 
                             <div className="empty-icon">
@@ -233,6 +255,8 @@ export default function ConversationList({
                             </p>
 
                         </div>
+
+                        )
 
                     )
 

@@ -38,6 +38,11 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str
 
+    # SQLAlchemy query logging. Kept separate from DEBUG so a dev
+    # can watch SQL without switching on DEBUG (which also enables
+    # other things); prod must leave it off.
+    DB_ECHO: bool = False
+
     # Optional separate URL for Alembic migrations. The RLS
     # policies and SECURITY DEFINER helpers must be created by
     # the schema owner (a superuser), which the least-privilege
@@ -72,7 +77,10 @@ class Settings(BaseSettings):
     # CORS / Hosts
     # ======================================================
 
-    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    CORS_ORIGINS: str = (
+        "http://localhost:5173,http://127.0.0.1:5173,"
+        "https://localhost,capacitor://localhost"
+    )
     ALLOWED_HOSTS: str = "*"
 
     # ======================================================
@@ -105,6 +113,10 @@ class Settings(BaseSettings):
 
     SMTP_FROM_EMAIL: str
     SMTP_FROM_NAME: str
+
+    # Gmail (port 587) uses STARTTLS. A plain SMTP sink (or the
+    # test suite) can disable it explicitly.
+    SMTP_STARTTLS: bool = True
 
     # ======================================================
     # WebRTC calls (STUN/TURN ICE servers)

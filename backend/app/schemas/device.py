@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 # ==========================================================
@@ -10,9 +12,12 @@ class OneTimePreKeyUpload(BaseModel):
     public_key: str = Field(max_length=1000)
 
 
+DevicePlatformValue = Literal["ios", "android", "web", "desktop", "other"]
+
+
 class RegisterDeviceRequest(BaseModel):
     device_id: str = Field(min_length=8, max_length=64)
-    platform: str = Field(default="other", max_length=20)
+    platform: DevicePlatformValue = Field(default="other")
     device_name: str | None = Field(default=None, max_length=100)
     platform_version: str | None = Field(default=None, max_length=50)
     app_version: str | None = Field(default=None, max_length=50)

@@ -1,4 +1,5 @@
 import { getAccessToken, getConfiguredServer, refreshAccessToken, isAccessTokenExpired } from "../api/api";
+import { isNative } from "../utils/platform.js";
 import { logger } from '../utils/logger.js';
 import { enqueueMessage } from '../utils/offlineCache.js';
 
@@ -83,10 +84,7 @@ class WebSocketService {
             getConfiguredServer() ||
             import.meta.env.VITE_WS_URL;
 
-        const isNative = !!(
-            typeof window !== "undefined" &&
-            window.Capacitor?.isNativePlatform?.()
-        );
+        const isNativeShell = isNative();
 
         // No server is configured. In the web app the SPA and the API
         // share an origin, so fall back to window.location. In the
@@ -99,7 +97,7 @@ class WebSocketService {
         if (server) {
             url = `${server.replace(/^http/, "ws")}/ws/me`;
         }
-        else if (!isNative) {
+        else if (!isNativeShell) {
             url = `${window.location.protocol === "https:"
                 ? "wss"
                 : "ws"
@@ -114,7 +112,6 @@ class WebSocketService {
             this.shouldReconnect = false;
             return;
         }
-
         const freshToken = getAccessToken() || this.token;
 
         // No usable token, or the one we hold is expired (access

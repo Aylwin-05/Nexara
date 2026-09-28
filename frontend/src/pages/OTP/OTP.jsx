@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 
 import { useAuth } from "../../context/AuthContext";
 import authService from "../../services/authService";
+import ServerConfig from "../../components/common/ServerConfig";
 
 import "../Login/Login.css";
 import "./OTP.css";
@@ -483,6 +484,8 @@ export default function OTP() {
         return (
 
             <div className="auth-bg">
+
+                <ServerConfig />
 
                 <div className="auth-orbs" aria-hidden="true">
 

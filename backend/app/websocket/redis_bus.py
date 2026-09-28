@@ -211,7 +211,7 @@ class RedisBus:
         client = await get_redis_client()
 
         if client is None:
-            return
+            raise RuntimeError("Redis client unavailable (publish_user_event)")
 
         await client.publish(
             CHANNEL,
@@ -234,7 +234,7 @@ class RedisBus:
         client = await get_redis_client()
 
         if client is None:
-            return
+            raise RuntimeError("Redis client unavailable (publish_invalidate)")
 
         await client.publish(
             CHANNEL,

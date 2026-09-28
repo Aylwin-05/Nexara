@@ -1,12 +1,19 @@
 import api from "../api/api";
+import { signalKeyStore } from "../crypto/signal/keyStore.js";
 
 const messageService = {
 
     // ======================================================
     // Get Messages
+    //
+    // Scoped to this device: asks the server for only the
+    // envelope addressed to this device, not every member's
+    // copy (wire payload scales with members × devices).
     // ======================================================
 
     async getMessages(conversationId, { limit = 50, before = null } = {}) {
+
+        const meta = await signalKeyStore.getMeta();
 
         const response = await api.get(
             `/messages/${conversationId}`,
@@ -14,6 +21,7 @@ const messageService = {
                 params: {
                     limit,
                     ...(before ? { before } : {}),
+                    ...(meta?.deviceId ? { device_id: meta.deviceId } : {}),
                 },
             }
         );

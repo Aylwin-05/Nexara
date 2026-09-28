@@ -31,6 +31,7 @@ class EmailService:
         self.password = settings.SMTP_PASSWORD
         self.from_email = settings.SMTP_FROM_EMAIL
         self.from_name = settings.SMTP_FROM_NAME
+        self.use_starttls = settings.SMTP_STARTTLS
         self.retries = retries
         self.base_delay_seconds = base_delay_seconds
 
@@ -164,7 +165,8 @@ class EmailService:
             self.port,
             timeout=15,
         ) as server:
-            server.starttls()
+            if self.use_starttls:
+                server.starttls()
             server.login(self.username, self.password)
             server.sendmail(
                 self.from_email,

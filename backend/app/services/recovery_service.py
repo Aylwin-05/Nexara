@@ -178,6 +178,13 @@ class _RedisTokenStore:
     def __init__(self, ttl_seconds: int = TOKEN_TTL_SECONDS):
         self._ttl = ttl_seconds
         self._client = None
+        # Recovery is the one flow that must keep working when Redis
+        # is down (it is how a locked-out user gets back in), and this
+        # store is constructed at import time - before the boot probe
+        # in main.lifespan has run. So it carries its own in-process
+        # fallback and latches Redis down on the first failure rather
+        # than relying on the probe having already spoken.
+        self._fallback = _MemoryTokenStore(ttl_seconds)
 
     def _get_client(self):
         if self._client is None:
@@ -186,10 +193,17 @@ class _RedisTokenStore:
 
             self._client = aioredis.from_url(
                 settings.REDIS_URL,
+                protocol=2,
                 encoding="utf-8",
                 decode_responses=True,
             )
         return self._client
+
+    def _degraded(self, op: str):
+        from app.core.redis import mark_redis_down
+
+        mark_redis_down(f"recovery {op} failed")
+        return self._fallback
 
     async def issue(
         self,
@@ -199,7 +213,6 @@ class _RedisTokenStore:
         code_display: str,
     ) -> str:
         token = secrets.token_urlsafe(32)
-        client = self._get_client()
         entry = json.dumps(
             {
                 "user_id": str(user_id),
@@ -208,51 +221,72 @@ class _RedisTokenStore:
                 "code_display": code_display,
             }
         )
-        pipe = client.pipeline()
-        pipe.set(
-            f"{self._PREFIX}{token}",
-            entry,
-            ex=self._ttl,
-        )
-        pipe.set(
-            f"{self._USER_PREFIX}{user_id}",
-            token,
-            ex=self._ttl,
-        )
-        await pipe.execute()
+        try:
+            client = self._get_client()
+            pipe = client.pipeline()
+            pipe.set(
+                f"{self._PREFIX}{token}",
+                entry,
+                ex=self._ttl,
+            )
+            pipe.set(
+                f"{self._USER_PREFIX}{user_id}",
+                token,
+                ex=self._ttl,
+            )
+            await pipe.execute()
+        except Exception:
+            return await self._degraded("issue").issue(
+                user_id,
+                email,
+                code,
+                code_display,
+            )
         return token
 
     async def revoke_for_user(self, user_id: str) -> None:
-        client = self._get_client()
-        previous = await client.get(f"{self._USER_PREFIX}{user_id}")
-        if previous is not None:
-            pipe = client.pipeline()
-            pipe.delete(f"{self._PREFIX}{previous}")
-            pipe.delete(f"{self._USER_PREFIX}{user_id}")
-            await pipe.execute()
+        try:
+            client = self._get_client()
+            previous = await client.get(f"{self._USER_PREFIX}{user_id}")
+            if previous is not None:
+                pipe = client.pipeline()
+                pipe.delete(f"{self._PREFIX}{previous}")
+                pipe.delete(f"{self._USER_PREFIX}{user_id}")
+                await pipe.execute()
+        except Exception:
+            await self._degraded("revoke").revoke_for_user(user_id)
 
     async def take(self, token: str) -> dict | None:
-        client = self._get_client()
-        raw = await client.get(f"{self._PREFIX}{token}")
-        if raw is None:
-            return None
-        entry = json.loads(raw)
-        await client.delete(f"{self._PREFIX}{token}")
-        return entry
+        try:
+            client = self._get_client()
+            raw = await client.get(f"{self._PREFIX}{token}")
+            if raw is None:
+                return None
+            entry = json.loads(raw)
+            await client.delete(f"{self._PREFIX}{token}")
+            return entry
+        except Exception:
+            return await self._degraded("take").take(token)
 
     async def discard(self, token: str) -> None:
-        client = self._get_client()
-        await client.delete(f"{self._PREFIX}{token}")
+        try:
+            client = self._get_client()
+            await client.delete(f"{self._PREFIX}{token}")
+        except Exception:
+            await self._degraded("discard").discard(token)
 
     async def clear(self) -> None:
-        client = self._get_client()
-        keys = []
-        async for key in client.scan_iter(f"{self._PREFIX}*"):
-            keys.append(key)
-        async for key in client.scan_iter(f"{self._USER_PREFIX}*"):
-            keys.append(key)
-        if keys:
-            await client.delete(*keys)
+        try:
+            client = self._get_client()
+            keys = []
+            async for key in client.scan_iter(f"{self._PREFIX}*"):
+                keys.append(key)
+            async for key in client.scan_iter(f"{self._USER_PREFIX}*"):
+                keys.append(key)
+            if keys:
+                await client.delete(*keys)
+        except Exception:
+            await self._degraded("clear").clear()
 
 
 class _MemoryTokenStore:
@@ -308,8 +342,14 @@ class _MemoryTokenStore:
 
 def _create_store():
     from app.core.config import settings
+    from app.core.redis import redis_marked_down
 
-    if settings.REDIS_URL:
+    # Honour the boot-time probe: with Redis unreachable, every
+    # recovery issue/take/discard would raise ConnectionError and the
+    # whole account-recovery flow would 500. The in-memory store keeps
+    # it working (single worker only, which is the documented
+    # fallback for a missing Redis anyway).
+    if settings.REDIS_URL and not redis_marked_down():
         return _RedisTokenStore()
     return _MemoryTokenStore()
 

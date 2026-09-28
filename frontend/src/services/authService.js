@@ -5,6 +5,12 @@ import api, {
     clearAccessToken,
 } from "../api/api";
 
+import {
+    storageGet,
+    storageRemove,
+    storageSet,
+} from "../utils/storage.js";
+
 import websocketService from "./websocketService";
 
 const authService = {
@@ -173,7 +179,7 @@ const authService = {
 
     saveUser(user) {
 
-        localStorage.setItem(
+        storageSet(
             "user",
             JSON.stringify(user),
         );
@@ -183,7 +189,7 @@ const authService = {
     getStoredUser() {
 
         const user =
-            localStorage.getItem("user");
+            storageGet("user");
 
         return user
             ? JSON.parse(user)
@@ -235,7 +241,7 @@ const authService = {
 
         clearAccessToken();
 
-        localStorage.removeItem(
+        storageRemove(
             "user",
         );
 

@@ -22,7 +22,7 @@ DATABASE_URL = settings.DATABASE_URL.replace(
 
 engine = create_async_engine(
     DATABASE_URL,
-    echo=settings.DEBUG,
+    echo=settings.DB_ECHO,
     future=True,
     pool_pre_ping=True,
     pool_recycle=300,

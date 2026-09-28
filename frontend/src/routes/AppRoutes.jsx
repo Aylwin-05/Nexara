@@ -15,17 +15,9 @@ const SettingsPage = lazy(() => import("../pages/Settings/SettingsPage"));
 
 function PageLoader() {
     return (
-        <div
-            style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                minHeight: "100vh",
-                fontFamily: "sans-serif",
-                color: "#999",
-            }}
-        >
-            Loading...
+        <div className="app-loading">
+            <div className="spinner" />
+            Loading…
         </div>
     );
 }

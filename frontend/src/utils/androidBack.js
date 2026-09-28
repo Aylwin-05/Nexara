@@ -33,7 +33,7 @@ export function useAndroidBack(handler, active = true) {
 
 export function initAndroidBack() {
 
-    if (!window.Capacitor?.isNativePlatform?.()) return;
+    if (!isNative()) return;
 
     const App = window.Capacitor?.Plugins?.App;
 

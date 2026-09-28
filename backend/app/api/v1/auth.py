@@ -252,7 +252,6 @@ async def verify_otp(
 
     return TokenResponse(
         access_token=access_token,
-        refresh_token=refresh_token,
         user=user,
     )
 
@@ -431,7 +430,6 @@ async def verify_two_fa(
 
     return TokenResponse(
         access_token=access_token,
-        refresh_token=refresh_token,
         user=user,
     )
 
@@ -496,7 +494,6 @@ async def reset_two_fa(
 
     return TokenResponse(
         access_token=access_token,
-        refresh_token=refresh_token,
         user=user,
     )
 
@@ -587,7 +584,6 @@ async def refresh_token(
 
     return {
         "access_token": access_token,
-        "refresh_token": new_token,
         "token_type": "Bearer",
     }
 

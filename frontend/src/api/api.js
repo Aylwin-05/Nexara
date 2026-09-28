@@ -1,24 +1,36 @@
 import axios from "axios";
 
+import { storageGet, storageRemove } from "../utils/storage.js";
 import { logger } from "../utils/logger.js";
 
 // Absolute server origin when running outside a normal browser
 // origin (Capacitor/WebView builds). Empty in the web app, which
 // keeps every URL relative exactly as before.
 //
-// The build-time VITE_API_URL is the single source of truth. The
-// native (Capacitor) shell bakes its target at compile time via
-// Mobile/dev-build.ps1 or Mobile/prod-build.ps1, so the WebView
-// always talks to the intended backend — never to its own
-// https://localhost asset server, and never to a stale runtime
-// override. There is intentionally NO runtime override: the server
-// address is fixed at build time and must not be mutable in-app.
+// Two sources, in priority order:
+//
+//  1. Runtime override ("nexara.server_url"), set from the gear on
+//     the login/OTP screens (components/common/ServerConfig).
+//  2. Build-time VITE_API_URL, baked in by Mobile/dev-build.ps1 or
+//     Mobile/prod-build.ps1.
+//
+// Build-time is the normal path and the intended default: the native
+// shell must never fall back to its own https://localhost asset
+// server. The override exists purely as a recovery hatch, because a
+// native build baked to the wrong LAN IP is otherwise unrecoverable
+// without a full reinstall (the APK ships no way to edit its own
+// build config). Nothing reads it on the web build unless a user
+// explicitly sets it, since on the web `""` is the correct answer.
+//
+// ponytail: a native install cannot repoint itself; add a signed
+// config or a QR-enrolled server if baked-only is ever required.
 export function getConfiguredServer() {
 
-    // Runtime repoint (Settings → Server address) wins; a native
-    // build without one falls back to its baked build-time URL.
+    // Guarded: this runs at module scope, so a localStorage that
+    // throws (WebView storage disabled) would kill the app before
+    // it ever renders.
     const override =
-        localStorage.getItem("nexara.server_url");
+        storageGet("nexara.server_url");
 
     if (override) {
 
@@ -301,9 +313,7 @@ api.interceptors.response.use(
 
                 clearAccessToken();
 
-                localStorage.removeItem(
-                    "user"
-                );
+                storageRemove("user");
 
                 notifySessionExpired();
 

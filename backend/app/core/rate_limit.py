@@ -100,21 +100,32 @@ class _RedisStore:
         return self._client
 
     def _degraded(self, key: str) -> bool:
+        # Latch globally: from here on nothing in this process dials
+        # Redis, so the connect timeout is paid at most once.
+        from app.core.redis import mark_redis_down
+
+        mark_redis_down("rate-limit op failed")
         if not self._warned:
             self._warned = True
             logger.error(
-                "Redis unreachable: rate limiting degraded to "
-                "in-process (per-worker) store for key=%r until "
-                "Redis recovers.",
+                "Rate limiting degraded to the in-process (per-worker) "
+                "store (first failure on key=%r).",
                 key,
             )
         return True
+
+    def _latched_down(self) -> bool:
+        from app.core.redis import redis_marked_down
+
+        return redis_marked_down()
 
     async def incr_with_ttl(
         self,
         key: str,
         ttl_seconds: int,
     ) -> int:
+        if self._latched_down():
+            return await self._memory_fallback.incr_with_ttl(key, ttl_seconds)
         try:
             client = await self._get_client()
             count = await client.incr(key)
@@ -133,6 +144,8 @@ class _RedisStore:
         key: str,
         ttl_seconds: int,
     ) -> tuple[int, int]:
+        if self._latched_down():
+            return await self._memory_fallback.peek_with_ttl(key, ttl_seconds)
         try:
             client = await self._get_client()
             count = await client.get(key)
@@ -159,7 +172,17 @@ class RateLimiter:
     """Rate limiter with per-key counts over a rolling window."""
 
     def __init__(self):
-        self._store = _RedisStore() if settings.REDIS_URL else _MemoryStore()
+        from app.core.redis import redis_marked_down
+
+        # The boot-time probe in main.lifespan already decided whether
+        # Redis is usable. Honour that verdict here so a missing Redis
+        # costs nothing per request; the in-request fallback in
+        # _RedisStore still covers a Redis that dies mid-flight.
+        self._store = (
+            _MemoryStore()
+            if (not settings.REDIS_URL or redis_marked_down())
+            else _RedisStore()
+        )
 
     async def check(
         self,

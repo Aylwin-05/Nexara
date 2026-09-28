@@ -18,6 +18,7 @@ import {
 } from "./x3dh.js";
 import { x25519 } from "./primitives.js";
 import { b64encode, b64decode } from "./bytes.js";
+import { nativePlatform } from "../../utils/platform.js";
 
 // Number of one-time prekeys uploaded at registration
 export const OPK_BATCH_SIZE = 100;
@@ -107,7 +108,11 @@ export function buildRegisterPayload({
 // ==========================================================
 
 export function generateDeviceId() {
-    return `web-${crypto.randomUUID()}`;
+    // Prefix with the real platform. This used to hard-code "web-",
+    // so every phone registered with the Android shell reported a
+    // web device id and the backend could never tell a phone from a
+    // desktop browser (device lists, primary-device election).
+    return `${nativePlatform() ?? "web"}-${crypto.randomUUID()}`;
 }
 
 // ==========================================================

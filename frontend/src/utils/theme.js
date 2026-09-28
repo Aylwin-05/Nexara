@@ -6,12 +6,17 @@
 // variable blocks in index.css.
 // ==========================================================
 
+import { storageGet, storageSet } from "./storage.js";
+
 const THEME_KEY = "nexara_theme";
 
 export const THEMES = ["blue", "dark", "light"];
 
 export function getTheme() {
-    const stored = localStorage.getItem(THEME_KEY);
+    // Guarded: main.jsx calls this before createRoot, so a throwing
+    // localStorage would blank the app on a WebView with storage
+    // disabled.
+    const stored = storageGet(THEME_KEY);
 
     return THEMES.includes(stored) ? stored : "blue";
 }
@@ -31,7 +36,7 @@ export function applyTheme(theme) {
 }
 
 export function setTheme(theme) {
-    localStorage.setItem(THEME_KEY, theme);
+    storageSet(THEME_KEY, theme);
 
     applyTheme(theme);
 }

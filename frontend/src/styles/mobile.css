@@ -389,6 +389,31 @@ html.native .app-shell.in-chat .chat-panel {
     display: flex;
 }
 
+/* Safe-area insets for the native shell.
+   The rules further down this file set env(safe-area-inset-*) on the
+   list header, chat header, chat input and info panel — but only
+   INSIDE @media (max-width: 720px). A WebView reporting a wider
+   viewport took the html.native pane layout above (so the desktop
+   rail was correctly hidden) while silently losing every inset,
+   drawing content under the status bar and behind the tab bar.
+   Repeating the insets here keeps the native design self-contained
+   and independent of the width the WebView happens to report. */
+html.native .conv-panel-header {
+    padding-top: max(14px, env(safe-area-inset-top));
+}
+
+html.native .chat-header {
+    padding-top: max(10px, env(safe-area-inset-top));
+}
+
+html.native .chat-input {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+html.native .msg-info-panel {
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
 /* ============================================================
    3. WhatsApp-style conversation list screen
    ============================================================ */
@@ -716,12 +741,14 @@ html.native .app-shell.in-chat .chat-panel {
     }
 
     /* Long-press must not summon the native selection or
-       callout UI over our own menu. */
-    @media (hover: none) {
-        .message-bubble {
-            -webkit-touch-callout: none;
-            user-select: none;
-        }
+       callout UI over our own menu. Scoped to html.native so a
+       NARROW DESKTOP WINDOW keeps normal text selection — this rule
+       was written for the Android shell's touch long-press, but
+       `(hover: none)` plus a small viewport is not the same thing
+       and it was silently removing selection on the web. */
+    html.native .message-bubble {
+        -webkit-touch-callout: none;
+        user-select: none;
     }
 
     .bubble-menu-item {

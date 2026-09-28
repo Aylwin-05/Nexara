@@ -221,7 +221,17 @@ async def send_message(
             ],
         )
 
-        return serialize_message(message)
+        resp = serialize_message(message)
+
+        await manager.broadcast(
+            message.conversation_id,
+            {
+                **resp.model_dump(),
+                "event": "message",
+            },
+        )
+
+        return resp
 
     except ValueError as e:
         await db.rollback()
@@ -572,6 +582,7 @@ async def get_messages(
     db: AsyncSession = Depends(get_db),
     limit: int = 50,
     before: UUID | None = None,
+    device_id: str | None = None,
 ):
 
     message_repository = MessageRepository(db)
@@ -594,6 +605,21 @@ async def get_messages(
             limit=min(limit, 200) if limit > 0 else None,
             before=before,
         )
+
+        if device_id:
+            # A history reader only ever decrypts the envelope
+            # addressed to its own device; shipping every other
+            # participant's copies is dead bandwidth (x members
+            # x devices). Everyone can already read the whole
+            # list (it is encrypted), so scoping it leaks
+            # nothing.
+            for message in messages:
+                if message.envelopes:
+                    message.envelopes = [
+                        env
+                        for env in message.envelopes
+                        if env.get("device_id") == device_id
+                    ]
 
         return [serialize_message(message) for message in messages]
 
@@ -699,12 +725,23 @@ async def delete_for_everyone(
     )
 
     try:
-        _, attachment_paths = await service.delete_for_everyone(
+        deleted_message, attachment_paths = await service.delete_for_everyone(
             current_user=current_user,
             message_id=message_id,
         )
 
         await db.commit()
+
+        await manager.broadcast(
+            deleted_message.conversation_id,
+            {
+                "event": "delete",
+                "conversation_id": str(deleted_message.conversation_id),
+                "message_id": str(deleted_message.id),
+                "sender_id": str(deleted_message.sender_id),
+                "deleted_for_everyone": True,
+            },
+        )
 
     except ValueError as e:
         await db.rollback()

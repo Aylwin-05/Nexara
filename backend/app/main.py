@@ -135,7 +135,15 @@ async def _disappearing_messages_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Decide once, at boot, whether Redis is actually usable. Every
+    # Redis-backed store (rate limiting, recovery tokens) reads this
+    # verdict, so a missing Redis degrades to the in-process store
+    # here instead of raising on each request. This is what lets a
+    # single `uvicorn` process run standalone with no sidecar.
+    from app.core.redis import probe_redis
     from app.websocket.connection_manager import manager
+
+    await probe_redis()
 
     await bus.start(manager)
 
@@ -200,7 +208,10 @@ app = FastAPI(
         "and a React + Vite frontend."
     ),
     version="1.0.0",
-    debug=settings.DEBUG,
+    # debug deliberately left off: Starlette's debug=True makes
+    # ServerErrorMiddleware render full Python/SQL tracebacks in HTTP
+    # responses and bypasses the sanitizing exception handler below.
+    # Tracebacks still reach the server log via logger.exception.
     redirect_slashes=False,
     lifespan=lifespan,
     contact={
@@ -412,26 +423,29 @@ async def health(
         db_ok = False
 
     redis_status = "connected"
-    redis_ok = True
     try:
-        from app.core.redis import get_redis_client
+        from app.core.redis import probe_redis
 
-        client = await get_redis_client()
-        if client is None:
-            redis_status = "not_configured"
-        else:
-            await client.ping()
+        redis_ok = await probe_redis()
+        redis_status = "connected" if redis_ok else (
+            "not_configured" if not settings.REDIS_URL else "unreachable"
+        )
     except Exception as e:
         logger.warning("Health check Redis probe failed: %s", e)
         redis_status = "unreachable"
         redis_ok = False
 
-    healthy = db_ok and redis_ok
+    # Only the database is load-bearing: every Redis-backed feature
+    # (rate limiting, recovery tokens, WS fan-out) has an in-process
+    # fallback, so a missing Redis is a degraded-but-serving state
+    # and must not 503 the probe. /healthz remains the strict,
+    # database-only check for orchestrators that want a hard signal.
+    healthy = db_ok
 
     return JSONResponse(
         status_code=200 if healthy else 503,
         content={
-            "status": "healthy" if healthy else "degraded",
+            "status": "healthy" if redis_ok else "degraded",
             "uptime_seconds": uptime,
             "database": database_status,
             "redis": redis_status,

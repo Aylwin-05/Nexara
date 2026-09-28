@@ -62,7 +62,6 @@ from fastapi.testclient import TestClient
 from http_ece import decrypt as ece_decrypt
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
 
 
 def generate_ed25519_keypair():
@@ -79,6 +78,58 @@ def b64encode(data: bytes) -> str:
     return base64.b64encode(data).decode()
 
 
+_TEST_REDIS_URL = "redis://127.0.0.1:6379/15"
+
+
+def _use_isolated_redis():
+    """Point the suite at Redis db 15 and clear it once at import.
+
+    Rate-limit counters live in Redis with a TTL. Without a real
+    Redis the suite used the in-process store, so counters died with
+    each limiter reset. Now that Redis is up, the counters survive
+    between tests AND between runs, so the 4th send-otp in
+    ``test_send_otp_rate_limited_per_email`` returned 429 and every
+    later auth test inherited an already-exhausted budget.
+
+    db 15 keeps the suite off the dev database (db 0).
+    """
+    import os
+
+    from app.core.config import settings as app_settings
+
+    os.environ["REDIS_URL"] = _TEST_REDIS_URL
+    app_settings.REDIS_URL = _TEST_REDIS_URL
+
+    try:
+        import redis as sync_redis
+
+        sync_redis.Redis.from_url(
+            _TEST_REDIS_URL, protocol=2
+        ).flushdb()
+    except Exception as e:  # Redis optional: suite falls back to memory
+        print(f"[tests] Redis db 15 unavailable ({e}); using in-process stores")
+
+
+_use_isolated_redis()
+
+
+@pytest.fixture(autouse=True)
+def _flush_test_redis():
+    """Empty the isolated Redis before every test.
+
+    Rate-limit and recovery-token keys are real Redis keys with a
+    TTL, so they outlive an in-process limiter reset. Flushing per
+    test keeps each case independent without touching the dev db.
+    """
+    try:
+        import redis as sync_redis
+
+        sync_redis.Redis.from_url(_TEST_REDIS_URL, protocol=2).flushdb()
+    except Exception as e:  # Redis optional: suite falls back to memory
+        print(f"[tests] Redis db 15 unavailable ({e}); using in-process stores")
+    return
+
+
 def _enable_foreign_keys(engine):
     """SQLite skips FK enforcement by default; prod Postgres enforces
     ON DELETE CASCADE. Turn it on so hard-deletes behave like prod."""
@@ -90,6 +141,50 @@ def _enable_foreign_keys(engine):
         cursor = dbapi_conn.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
+
+
+def _test_db(tmp_path, name):
+    """Path for a test-scoped SQLite file.
+
+    Tests used to use ``sqlite+aiosqlite://`` (in-memory). That forced
+    every fixture to build the schema with a throwaway
+    ``asyncio.run()`` loop, and the resulting aiosqlite connection was
+    then reused by ``TestClient``'s *different* loop - the worker
+    thread called back into a closed loop, which surfaced as a bogus
+    ``"Could not refresh instance"`` on the next ``db.refresh()``.
+
+    A file-backed DB fixes it at the source: the schema is created on
+    the throwaway loop, the pool is disposed, and ``TestClient`` opens
+    a fresh connection on its own loop.
+    """
+    return Path(tmp_path) / name
+
+
+def _make_test_engine(db_path):
+    """Async engine for a file-backed test DB, schema created eagerly.
+
+    Returns ``(engine, sessionmaker)``. The schema is created inside a
+    throwaway loop and the pool is then disposed, so no connection ever
+    crosses an event-loop boundary.
+    """
+    engine = create_async_engine(
+        f"sqlite+aiosqlite:///{db_path}",
+        connect_args={"check_same_thread": False},
+    )
+    _enable_foreign_keys(engine)
+
+    async def _create_schema():
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        # Safe for a file-backed DB (unlike in-memory, where the
+        # schema lives in the connection and disposing erases it).
+        await engine.dispose()
+
+    asyncio.run(_create_schema())
+
+    return engine, async_sessionmaker(
+        bind=engine, class_=AsyncSession, expire_on_commit=False
+    )
 
 
 def ed25519_public_to_bytes(pub) -> bytes:
@@ -122,18 +217,11 @@ class EmailRecorder:
 
 
 @pytest.fixture
-def api_client(monkeypatch):
+def api_client(monkeypatch, tmp_path):
     monkeypatch.setattr(email_module.EmailService, "send_otp_email", EmailRecorder.send_otp_email)
     EmailRecorder.sent = []
     reset_limiter()
-    engine = create_async_engine(
-        "sqlite+aiosqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    _enable_foreign_keys(engine)
-    _enable_foreign_keys(engine)
-    TestingSessionLocal = async_sessionmaker(
-        bind=engine, class_=AsyncSession, expire_on_commit=False
-    )
+    (_engine, TestingSessionLocal) = _make_test_engine(_test_db(tmp_path, "api_client.db"))
     monkeypatch.setattr(conn_mgr, "AsyncSessionLocal", TestingSessionLocal)
     monkeypatch.setattr(db_session_module, "AsyncSessionLocal", TestingSessionLocal)
     import app.main as main_module
@@ -145,11 +233,6 @@ def api_client(monkeypatch):
         async with TestingSessionLocal() as session:
             yield session
 
-    async def setup():
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
-    asyncio.run(setup())
     app_instance.dependency_overrides[get_db] = override_get_db
     with TestClient(app_instance) as client:
         yield client
@@ -631,30 +714,19 @@ class EmailRecorder__auth:
 
 
 @pytest.fixture
-def auth_client(monkeypatch):
-    """TestClient against an in-memory DB, SMTP replaced by a recorder."""
+def auth_client(monkeypatch, tmp_path):
+    """TestClient against a scratch DB, SMTP replaced by a recorder."""
     monkeypatch.setattr(
         email_module.EmailService, "send_otp_email", EmailRecorder__auth.send_otp_email
     )
     EmailRecorder__auth.sent = []
     reset_limiter()
-    engine = create_async_engine(
-        "sqlite+aiosqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    _enable_foreign_keys(engine)
-    TestingSessionLocal = async_sessionmaker(
-        bind=engine, class_=AsyncSession, expire_on_commit=False
-    )
+    (_engine, TestingSessionLocal) = _make_test_engine(_test_db(tmp_path, "auth_client.db"))
 
     async def override_get_db():
         async with TestingSessionLocal() as session:
             yield session
 
-    async def setup():
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
-    asyncio.run(setup())
     app_instance.dependency_overrides[get_db] = override_get_db
     with TestClient(app_instance) as client:
         yield client
@@ -679,6 +751,20 @@ def _verify_otp(client, email=EMAIL, otp="123456", privacy_consent=True, terms_c
     )
 
 
+def _cookie_refresh(client):
+    """Read the refresh token back out of the client's cookie jar.
+
+    `TokenResponse.refresh_token` is deliberately always None: the
+    refresh token is issued ONLY as the HttpOnly `cc_refresh` cookie
+    so no XSS-readable copy ever lands in a JSON body. Tests that
+    need the raw value (rotation / reuse-detection, which pass it
+    explicitly in the request body) therefore read the cookie.
+    """
+    token = client.cookies.get("cc_refresh")
+    assert token, "expected a cc_refresh cookie to be set"
+    return token
+
+
 def test_send_and_verify_otp(auth_client):
     client = auth_client
     otp = _request_otp(client)
@@ -686,7 +772,9 @@ def test_send_and_verify_otp(auth_client):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["access_token"]
-    assert body["refresh_token"]
+    # The refresh token lives ONLY in the HttpOnly cookie; the body
+    # must never carry a copy an XSS payload could read.
+    assert body["refresh_token"] is None
     assert body["user"]["email"] == EMAIL
     set_cookie = resp.headers.get("set-cookie", "")
     assert "cc_refresh=" in set_cookie
@@ -749,10 +837,11 @@ def test_verify_otp_existing_account_skips_consent(auth_client):
 def test_refresh_rotates_token(auth_client):
     client = auth_client
     otp = _request_otp(client)
-    refresh_token = _verify_otp(client, otp=otp).json()["refresh_token"]
+    assert _verify_otp(client, otp=otp).status_code == 200
+    refresh_token = _cookie_refresh(client)
     resp = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
     assert resp.status_code == 200, resp.text
-    new_refresh = resp.json()["refresh_token"]
+    new_refresh = _cookie_refresh(client)
     assert new_refresh != refresh_token
     client.cookies.clear()
     resp = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
@@ -762,9 +851,11 @@ def test_refresh_rotates_token(auth_client):
 def test_reuse_after_rotation_revokes_family(auth_client):
     client = auth_client
     otp = _request_otp(client)
-    refresh_token = _verify_otp(client, otp=otp).json()["refresh_token"]
+    assert _verify_otp(client, otp=otp).status_code == 200
+    refresh_token = _cookie_refresh(client)
     resp = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
-    new_refresh = resp.json()["refresh_token"]
+    assert resp.status_code == 200, resp.text
+    new_refresh = _cookie_refresh(client)
     client.cookies.clear()
     client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
     resp = client.post("/api/v1/auth/refresh", json={"refresh_token": new_refresh})
@@ -774,7 +865,8 @@ def test_reuse_after_rotation_revokes_family(auth_client):
 def test_logout_revokes_family(auth_client):
     client = auth_client
     otp = _request_otp(client)
-    refresh = _verify_otp(client, otp=otp).json()["refresh_token"]
+    assert _verify_otp(client, otp=otp).status_code == 200
+    refresh = _cookie_refresh(client)
     resp = client.post("/api/v1/auth/logout", json={"refresh_token": refresh})
     assert resp.status_code == 200
     resp = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh})
@@ -1622,14 +1714,8 @@ def test_invalid_conversation_id_rejected(api_client):
 
 
 @pytest.fixture
-def client(monkeypatch):
-    engine = create_async_engine(
-        "sqlite+aiosqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    _enable_foreign_keys(engine)
-    TestingSessionLocal = async_sessionmaker(
-        bind=engine, class_=AsyncSession, expire_on_commit=False
-    )
+def client(monkeypatch, tmp_path):
+    (engine, TestingSessionLocal) = _make_test_engine(_test_db(tmp_path, "client.db"))
 
     async def override_get_db():
         async with TestingSessionLocal() as session:
@@ -1639,18 +1725,15 @@ def client(monkeypatch):
         async with TestingSessionLocal() as session:
             return await session.get(User, _USER_ID)
 
-    async def setup():
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+    async def seed_user():
         async with TestingSessionLocal() as session:
             session.add(
                 User(id=_USER_ID, email="alice@example.com", username="alice", display_name="Alice")
             )
             await session.commit()
+        await engine.dispose()
 
-    import asyncio
-
-    asyncio.run(setup())
+    asyncio.run(seed_user())
     reset_limiter()
     app_instance.dependency_overrides[get_db] = override_get_db
     app_instance.dependency_overrides[get_current_user] = override_get_current_user
@@ -3173,29 +3256,18 @@ EMAIL_C__p1 = "mallory@example.com"
 
 
 @pytest.fixture
-def api_env(monkeypatch):
-    """TestClient against an in-memory DB; returns (client, session_factory)."""
+def api_env(monkeypatch, tmp_path):
+    """TestClient against a scratch DB; returns (client, session_factory)."""
     monkeypatch.setattr(email_module.EmailService, "send_otp_email", EmailRecorder.send_otp_email)
     EmailRecorder.sent = []
     reset_limiter()
-    engine = create_async_engine(
-        "sqlite+aiosqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    _enable_foreign_keys(engine)
-    TestingSessionLocal = async_sessionmaker(
-        bind=engine, class_=AsyncSession, expire_on_commit=False
-    )
+    (_engine, TestingSessionLocal) = _make_test_engine(_test_db(tmp_path, "api_env.db"))
     monkeypatch.setattr(conn_mgr, "AsyncSessionLocal", TestingSessionLocal)
 
     async def override_get_db():
         async with TestingSessionLocal() as session:
             yield session
 
-    async def setup():
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
-    asyncio.run(setup())
     app_instance.dependency_overrides[get_db] = override_get_db
     with TestClient(app_instance) as client:
         yield (client, TestingSessionLocal)
@@ -3216,7 +3288,7 @@ def _register__p1(client, email):
     )
     assert resp.status_code == 200, resp.text
     data = resp.json()
-    return (data["access_token"], data["user"], data["refresh_token"])
+    return (data["access_token"], data["user"], _cookie_refresh(client))
 
 
 def _friend_and_conversation__p1(client, token_a, bob_id, token_b):
@@ -3371,7 +3443,7 @@ def test_refresh_reuse_revokes_family(api_env):
     (_, _, refresh_1) = _register__p1(client, EMAIL_A)
     resp = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_1})
     assert resp.status_code == 200, resp.text
-    refresh_2 = resp.json()["refresh_token"]
+    refresh_2 = _cookie_refresh(client)
     client.cookies.clear()
     resp = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_1})
     assert resp.status_code == 401, resp.text
@@ -3387,7 +3459,7 @@ def test_refresh_reuse_revokes_family_after_row_prune(api_env):
     (_, _, refresh_1) = _register__p1(client, EMAIL_A)
     resp = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_1})
     assert resp.status_code == 200, resp.text
-    refresh_2 = resp.json()["refresh_token"]
+    refresh_2 = _cookie_refresh(client)
 
     async def prune():
         async with TestingSessionLocal() as session:
@@ -3439,17 +3511,11 @@ def test_client_ip_only_honors_valid_xff():
 
 
 @pytest.fixture
-def api_client__push(monkeypatch):
+def api_client__push(monkeypatch, tmp_path):
     monkeypatch.setattr(email_module.EmailService, "send_otp_email", EmailRecorder.send_otp_email)
     EmailRecorder.sent = []
     reset_limiter()
-    engine = create_async_engine(
-        "sqlite+aiosqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    _enable_foreign_keys(engine)
-    TestingSessionLocal = async_sessionmaker(
-        bind=engine, class_=AsyncSession, expire_on_commit=False
-    )
+    (_engine, TestingSessionLocal) = _make_test_engine(_test_db(tmp_path, "push.db"))
     monkeypatch.setattr(conn_mgr, "AsyncSessionLocal", TestingSessionLocal)
     monkeypatch.setattr(db_session_module, "AsyncSessionLocal", TestingSessionLocal)
     import app.services.push_service as push_module
@@ -3460,11 +3526,6 @@ def api_client__push(monkeypatch):
         async with TestingSessionLocal() as session:
             yield session
 
-    async def setup():
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
-    asyncio.run(setup())
     app_instance.dependency_overrides[get_db] = override_get_db
     with TestClient(app_instance) as client:
         yield client
@@ -3635,7 +3696,7 @@ class EmailRecorder__reci:
 
 
 @pytest.fixture
-def api_client__reci(monkeypatch):
+def api_client__reci(monkeypatch, tmp_path):
     monkeypatch.setattr(
         email_module.EmailService, "send_otp_email", EmailRecorder__reci.send_otp_email
     )
@@ -3647,24 +3708,13 @@ def api_client__reci(monkeypatch):
     EmailRecorder__reci.sent = []
     asyncio.run(recovery_token_store.clear())
     reset_limiter()
-    engine = create_async_engine(
-        "sqlite+aiosqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    _enable_foreign_keys(engine)
-    TestingSessionLocal = async_sessionmaker(
-        bind=engine, class_=AsyncSession, expire_on_commit=False
-    )
+    (_engine, TestingSessionLocal) = _make_test_engine(_test_db(tmp_path, "reci.db"))
     monkeypatch.setattr(conn_mgr, "AsyncSessionLocal", TestingSessionLocal)
 
     async def override_get_db():
         async with TestingSessionLocal() as session:
             yield session
 
-    async def setup():
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
-    asyncio.run(setup())
     app_instance.dependency_overrides[get_db] = override_get_db
     with TestClient(app_instance) as client:
         yield client
@@ -4515,27 +4565,16 @@ WRONG_PIN = "000000"
 
 
 @pytest.fixture
-def auth_client__tfa(monkeypatch):
+def auth_client__tfa(monkeypatch, tmp_path):
     monkeypatch.setattr(email_module.EmailService, "send_otp_email", EmailRecorder.send_otp_email)
     EmailRecorder.sent = []
     reset_limiter()
-    engine = create_async_engine(
-        "sqlite+aiosqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    _enable_foreign_keys(engine)
-    TestingSessionLocal = async_sessionmaker(
-        bind=engine, class_=AsyncSession, expire_on_commit=False
-    )
+    (_engine, TestingSessionLocal) = _make_test_engine(_test_db(tmp_path, "tfa.db"))
 
     async def override_get_db():
         async with TestingSessionLocal() as session:
             yield session
 
-    async def setup():
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
-    asyncio.run(setup())
     app_instance.dependency_overrides[get_db] = override_get_db
     with TestClient(app_instance) as client:
         yield client
@@ -4649,7 +4688,8 @@ def test_login_with_correct_pin_issues_tokens(auth_client__tfa):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["access_token"]
-    assert body["refresh_token"]
+    assert body["refresh_token"] is None
+    assert "cc_refresh=" in resp.headers.get("set-cookie", "")
     assert body["user"]["email"] == EMAIL
 
 
@@ -4860,13 +4900,7 @@ def api_client__ws(monkeypatch, tmp_path):
     )
     EmailRecorder__ws.sent = []
     reset_limiter()
-    engine = create_async_engine(
-        "sqlite+aiosqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    _enable_foreign_keys(engine)
-    TestingSessionLocal = async_sessionmaker(
-        bind=engine, class_=AsyncSession, expire_on_commit=False
-    )
+    (_engine, TestingSessionLocal) = _make_test_engine(_test_db(tmp_path, "ws.db"))
     monkeypatch.setattr(conn_mgr, "AsyncSessionLocal", TestingSessionLocal)
     monkeypatch.setattr(db_session_module, "AsyncSessionLocal", TestingSessionLocal)
     import app.services.push_service as push_module
@@ -4881,11 +4915,6 @@ def api_client__ws(monkeypatch, tmp_path):
         async with TestingSessionLocal() as session:
             yield session
 
-    async def setup():
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
-    asyncio.run(setup())
     app_instance.dependency_overrides[get_db] = override_get_db
     with TestClient(app_instance) as client:
         yield client

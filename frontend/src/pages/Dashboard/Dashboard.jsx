@@ -18,6 +18,10 @@ import conversationService from "../../services/conversationService";
 
 import appLock from "../../utils/appLock";
 import { useAndroidBack } from "../../utils/androidBack";
+import {
+    isPhoneViewport,
+    subscribeToLayout,
+} from "../../utils/platform";
 import useScreenSecurity from "../../hooks/useScreenSecurity";
 
 import { useAuth } from "../../context/AuthContext";
@@ -40,33 +44,19 @@ const SWIPE_ORDER = [
     "settings",
 ];
 
-const SWIPE_BREAKPOINT = "(max-width: 720px)";
+// The phone layout is "native OR narrow viewport" - the same rule
+// the html.native block in mobile.css encodes. Asking one module
+// keeps React's DOM in step with the CSS, which a bare
+// matchMedia("(max-width: 720px)") did not (a WebView reporting
+// >720px got phone CSS with desktop DOM).
+function usePhoneLayout() {
 
-// Compile the mobile media query once; the slider only renders
-// (and swipe handling only exists) below the tab-bar breakpoint,
-// where the bottom bar replaces the desktop rail.
-function useMediaQuery(query) {
+    const [isPhone, setIsPhone] =
+        useState(isPhoneViewport);
 
-    const [matches, setMatches] =
-        useState(() =>
-            window.matchMedia(query).matches
-        );
+    useEffect(() => subscribeToLayout(setIsPhone), []);
 
-    useEffect(() => {
-
-        const mql = window.matchMedia(query);
-
-        const onChange = () =>
-            setMatches(mql.matches);
-
-        mql.addEventListener("change", onChange);
-
-        return () =>
-            mql.removeEventListener("change", onChange);
-
-    }, [query]);
-
-    return matches;
+    return isPhone;
 
 }
 
@@ -141,7 +131,7 @@ function DashboardInner() {
     //------------------------------------------------------
 
     const isMobile =
-        useMediaQuery(SWIPE_BREAKPOINT);
+        usePhoneLayout();
 
     const slideIndex = Math.max(
         0,

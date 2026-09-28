@@ -156,7 +156,10 @@ class SendOTPResponse(MessageResponse):
 class TokenResponse(BaseModel):
     access_token: str
 
-    refresh_token: str
+    # Deliberately not populated: the refresh token lives ONLY in the
+    # HttpOnly cookie. Returning it in the body would hand an XSS-read
+    # copy to anyone who can read a JSON response, defeating HttpOnly.
+    refresh_token: str | None = None
 
     token_type: str = "Bearer"  # noqa: S105 - OAuth token_type field
 
