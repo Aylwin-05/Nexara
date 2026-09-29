@@ -1088,37 +1088,35 @@ export function CallProvider({ children }) {
 
     function toggleMute() {
 
-        setMuted(previous => {
+        // Side effect must run against the always-current stream
+        // ref, not the `localStream` captured by this render's
+        // closure, and not inside a useState updater (React may
+        // defer or replay updaters, so mutating the track there
+        // left the button toggling while the track never changed —
+        // mute silently did nothing on the native shell).
+        const next = !muted;
 
-            const next = !previous;
+        setMuted(next);
 
-            localStream?.getAudioTracks().forEach(
-                track => {
-                    track.enabled = !next;
-                }
-            );
-
-            return next;
-
-        });
+        localStreamRef.current
+            ?.getAudioTracks()
+            .forEach(track => {
+                track.enabled = !next;
+            });
 
     }
 
     function toggleVideo() {
 
-        setVideoEnabled(previous => {
+        const next = !videoEnabled;
 
-            const next = !previous;
+        setVideoEnabled(next);
 
-            localStream?.getVideoTracks().forEach(
-                track => {
-                    track.enabled = next;
-                }
-            );
-
-            return next;
-
-        });
+        localStreamRef.current
+            ?.getVideoTracks()
+            .forEach(track => {
+                track.enabled = next;
+            });
 
     }
 

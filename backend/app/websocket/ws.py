@@ -262,19 +262,24 @@ async def websocket_endpoint(
             )
 
         finally:
-            await manager.disconnect_user(
-                user_id,
-                websocket,
-            )
-
             # The TestClient cancels the websocket task immediately
             # after the client sends its close frame, right as this
             # finally block runs: an unguarded await would be
             # cancelled before the offline event reached a single
             # peer. Shield the broadcast - it is in-memory now
             # (cached membership), so it completes either way - and
-            # swallow the teardown CancelledError.
+            # swallow the teardown CancelledError. disconnect_user
+            # rides in the same shield because it clears the user's
+            # "in chat" pets (same cancellation would leave every
+            # peer showing the pet of a user who just quit).
             try:
+                await asyncio.shield(
+                    manager.disconnect_user(
+                        user_id,
+                        websocket,
+                    )
+                )
+
                 await asyncio.shield(
                     manager.broadcast_presence(
                         user_id,

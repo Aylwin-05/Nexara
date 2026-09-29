@@ -5,6 +5,7 @@ import attachmentService, { AttachmentDecryptError } from "../../services/attach
 import ImageLightbox from "./ImageLightbox";
 import { animateBubbleIn, animateReactionPop } from "../../utils/animations";
 import { messageSnippet } from "../../utils/message";
+import { isDecryptPlaceholder } from "../../utils/decryptPlaceholders";
 
 // ==========================================================
 // Quick-reaction emoji row (WhatsApp-style)
@@ -639,9 +640,7 @@ const isMine =
 
     const isText =
         Boolean(content) &&
-        content !== "[Unable to decrypt]" &&
-        content !== "[Sent from another device]" &&
-        content !== "[Encrypted for another device]" &&
+        !isDecryptPlaceholder(content) &&
         !deleted;
 
     const canEdit =

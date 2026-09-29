@@ -176,6 +176,13 @@ class ConnectionManager:
             except Exception as e:
                 logger.warning("Presence registry delete failed: %s", e)
 
+        if went_offline:
+            # Same rule as the offline broadcast: a user with
+            # another tab/socket open is still "here", so their
+            # pet stays. Last socket gone -> drop the "in chat"
+            # chats, or every peer keeps the pet forever.
+            await self.clear_chat_open(user_id)
+
         logger.debug(
             "User disconnect: user=%s remaining=%s",
             user_id,
@@ -624,6 +631,33 @@ class ConnectionManager:
             for user_id, conversations in self.chat_open.items()
             if conversation_id in conversations
         ]
+
+    async def clear_chat_open(
+        self,
+        user_id,
+    ):
+        """
+        Forget every chat a user had open and tell the members.
+
+        A disconnect never arrives with a chat_close frame, so peers
+        keep the "in chat" pet for someone who just quit the app -
+        and the registry hands the same ghost back to whoever opens
+        the conversation next (chat_open_snapshot).
+        """
+
+        conversation_ids = list(
+            self.chat_open.pop(user_id, set()),
+        )
+
+        for conversation_id in conversation_ids:
+            await self.broadcast(
+                conversation_id,
+                {
+                    "event": "chat_close",
+                    "user_id": str(user_id),
+                    "conversation_id": str(conversation_id),
+                },
+            )
 
     # ==========================================================
     # Send to One User (all their devices)

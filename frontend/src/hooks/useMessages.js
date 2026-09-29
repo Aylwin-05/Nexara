@@ -50,6 +50,11 @@ import {
     decryptSyncText,
 } from "../crypto/syncCrypto";
 import {
+    decryptFailure,
+    lockedFailure,
+    isDecryptPlaceholder,
+} from "../utils/decryptPlaceholders";
+import {
     generateImageThumbnail,
     generateVideoThumbnail,
     getVideoDimensions,
@@ -265,21 +270,35 @@ export default function useMessages(
 
     }
 
+    // Diagnostic: why the last trySyncDecrypt() gave up. Purely
+    // observational — the return contract is unchanged (null).
+    let lastSyncDecryptReason = null;
+
     async function trySyncDecrypt(message, conversationId) {
+
+        lastSyncDecryptReason = null;
 
         try {
 
             const syncSecret =
                 await signalKeyStore.getSyncSecret();
 
-            if (!syncSecret) return null;
+            if (!syncSecret) {
+                lastSyncDecryptReason = "no-sync-secret";
+                return null;
+            }
 
-            if (!message?.sync_envelope?.data) return null;
+            if (!message?.sync_envelope?.data) {
+                lastSyncDecryptReason = "no-sync-envelope";
+                return null;
+            }
 
             const plaintext =
                 await decryptSyncText(message.sync_envelope);
 
             if (plaintext == null) {
+
+                lastSyncDecryptReason = "sync-decrypt-failed";
 
                 return null;
 
@@ -298,6 +317,10 @@ export default function useMessages(
 
         }
         catch (error) {
+
+            lastSyncDecryptReason = `sync-error: ${
+                error?.message ?? error
+            }`;
 
             return null;
 
@@ -428,15 +451,17 @@ export default function useMessages(
                         );
 
                 }
-                catch {
+                catch (error) {
 
                     // Sync copy exists on the server but the
                     // local sync secret doesn't match — the
                     // user needs to unlock history.
                     if (message.sync_envelope?.ciphertext) {
 
-                        return "[Locked — go to Settings > "
-                            + "Support > Unlock History]";
+                        return lockedFailure(
+                            `${error?.message ?? error}`
+                            + ` | sync: ${lastSyncDecryptReason ?? "n/a"}`,
+                        );
 
                     }
 
@@ -461,8 +486,8 @@ export default function useMessages(
             }
             catch (error) {
 
-                // Device envelope failed — the account-key copy may
-                // still decrypt.
+                // Device envelope failed — the account-key copy (if any)
+                // still lets us read the message.
                 const syncPlain =
                     await trySyncDecrypt(
                         message,
@@ -478,12 +503,17 @@ export default function useMessages(
 
                 if (message.sync_envelope?.ciphertext) {
 
-                    return "[Locked — go to Settings > "
-                        + "Support > Unlock History]";
+                    return lockedFailure(
+                        `${error?.message ?? error}`
+                        + ` | sync: ${lastSyncDecryptReason ?? "n/a"}`,
+                    );
 
                 }
 
-                return "[Unable to decrypt]";
+                return decryptFailure(
+                    `${error?.message ?? error}`
+                    + ` | sync: ${lastSyncDecryptReason ?? "n/a"}`,
+                );
 
             }
 
@@ -520,7 +550,10 @@ export default function useMessages(
                     error
                 );
 
-                return "[Unable to decrypt]";
+                return decryptFailure(
+                    `${error?.message ?? error}`
+                    + ` | sync: ${lastSyncDecryptReason ?? "n/a"}`,
+                );
 
             }
 
@@ -553,12 +586,14 @@ export default function useMessages(
                 });
 
             }
-            catch {
+            catch (error) {
 
                 if (message.sync_envelope?.ciphertext) {
 
-                    return "[Locked — go to Settings > "
-                        + "Support > Unlock History]";
+                    return lockedFailure(
+                        `${error?.message ?? error}`
+                        + ` | sync: ${lastSyncDecryptReason ?? "n/a"}`,
+                    );
 
                 }
 
@@ -600,7 +635,7 @@ export default function useMessages(
                 );
 
             }
-            catch {
+            catch (error) {
 
                 const syncPlain =
                     await trySyncDecrypt(
@@ -610,7 +645,7 @@ export default function useMessages(
 
                 if (syncPlain !== null) return syncPlain;
 
-                return "[Unable to decrypt]";
+                return decryptFailure(error);
 
             }
 
@@ -1027,6 +1062,37 @@ export default function useMessages(
                             break;
 
                         //--------------------------------------------------
+                        // Presence
+                        //--------------------------------------------------
+
+                        case "presence":
+
+                            // An offline peer is not looking at this
+                            // chat, whatever the pet registry still
+                            // says: a force-quit app (or a socket the
+                            // server only reaps later) never gets a
+                            // chat_close frame, but it does go
+                            // offline, and the pet must not outlive
+                            // that.
+                            if (
+                                event.online === false &&
+                                event.user_id !== user?.id
+                            ) {
+
+                                setChatOpenUsers(
+                                    previous =>
+                                        previous.filter(
+                                            item =>
+                                                item.id !==
+                                                event.user_id
+                                        )
+                                );
+
+                            }
+
+                            break;
+
+                        //--------------------------------------------------
                         // Edit
                         //--------------------------------------------------
 
@@ -1135,12 +1201,9 @@ export default function useMessages(
 
                                     if (
                                         updatedPlaintext &&
-                                        updatedPlaintext !==
-                                            "[Unable to decrypt]" &&
-                                        updatedPlaintext !==
-                                            "[Sent from another device]" &&
-                                        updatedPlaintext !==
-                                            "[Encrypted for another device]"
+                                        !isDecryptPlaceholder(
+                                            updatedPlaintext,
+                                        )
                                     ) {
 
                                         setMessages(
@@ -1675,14 +1738,14 @@ try {
 
                             }
 
-                            catch {
+                            catch (error) {
 
                                 return {
 
                                     ...message,
 
                                     content:
-                                        "[Unable to decrypt]",
+                                        decryptFailure(error),
 
                                 };
 
@@ -1886,14 +1949,14 @@ try {
 
                             }
 
-                            catch {
+                            catch (error) {
 
                                 return {
 
                                     ...message,
 
                                     content:
-                                        "[Unable to decrypt]",
+                                        decryptFailure(error),
 
                                 };
 
@@ -3338,12 +3401,12 @@ const history =
                                 };
 
                             }
-                            catch {
+                            catch (error) {
 
                                 return {
                                     ...message,
                                     content:
-                                        "[Unable to decrypt]",
+                                        decryptFailure(error),
                                 };
 
                             }

@@ -1089,6 +1089,64 @@
     animation: pp-peek-in 0.5s var(--ease);
 }
 
+/* The composer copy of the pet is native-shell only (see the
+   html.native block below). The span ships in both layouts, so it
+   has to be hidden here: the base .chat-peek rule would otherwise
+   leave it absolutely positioned at the bottom of the page on the
+   web app. */
+.chat-peek.composer-peek {
+    display: none;
+}
+
+/* ---------- native shell: pet on the composer, not the top bar --
+   Scoped to html.native rather than the 720px media query so a
+   WebView reporting a wide viewport still gets the composer pet
+   (and only that one) instead of a stray copy at the page bottom. */
+
+html.native .chat-input {
+    position: relative;
+}
+
+html.native .chat-peek:not(.composer-peek) {
+    display: none;
+}
+
+html.native .chat-peek.composer-peek {
+    display: block;
+    position: absolute;
+    left: 4px;
+    bottom: 100%;
+    width: 56px;
+    height: 56px;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 5;
+}
+
+html.native .chat-peek.composer-peek .pp-wrap {
+    left: 0;
+    bottom: -2px;
+    width: 56px;
+    height: 56px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+html.native .chat-peek.composer-peek .pp-pet {
+    width: 56px;
+    height: 56px;
+}
+
+/* The composer pet must not push the header identity right
+   (the desktop rule compensates for the header pet). */
+html.native .chat-header:has(.chat-peek) .chat-identity {
+    margin-left: 0;
+}
+
 @keyframes pp-peek-in {
     0% { transform: translateY(14px); opacity: 0; }
     70% { transform: translateY(-2px); opacity: 1; }
@@ -1752,51 +1810,15 @@
 }
 
 @media (max-width: 720px) {
-    .chat-peek {
+    /* The header pet is a desktop affordance: on phones the pet
+       lives on the composer instead, and that copy is native-shell
+       only (html.native, above). */
+    .chat-peek:not(.composer-peek) {
         display: none;
     }
 
-    /* On phones the pet moves off the top bar and stands on the
-       chat composer's top edge instead — the composer is the
-       anchoring ancestor, so `bottom: 100%` puts its feet exactly
-       on the composer's border with no magic numbers. The header
-       pet stays hidden (rule above); this one replaces it. */
-    .chat-input {
-        position: relative;
-    }
-
-    .chat-peek.composer-peek {
-        display: block;
-        position: absolute;
-        left: 4px;
-        bottom: 100%;
-        width: 56px;
-        height: 56px;
-        overflow: hidden;
-        pointer-events: none;
-        z-index: 5;
-    }
-
-    .chat-peek.composer-peek .pp-wrap {
-        left: 0;
-        bottom: -2px;
-        width: 56px;
-        height: 56px;
-        margin: 0;
-        padding: 0;
-        border: 0;
-        border-radius: 0;
-        background: transparent;
-        box-shadow: none;
-    }
-
-    .chat-peek.composer-peek .pp-pet {
-        width: 56px;
-        height: 56px;
-    }
-
-    /* The composer pet must not push the header identity right
-       (the desktop rule compensates for the header pet). */
+    /* The hidden header span still matches :has(), so the identity
+       has to be pulled back to the left edge. */
     .chat-header:has(.chat-peek) .chat-identity {
         margin-left: 0;
     }

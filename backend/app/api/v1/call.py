@@ -1,3 +1,4 @@
+import logging
 import time
 from datetime import datetime
 from uuid import UUID
@@ -12,6 +13,8 @@ from app.models.user import User
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/call",
@@ -52,6 +55,7 @@ async def call_config(
     turn_urls = [url.strip() for url in settings.TURN_URLS.split(",") if url.strip()]
 
     if turn_urls:
+        _warn_turn_misconfig(turn_urls)
         ice_servers.append(
             {
                 "urls": turn_urls,
@@ -64,6 +68,40 @@ async def call_config(
         "ice_servers": ice_servers,
         "e2ee_supported": True,
     }
+
+
+_turn_warned: set[str] = set()
+
+
+def _warn_turn_misconfig(turn_urls: list[str]) -> None:
+    """Calls on different networks need a reachable TURN relay.
+
+    A loopback host or a placeholder auth secret silently degrades to
+    host-candidate-only ICE: local preview works, remote media never
+    arrives. Say it once, loudly, instead of debugging it at 3am.
+    """
+    for url in turn_urls:
+        # "turn:host:3478?transport=udp" / "turns://host:5349"
+        rest = url.split(":", 1)[1] if ":" in url else url
+        host = (
+            rest.lstrip("/").split("?", 1)[0].split("/", 1)[0].rsplit("@", 1)[-1].split(":", 1)[0]
+        )
+        if host in ("localhost", "127.0.0.1", "::1", "[::1]"):
+            _warn_once(
+                f"TURN URL {url!r} points at loopback: only clients on this "
+                "machine can use it. Set TURN_URLS to a LAN/public address."
+            )
+    if settings.TURN_SECRET.startswith("CHANGE_ME"):
+        _warn_once(
+            "TURN_SECRET is still the placeholder from .env.example: minted "
+            "TURN credentials will be rejected by coturn. Generate a real one."
+        )
+
+
+def _warn_once(message: str) -> None:
+    if message not in _turn_warned:
+        _turn_warned.add(message)
+        logger.warning(message)
 
 
 def _turn_username(user) -> str:

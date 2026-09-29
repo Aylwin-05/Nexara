@@ -1266,6 +1266,32 @@ def test_call_config_includes_turn_when_configured(api_client, monkeypatch):
     assert turn[0]["credential"] == "secret"
 
 
+def test_call_config_warns_only_on_unreachable_turn(api_client, monkeypatch, caplog):
+    logger_name = "app.api.v1.call"
+    monkeypatch.setattr("app.api.v1.call._turn_warned", set())
+    monkeypatch.setattr("app.core.config.settings.TURN_URLS", "turn:localhost:3478?transport=udp")
+    monkeypatch.setattr("app.core.config.settings.TURN_SECRET", "CHANGE_ME_generate")
+    token = _register__call(api_client)
+
+    with caplog.at_level("WARNING", logger=logger_name):
+        api_client.get("/api/v1/call/config", headers={"Authorization": f"Bearer {token}"})
+    warned = "\n".join(r.getMessage() for r in caplog.records)
+    assert "loopback" in warned, warned
+    assert "TURN_SECRET is still the placeholder" in warned, warned
+
+    # A reachable relay with a real secret must not cry wolf.
+    caplog.clear()
+    monkeypatch.setattr(
+        "app.core.config.settings.TURN_URLS",
+        "turn:relay.example.com:3478?transport=udp,turn:relay.example.com:3478?transport=tcp",
+    )
+    monkeypatch.setattr("app.core.config.settings.TURN_SECRET", "0" * 64)
+    monkeypatch.setattr("app.api.v1.call._turn_warned", set())
+    with caplog.at_level("WARNING", logger=logger_name):
+        api_client.get("/api/v1/call/config", headers={"Authorization": f"Bearer {token}"})
+    assert not [r for r in caplog.records if "TURN" in r.getMessage()]
+
+
 def test_call_logs_require_auth(api_client):
     resp = api_client.get("/api/v1/call/logs")
     assert resp.status_code == 401
@@ -5103,6 +5129,38 @@ def test_ws_me_lifecycle(api_client__ws):
         print("DELETE-BROADCAST:", ev_a, ev_b)
         assert ev_b["message_id"] == mid
         assert ev_b["deleted_for_everyone"] is True
+
+
+def test_ws_me_chat_open_cleared_on_disconnect(api_client__ws):
+    """A user who quits the app with a chat open never sends the
+    chat_close frame, so the server has to clear the "in chat" pet for
+    their peers itself."""
+    client = api_client__ws
+    (token_a, user_a) = _register__ws(client, EMAIL_A)
+    (token_b, user_b) = _register__ws(client, EMAIL_B)
+    conv = _friend_and_conv(client, token_a, token_b, user_a["id"], user_b["id"])
+    conversation_id = conv["id"]
+    with _connect(client, token_a) as ws_a, _connect(client, token_b) as ws_b:
+        ws_a.receive_json()
+        ws_b.receive_json()
+        _drain_presence(ws_a, str(user_b["id"]))
+        _drain_presence(ws_b, str(user_b["id"]))
+        _drain_presence(ws_b, str(user_a["id"]))
+        ws_a.send_json({"event": "chat_open", "conversation_id": conversation_id})
+        ev = _drain(ws_b, "chat_open")
+        assert ev["user_id"] == str(user_a["id"])
+        ws_a.send_json({"event": "chat_close", "conversation_id": conversation_id})
+        ev = _drain(ws_b, "chat_close")
+        assert ev["user_id"] == str(user_a["id"])
+        # Leave the chat open, then drop the socket: A goes offline
+        # and B must lose the pet in the same breath.
+        ws_a.send_json({"event": "chat_open", "conversation_id": conversation_id})
+        _drain(ws_b, "chat_open")
+        ws_a.close()
+        ev = _drain(ws_b, "chat_close")
+        assert ev["user_id"] == str(user_a["id"])
+        assert ev["conversation_id"] == conversation_id
+    print("CHAT-OPEN-CLEARED-ON-DISCONNECT: OK")
 
 
 def test_ws_call_signaling_relay(api_client__ws):

@@ -68,7 +68,9 @@ services:
       SMTP_FROM_EMAIL: "${SMTP_FROM_EMAIL:-noreply@nexara.local}"
       SMTP_FROM_NAME: "${SMTP_FROM_NAME:-Nexara}"
       FRONTEND_URL: "http://localhost:5173"
-      TURN_URLS: "turn:coturn:3478?transport=udp"
+      # Browsers cannot resolve the `coturn` service name, only the host.
+      # Override with the host's LAN/public address to reach it from phones.
+      TURN_URLS: "${TURN_URLS:-turn:127.0.0.1:3478?transport=udp,turn:127.0.0.1:3478?transport=tcp}"
       TURN_USERNAME: "nexara"
       TURN_PASSWORD: "${TURN_SECRET:-dev-turn-secret-change-in-production}"
     restart: unless-stopped

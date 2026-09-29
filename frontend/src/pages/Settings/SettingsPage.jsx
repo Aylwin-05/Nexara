@@ -1280,8 +1280,8 @@ export default function SettingsPage() {
 
                     <p>
                         When you have a chat open, your friends see
-                        your chosen pet at the bottom of their chat
-                        as a subtle &quot;someone is here&quot; hint.
+                        your chosen pet in their chat as a subtle
+                        &quot;someone is here&quot; hint.
                         Online status stays separate — your pet only
                         shows while you are actually viewing the chat.
                     </p>

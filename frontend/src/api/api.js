@@ -113,7 +113,19 @@ export async function refreshAccessToken() {
             await axios.post(
                 `${SERVER_URL}/api/v1/auth/refresh`,
                 null,
-                { withCredentials: true }
+                {
+                    withCredentials: true,
+                    // This call uses bare axios (not the `api`
+                    // instance), so it does NOT inherit the 30s
+                    // instance timeout. Without an explicit timeout
+                    // an unreachable server (phone on a network that
+                    // can't reach the baked-in LAN host) leaves the
+                    // connect pending forever, AuthContext stays in
+                    // its loading gate and the app never renders.
+                    // Bound it so boot falls back to the login
+                    // screen instead of hanging on a spinner.
+                    timeout: 10000,
+                }
             );
 
         const newAccessToken =

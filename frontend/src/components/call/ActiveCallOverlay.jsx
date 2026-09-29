@@ -185,8 +185,12 @@ export default function ActiveCallOverlay() {
                         </svg>
                     </button>
 
-                    {isVideo && videoEnabled && localStream && (
+                    {isVideo && localStream && (
 
+                        /* Kept mounted even when the camera is off
+                           so there is always a way to turn it back
+                           on. Hiding it on videoEnabled===false
+                           stranded the user with no camera control. */
                         <button
                             type="button"
                             className={
@@ -195,7 +199,11 @@ export default function ActiveCallOverlay() {
                                     : "call-control call-control-active"
                             }
                             onClick={toggleVideo}
-                            title="Turn camera off"
+                            title={
+                                videoEnabled
+                                    ? "Turn camera off"
+                                    : "Turn camera on"
+                            }
                         >
                             <svg
                                 width="20"

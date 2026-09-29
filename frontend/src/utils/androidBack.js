@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { isNative } from "./platform.js";
 
 // ==========================================================
 // Android hardware back-button coordination.

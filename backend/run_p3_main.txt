@@ -1,0 +1,4 @@
+============================= test session starts =============================
+collecting ... collected 210 items / 209 deselected / 1 selected
+
+test_all.py::test_ws_me_presence_three_users 

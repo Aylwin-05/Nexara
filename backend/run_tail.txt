@@ -1,0 +1,7 @@
+============================= test session starts =============================
+collecting ... collected 211 items / 205 deselected / 6 selected
+
+test_all.py::test_ws_me_lifecycle PASSED                                 [ 16%]
+test_all.py::test_ws_me_chat_open_cleared_on_disconnect PASSED           [ 33%]
+test_all.py::test_block_unblock_invalidates_ws_block_cache PASSED        [ 50%]
+test_all.py::test_ws_me_presence_three_users 
