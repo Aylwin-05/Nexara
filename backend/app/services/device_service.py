@@ -149,9 +149,7 @@ class DeviceService:
         # device_id would otherwise trip the (device_id, key_id) unique
         # constraint and surface as an IntegrityError 500.
         for opk in one_time_prekeys:
-            existing_opk = await self.repository.get_one_time_prekey(
-                device.id, opk["key_id"]
-            )
+            existing_opk = await self.repository.get_one_time_prekey(device.id, opk["key_id"])
             if existing_opk is not None:
                 continue
             await self.repository.create_one_time_prekey(

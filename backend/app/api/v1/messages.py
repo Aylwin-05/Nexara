@@ -616,9 +616,7 @@ async def get_messages(
             for message in messages:
                 if message.envelopes:
                     message.envelopes = [
-                        env
-                        for env in message.envelopes
-                        if env.get("device_id") == device_id
+                        env for env in message.envelopes if env.get("device_id") == device_id
                     ]
 
         return [serialize_message(message) for message in messages]

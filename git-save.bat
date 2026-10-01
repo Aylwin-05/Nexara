@@ -16,7 +16,7 @@ echo.
 echo --- Staged changes ---
 git status --short
 echo ---------------------
-set /p choice=Commit and push these changes? [y/n]: 
+set /p choice=Commit and push these changes? [y/n]:
 if /i not "%choice%"=="y" (
     echo Cancelled - nothing was pushed.
     pause

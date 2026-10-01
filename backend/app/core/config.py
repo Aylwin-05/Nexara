@@ -78,8 +78,7 @@ class Settings(BaseSettings):
     # ======================================================
 
     CORS_ORIGINS: str = (
-        "http://localhost:5173,http://127.0.0.1:5173,"
-        "https://localhost,capacitor://localhost"
+        "http://localhost:5173,http://127.0.0.1:5173,https://localhost,capacitor://localhost"
     )
     ALLOWED_HOSTS: str = "*"
 

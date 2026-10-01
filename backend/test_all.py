@@ -103,9 +103,7 @@ def _use_isolated_redis():
     try:
         import redis as sync_redis
 
-        sync_redis.Redis.from_url(
-            _TEST_REDIS_URL, protocol=2
-        ).flushdb()
+        sync_redis.Redis.from_url(_TEST_REDIS_URL, protocol=2).flushdb()
     except Exception as e:  # Redis optional: suite falls back to memory
         print(f"[tests] Redis db 15 unavailable ({e}); using in-process stores")
 
@@ -182,9 +180,7 @@ def _make_test_engine(db_path):
 
     asyncio.run(_create_schema())
 
-    return engine, async_sessionmaker(
-        bind=engine, class_=AsyncSession, expire_on_commit=False
-    )
+    return engine, async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
 
 def ed25519_public_to_bytes(pub) -> bytes:

@@ -1520,4 +1520,3 @@ case "video":
 });
 
 export default MessageBubble;
-

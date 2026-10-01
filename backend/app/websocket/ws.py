@@ -16,6 +16,16 @@ logger = logging.getLogger("app.websocket.ws")
 router = APIRouter()
 
 
+async def _teardown(user_id: UUID, websocket: WebSocket) -> None:
+    """Run both disconnect steps as ONE unit so a single shield can
+    protect them.  Shielding them separately is not enough: if the
+    cancellation lands on the first await, CancelledError unwinds
+    straight past the second one and the offline broadcast never
+    runs, leaving every peer showing a ghost "online" user."""
+    await manager.disconnect_user(user_id, websocket)
+    await manager.broadcast_presence(user_id, False, cached_only=True)
+
+
 @router.websocket("/ws/me")
 async def websocket_endpoint(
     websocket: WebSocket,
@@ -266,27 +276,17 @@ async def websocket_endpoint(
             # after the client sends its close frame, right as this
             # finally block runs: an unguarded await would be
             # cancelled before the offline event reached a single
-            # peer. Shield the broadcast - it is in-memory now
+            # peer. Shield the teardown - it is in-memory now
             # (cached membership), so it completes either way - and
-            # swallow the teardown CancelledError. disconnect_user
-            # rides in the same shield because it clears the user's
-            # "in chat" pets (same cancellation would leave every
-            # peer showing the pet of a user who just quit).
+            # swallow the teardown CancelledError. Both steps ride in
+            # the SAME shield (see _teardown) because a cancellation
+            # landing between two separate shields would skip the
+            # offline broadcast outright; disconnect_user rides along
+            # because it clears the user's "in chat" pets (the same
+            # cancellation would leave every peer showing the pet of
+            # a user who just quit).
             try:
-                await asyncio.shield(
-                    manager.disconnect_user(
-                        user_id,
-                        websocket,
-                    )
-                )
-
-                await asyncio.shield(
-                    manager.broadcast_presence(
-                        user_id,
-                        False,
-                        cached_only=True,
-                    )
-                )
+                await asyncio.shield(_teardown(user_id, websocket))
 
             except asyncio.CancelledError:
                 pass

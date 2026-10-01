@@ -427,8 +427,10 @@ async def health(
         from app.core.redis import probe_redis
 
         redis_ok = await probe_redis()
-        redis_status = "connected" if redis_ok else (
-            "not_configured" if not settings.REDIS_URL else "unreachable"
+        redis_status = (
+            "connected"
+            if redis_ok
+            else ("not_configured" if not settings.REDIS_URL else "unreachable")
         )
     except Exception as e:
         logger.warning("Health check Redis probe failed: %s", e)

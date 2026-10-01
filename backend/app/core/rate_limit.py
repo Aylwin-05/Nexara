@@ -179,9 +179,7 @@ class RateLimiter:
         # costs nothing per request; the in-request fallback in
         # _RedisStore still covers a Redis that dies mid-flight.
         self._store = (
-            _MemoryStore()
-            if (not settings.REDIS_URL or redis_marked_down())
-            else _RedisStore()
+            _MemoryStore() if (not settings.REDIS_URL or redis_marked_down()) else _RedisStore()
         )
 
     async def check(
