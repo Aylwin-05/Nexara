@@ -107,7 +107,7 @@ jobs:
           SMTP_PASSWORD: "test"
           SMTP_FROM_EMAIL: "noreply@example.com"
           SMTP_FROM_NAME: "Nexara"
-        run: python -m pytest test_all.py -x -q -o faulthandler_timeout=300
+        run: python -m pytest test_all.py -x -q -o faulthandler_timeout=120
 
   frontend-test:
     runs-on: ubuntu-latest

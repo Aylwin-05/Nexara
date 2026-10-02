@@ -4959,9 +4959,35 @@ def _register__ws(client, email):
     return (data["access_token"], data["user"])
 
 
+class _WsSession:
+    """Makes connect() a synchronisation point before the next socket opens.
+
+    Entering the raw session only waits for the server's websocket.accept(),
+    which /ws/me sends BEFORE it registers the user. Opening the next socket
+    before this one's first frame had been read let the second user broadcast
+    their presence while the first user was still unregistered, so the first
+    socket never received it and its drain blocked forever - that is what hung
+    CI for the full 6h job timeout in test_ws_me_lifecycle.
+
+    Reading the initial frame here makes __enter__ return only once the server
+    has finished registering the user, so back-to-back connects are ordered.
+    """
+
+    def __init__(self, session):
+        self._session = session
+
+    def __enter__(self):
+        self._session.__enter__()
+        self._session.receive_json()
+        return self._session
+
+    def __exit__(self, *exc):
+        return self._session.__exit__(*exc)
+
+
 def _connect(client, token):
-    """One user-scoped socket per client."""
-    return client.websocket_connect("/ws/me", subprotocols=["nexara." + token])
+    """One user-scoped socket per client, already drained of its first frame."""
+    return _WsSession(client.websocket_connect("/ws/me", subprotocols=["nexara." + token]))
 
 
 def _drain(ws, target_event, limit=30):
@@ -5053,8 +5079,6 @@ def test_ws_me_lifecycle(api_client__ws):
     conv = _friend_and_conv(client, token_a, token_b, user_a["id"], user_b["id"])
     conversation_id = conv["id"]
     with _connect(client, token_a) as ws_a, _connect(client, token_b) as ws_b:
-        ws_a.receive_json()
-        ws_b.receive_json()
         _drain_presence(ws_a, str(user_b["id"]))
         _drain_presence(ws_b, str(user_b["id"]))
         _drain_presence(ws_b, str(user_a["id"]))
@@ -5137,8 +5161,6 @@ def test_ws_me_chat_open_cleared_on_disconnect(api_client__ws):
     conv = _friend_and_conv(client, token_a, token_b, user_a["id"], user_b["id"])
     conversation_id = conv["id"]
     with _connect(client, token_a) as ws_a, _connect(client, token_b) as ws_b:
-        ws_a.receive_json()
-        ws_b.receive_json()
         _drain_presence(ws_a, str(user_b["id"]))
         _drain_presence(ws_b, str(user_b["id"]))
         _drain_presence(ws_b, str(user_a["id"]))
@@ -5169,8 +5191,6 @@ def test_ws_call_signaling_relay(api_client__ws):
     conversation_id = conv["id"]
     call_id = "call-1234"
     with _connect(client, token_a) as ws_a, _connect(client, token_b) as ws_b:
-        ws_a.receive_json()
-        ws_b.receive_json()
         _drain_presence(ws_a, str(user_b["id"]))
         _drain_presence(ws_b, str(user_b["id"]))
         _drain_presence(ws_b, str(user_a["id"]))
@@ -5252,7 +5272,6 @@ def test_ws_call_offer_push_and_pending_delivery(api_client__ws, monkeypatch):
 
     monkeypatch.setattr(push_module.push_service, "notify_call", fake_notify_call)
     with _connect(client, token_a) as ws_a:
-        ws_a.receive_json()
         ws_a.send_json(
             {
                 "event": "call_offer",
@@ -5271,7 +5290,6 @@ def test_ws_call_offer_push_and_pending_delivery(api_client__ws, monkeypatch):
     assert pushes[0]["call_type"] == "video"
     assert [str(u) for u in pushes[0]["recipient_ids"]] == [str(user_b["id"])]
     with _connect(client, token_b) as ws_b:
-        ws_b.receive_json()
         ev = _drain(ws_b, "call_offer")
         assert ev["call_id"] == call_id
         assert ev["from"] == str(user_a["id"])
@@ -5303,9 +5321,7 @@ def test_block_unblock_invalidates_ws_block_cache(api_client__ws):
 
     a_uuid = _UUID(str(user_a["id"]))
     b_uuid = _UUID(str(user_b["id"]))
-    with _connect(client, token_a) as ws_a, _connect(client, token_b) as ws_b:
-        ws_a.receive_json()
-        ws_b.receive_json()
+    with _connect(client, token_a), _connect(client, token_b):
         assert a_uuid in conn_mgr.manager.user_blocked
         assert b_uuid in conn_mgr.manager.user_blocked_by
         r = client.post("/api/v1/blocks/", json={"user_id": str(b_uuid)}, headers=_auth(token_a))
@@ -5329,14 +5345,11 @@ def test_ws_me_presence_three_users(api_client__ws):
     _friend_and_conv(client, token_a, token_b, user_a["id"], user_b["id"])
     _friend_and_conv(client, token_c, token_b, user_c["id"], user_b["id"])
     with _connect(client, token_a) as ws_a:
-        ws_a.receive_json()
         with _connect(client, token_b) as ws_b:
-            ws_b.receive_json()
             _drain_presence(ws_b, str(user_b["id"]))
             ev = _drain_presence(ws_a, str(user_b["id"]))
             assert ev["online"] is True
             with _connect(client, token_c) as ws_c:
-                ws_c.receive_json()
                 ev = _drain_presence(ws_b, str(user_c["id"]))
                 assert ev["online"] is True
                 _drain_presence(ws_c, str(user_c["id"]))
