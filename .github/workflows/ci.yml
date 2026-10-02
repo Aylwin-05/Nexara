@@ -48,6 +48,7 @@ jobs:
 
   backend-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16-alpine
@@ -106,7 +107,7 @@ jobs:
           SMTP_PASSWORD: "test"
           SMTP_FROM_EMAIL: "noreply@example.com"
           SMTP_FROM_NAME: "Nexara"
-        run: python -m pytest test_all.py -x -q
+        run: python -m pytest test_all.py -x -q -o faulthandler_timeout=300
 
   frontend-test:
     runs-on: ubuntu-latest
@@ -143,6 +144,7 @@ jobs:
           scan-ref: "backend"
           severity: "CRITICAL,HIGH"
           exit-code: "1"
+          trivyignores: ".trivyignore"
 
       - name: Run Trivy vulnerability scanner on frontend
         uses: aquasecurity/trivy-action@master
@@ -151,6 +153,7 @@ jobs:
           scan-ref: "frontend"
           severity: "CRITICAL,HIGH"
           exit-code: "1"
+          trivyignores: ".trivyignore"
 
   build:
     runs-on: ubuntu-latest

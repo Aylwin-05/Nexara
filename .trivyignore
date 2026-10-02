@@ -1,0 +1,17 @@
+# CVE-2024-23342 (GHSA-wj6h-64fc-37mp / PYSEC-2026-1325)
+# Minerva timing attack on the P-256 curve in python-ecdsa.
+#
+# python-ecdsa is pulled in transitively by python-jose. Upstream
+# (tlsfuzzer/python-ecdsa) states side-channel attacks are out of scope
+# for the project and there is NO planned fix, so no version bump can
+# clear this finding.
+#
+# Not reachable in this application: docker-compose.yml sets
+# JWT_ALGORITHM=HS256 and no ES256 keypair is configured, so python-jose
+# never touches the ecdsa code path (ecdsa is only used for the ES*
+# algorithms). The advisory also states signature VERIFICATION is
+# unaffected; only nonce-leaking signing would be exposed.
+#
+# Accepted risk. Revisit when python-jose drops the ecdsa dependency or
+# when ES256 signing is ever enabled.
+CVE-2024-23342
