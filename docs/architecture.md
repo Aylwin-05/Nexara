@@ -233,4 +233,106 @@ flowchart LR
 
 ---
 
-_Generated 2026-09-12. Update this file when architecture changes._
+## 8. Where Data Actually Lives
+
+Nothing is sharded or distributed. One Postgres, one Redis, one local disk folder.
+
+```mermaid
+flowchart TB
+    subgraph CLIENT["Client — browser / Capacitor WebView"]
+        PLAIN["Plaintext<br/>born here, dies here"]
+        SEAL["AES-GCM seal file +<br/>wrap key once per recipient device"]
+    end
+
+    subgraph STORES["Three local stores"]
+        PG[("PostgreSQL<br/>14 MB · 29 tables<br/>ciphertext + routing metadata")]
+        RD[("Redis<br/>737 KB · 4 keys<br/>presence + rate limits")]
+        DS[("uploads/ on disk<br/>encrypted blobs, no plaintext")]
+    end
+
+    PLAIN --> SEAL
+    SEAL -->|"ciphertext + envelopes"| PG
+    SEAL -->|"opaque bytes"| DS
+    PG -.->|"storage_path points here"| DS
+
+    style PLAIN fill:#1f6f43,color:#fff
+    style SEAL fill:#1f6f43,color:#fff
+```
+
+**The rule:** Postgres stores ciphertext plus the keys needed to route it. Disk stores encrypted blobs. Neither ever holds plaintext.
+
+| Store | Size | Contents | Durable? |
+|---|---|---|---|
+| PostgreSQL `nexara` | 14 MB | all 29 tables — ciphertext, envelopes, keys, metadata | source of truth |
+| Redis | 737 KB | `nexara:ws:online:*` presence (TTL ~88s), `rl:*` rate limits | no, disposable |
+| `uploads/` disk | 0 B | 10 auto-created dirs, media blobs only | yes, but **orphans** on crash |
+| coturn | — | WebRTC relay; call media never reaches the app server | no |
+
+Redis holds 4 keys at rest. If you lose it, nothing is lost — only presence dots and rate-limit counters reset.
+
+---
+
+## 9. Chat vs Attachment Storage
+
+Chats live **inside** Postgres. Attachments and stories are a **split**: a Postgres row pointing at a disk file.
+
+```mermaid
+flowchart LR
+    subgraph CHAT["Chat — 100% in Postgres"]
+        M["messages<br/>ciphertext · envelopes<br/>nonce · crypto_version<br/>delivered_at · read_at<br/>deleted_for · view_once_opened<br/>expires_at"]
+    end
+
+    subgraph MEDIA["Media — row in PG + bytes on disk"]
+        A["attachments row<br/>storage_path · original_name<br/>size · mime_type<br/>wrapped_keys · sync_blob"]
+        S["stories row<br/>storage_path · expires_at<br/>wrapped_keys"]
+        F[["uploads/encrypted/&lt;uuid4hex&gt;.bin<br/>uploads/stories/&lt;uuid4hex&gt;.png"]]
+    end
+
+    M --> A
+    M --> S
+    A --> F
+    S --> F
+```
+
+One `messages` row carries the body once in `ciphertext`, then the same plaintext re-wrapped **per recipient device** into `envelopes` (JSON). A user with 18 devices produces 18 wrapped keys on a single row.
+
+```mermaid
+erDiagram
+    CONVERSATIONS ||--o{ CONVERSATION_PARTICIPANTS : "RLS scopes this"
+    CONVERSATIONS ||--o{ MESSAGES : "contains"
+    MESSAGES ||--o{ ATTACHMENTS : "media metadata"
+    MESSAGES ||--o{ MESSAGE_RECIPIENT_KEYS : "wrapped per device"
+    USERS ||--o{ MESSAGES : "sends"
+    USERS ||--o{ STORIES : "posts 24h status"
+    USERS ||--o{ DEVICES : "owns install"
+    DEVICES ||--o{ SIGNED_PREKEYS : "per-device"
+    DEVICES ||--o{ ONE_TIME_PREKEYS : "prekey pool"
+    USERS ||--o{ USER_KEYS : "identity"
+```
+
+Row-level security is the actual access boundary. Exactly 3 tables have RLS on — `messages`, `attachments`, `conversation_participants` — enforced by the `secure` schema:
+
+```sql
+current_setting('app.current_user_id') = 'system'
+  OR secure.is_conversation_member(conversation_id, current_setting('app.current_user_id'))
+```
+
+Attachments are scoped *through* their parent message's conversation. The GUC is republished on every `after_begin` (database.py:64-73), so Postgres rejects cross-conversation reads even if application code slips. The `secure` schema holds 2 functions and **0 tables** — no data lives outside `public`.
+
+### Live row counts
+
+| Table | Rows | Table | Rows |
+|---|---|---|---|
+| `one_time_prekeys` | 8468 | `friendships` | 54 |
+| `refresh_tokens` | 689 | `conversation_participants` | 52 |
+| `users` | 158 | `messages` | 43 |
+| `devices` | 137 | `call_logs` | 13 |
+| `signed_prekeys` | 137 | `message_reactions` | 3 |
+| `user_keys` | 69 | **`attachments`** | **0** |
+| | | `stories` | 0 |
+
+`one_time_prekeys` is the largest table at 2.2 MB — X3DH burns a prekey per new session, so it grows fastest and is the one worth pruning.
+
+---
+
+_Generated 2026-09-12. Sections 8-9 added 2026-10-04 from live instance introspection. Update this file when architecture changes._
