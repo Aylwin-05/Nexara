@@ -7,7 +7,7 @@ uvicorn[standard]==0.54.0
 # Async PostgreSQL driver (used by the application)
 asyncpg==0.31.0
 
-sqlalchemy==2.0.48
+sqlalchemy==2.0.54
 psycopg2-binary==2.9.13
 
 alembic==1.20.0
