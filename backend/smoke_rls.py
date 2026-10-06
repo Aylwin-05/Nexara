@@ -149,8 +149,8 @@ with httpx.Client(base_url=BASE, timeout=15) as c:
     print(f"[+] B (member) sees {len(msgsB)} messages  ✓")
 
     # ---- list conversations as A & B ---------------------------------
-    rA = c.get("/conversations", headers=headers(tokA))
-    rB = c.get("/conversations", headers=headers(tokB))
+    rA = c.get("/conversations/", headers=headers(tokA))
+    rB = c.get("/conversations/", headers=headers(tokB))
     print(f"[+] A conversations: {rA.status_code}  B conversations: {rB.status_code}")
     assert cid in [x["id"] for x in rA.json()], "cid not in A's conversations"
     assert cid in [x["id"] for x in rB.json()], "cid not in B's conversations"

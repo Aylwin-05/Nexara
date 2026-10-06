@@ -439,7 +439,9 @@ def test_message_history_pagination_limit_and_cursor(api_client):
     # limit=0 was historically "return everything"; the API now rejects
     # it (ge=1) so a bogus value can't disable pagination. Max limit
     # returns all rows when fewer exist.
-    full = client.get(f"/api/v1/messages/{conversation_id}?limit=200", headers=_auth(token_b)).json()
+    full = client.get(
+        f"/api/v1/messages/{conversation_id}?limit=200", headers=_auth(token_b)
+    ).json()
     assert len(full) == 5
     assert full[0]["id"] == tail[0]["id"]
     assert [m["id"] for m in full] == [m["id"] for m in (tail + before + first)]
@@ -686,7 +688,8 @@ def test_attachment_download_non_ascii_filename_returns_200(api_client):
     assert download.content[:4] == b"\xff\xd8\xff\xe0"
     cd = download.headers["content-disposition"]
     assert cd.encode("latin-1")  # header must be latin-1 encodable
-    assert "\u201c" not in cd and "\u201d" not in cd
+    assert "\u201c" not in cd
+    assert "\u201d" not in cd
 
 
 def test_attachment_rejected_for_non_participant(api_client):
@@ -4401,9 +4404,7 @@ def _pin(client, token, message_id):
 
 
 def _pinned(client, token, conversation_id):
-    return client.get(
-        f"/api/v1/messages/pinned/{conversation_id}", headers=_auth(token)
-    )
+    return client.get(f"/api/v1/messages/pinned/{conversation_id}", headers=_auth(token))
 
 
 def test_pin_unpin_and_list(api_client):
@@ -4446,8 +4447,6 @@ def test_pin_unknown_message_404_and_non_participant_forbidden(api_client):
     (token_b, user_b) = _register(client, EMAIL_B)
     (token_c, _user_c) = _register(client, "carol@example.com")
     conversation_id = _dm(client, token_a, user_b["id"], token_b)
-    sent = _send(client, conversation_id, token_a, content="secret")
-    message_id = sent.json()["id"]
 
     assert _pin(client, token_a, uuid.uuid4()).status_code == 404
     resp = _pinned(client, token_c, conversation_id)

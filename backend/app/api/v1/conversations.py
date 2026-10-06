@@ -1,7 +1,6 @@
 import mimetypes
 import traceback
 from pathlib import Path
-from typing import Optional
 from uuid import UUID
 
 from app.core.file_config import (
@@ -204,7 +203,7 @@ async def my_conversations(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     limit: int = Query(50, ge=1, le=100),
-    before: Optional[UUID] = Query(None),
+    before: UUID | None = Query(None),
 ):
     conversation_repository = ConversationRepository(db)
     message_repository = MessageRepository(db)

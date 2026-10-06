@@ -51,6 +51,12 @@ if settings.SENTRY_DSN:
 # How often the background purge task runs (seconds).
 PURGE_INTERVAL_SECONDS = 60
 
+# Handle on the shielded inner tick of the purge loop.  ``asyncio.shield``
+# keeps a teardown cancel from interrupting an aiosqlite call, but it also
+# orphans the inner task; lifespan awaits it on shutdown so the loop never
+# closes with an in-flight tick still running.
+_purge_tick: asyncio.Task | None = None
+
 
 async def _disappearing_messages_loop():
     """Periodically hard-delete messages whose expiry has passed.
@@ -110,6 +116,7 @@ async def _disappearing_messages_loop():
                 len(purged),
             )
 
+    global _purge_tick
     while True:
         try:
             async with purge_lock:
@@ -120,8 +127,11 @@ async def _disappearing_messages_loop():
                 # thread's future unresolved and the TestClient / anyio
                 # portal hangs forever joining it. With the shield the
                 # CancelledError is deferred until the session exits
-                # cleanly, then propagated.
-                await asyncio.shield(_tick())
+                # cleanly, then propagated. The shield also orphans the
+                # inner task on cancel, so _purge_tick keeps the handle
+                # for lifespan to await before the loop closes.
+                _purge_tick = asyncio.ensure_future(_tick())
+                await asyncio.shield(_purge_tick)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -135,6 +145,8 @@ async def _disappearing_messages_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _purge_tick
+
     # Decide once, at boot, whether Redis is actually usable. Every
     # Redis-backed store (rate limiting, recovery tokens) reads this
     # verdict, so a missing Redis degrades to the in-process store
@@ -190,6 +202,20 @@ async def lifespan(app: FastAPI):
             await purge_task
         except asyncio.CancelledError:
             pass
+
+        # purge_task.cancel() orphans the shielded inner tick (that is
+        # what the shield is for). Await it here, while the loop is
+        # still alive, so _cancel_all_tasks at portal teardown never
+        # cancels it mid-aiosqlite call.
+        tick, _purge_tick = _purge_tick, None
+        if tick is not None and not tick.done():
+            try:
+                await asyncio.wait_for(asyncio.shield(tick), 5)
+            except asyncio.TimeoutError:
+                logger.warning("Purge tick did not finish within 5s of shutdown")
+            except asyncio.CancelledError:
+                pass
+
         await bus.stop()
 
         from app.core.redis import close_redis_client

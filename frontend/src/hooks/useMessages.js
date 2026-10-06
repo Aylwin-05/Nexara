@@ -3566,7 +3566,7 @@ try {
 const history =
                 await messageService.getMessages(
                     conversation.id,
-                    { limit: 0 }
+                    { limit: 200 }
                 );
 
             const decrypted =

@@ -395,7 +395,7 @@ async def download_attachment(
         raise HTTPException(
             status_code=404,
             detail="Attachment file not available.",
-        )
+        ) from None
 
     # Content-Disposition is latin-1: any non-ASCII byte (smart
     # quotes, emoji) in the filename raises UnicodeEncodeError in
@@ -403,8 +403,7 @@ async def download_attachment(
     # header name to ASCII printable characters.
     safe_name = (
         "".join(
-            c for c in (attachment.original_name or "file")
-            if 32 <= ord(c) < 127 and c not in '"\\'
+            c for c in (attachment.original_name or "file") if 32 <= ord(c) < 127 and c not in '"\\'
         )
         or "file"
     )

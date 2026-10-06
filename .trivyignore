@@ -15,3 +15,23 @@
 # Accepted risk. Revisit when python-jose drops the ecdsa dependency or
 # when ES256 signing is ever enabled.
 CVE-2024-23342
+
+# CVE-2026-85394 (GHSA-6c5p-j8vq-pqhj)
+# python-jose accepts a DER-encoded public key as an HMAC secret, so a
+# client holding the server's public key can forge HS256 tokens when
+# jwt.decode() is called WITHOUT an explicit `algorithms` allowlist.
+#
+# No patched version exists: python-jose 3.5.0 is the latest release
+# and the advisory lists no fixed version, so no version bump can
+# clear this finding (Snyk: "There is no fixed version").
+#
+# Not reachable in this application: the only decode path is
+# jwt_service.decode_token, which pins algorithms=[self.algorithm]
+# (HS256 with SECRET_KEY, or ES256 with the configured public PEM).
+# No call feeds raw DER bytes to decode, and the advisory states that
+# an explicit allowlist excluding HS256 rejects the forgery before the
+# key is examined.
+#
+# Accepted risk. Revisit if a patched python-jose ships, or if a
+# jwt.decode() call is ever added without an explicit algorithms list.
+CVE-2026-85394
