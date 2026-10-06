@@ -7,6 +7,7 @@ from app.core.rate_limit import (
 )
 from app.database.session import get_db
 from app.dependencies.auth import get_current_user
+from app.dependencies.rate_limit import rate_limit
 from app.models.device import Device
 from app.models.user import User
 from app.repositories.device_repository import (
@@ -71,6 +72,9 @@ def _device_info(device: Device) -> DeviceInfo:
 @router.post(
     "/register",
     response_model=RegisterDeviceResponse,
+    dependencies=[
+        rate_limit("devices.register", 10, 60),
+    ],
 )
 async def register_device(
     request: RegisterDeviceRequest,
@@ -140,6 +144,9 @@ async def register_device(
 @router.get(
     "/{user_id}/bundle",
     response_model=KeyBundleResponse,
+    dependencies=[
+        rate_limit("devices.bundle", 60, 60),
+    ],
 )
 async def get_key_bundle(
     user_id: UUID,
@@ -197,6 +204,9 @@ async def get_key_bundle(
 @router.post(
     "/prekeys/upload",
     response_model=ReplenishPreKeysResponse,
+    dependencies=[
+        rate_limit("devices.prekey_upload", 30, 60),
+    ],
 )
 async def upload_prekeys(
     request: UploadPreKeysRequest,
@@ -255,6 +265,9 @@ async def upload_prekeys(
 @router.post(
     "/prekeys/signed",
     response_model=RotateSignedPreKeyResponse,
+    dependencies=[
+        rate_limit("devices.prekey_signed", 10, 60),
+    ],
 )
 async def rotate_signed_prekey(
     request: RotateSignedPreKeyRequest,

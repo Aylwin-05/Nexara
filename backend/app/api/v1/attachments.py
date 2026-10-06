@@ -371,17 +371,40 @@ async def download_attachment(
     # here would break the sender's preview after a refresh and
     # pre-destroy the media before the recipient taps.
 
-    file_path = Path(attachment.storage_path)
-
-    if not file_path.exists():
+    if not attachment.storage_path:
         raise HTTPException(
             status_code=404,
             detail="Attachment file not found.",
         )
 
+    file_path = Path(attachment.storage_path)
+
+    # A missing, mis-typed or unreadable file must read as a clean
+    # 404, never a 500 (starlette would otherwise surface an
+    # OSError mid-stream when the path is gone or locked).
+    if not file_path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="Attachment file not found.",
+        )
+
+    try:
+        with file_path.open("rb"):
+            pass
+    except OSError:
+        raise HTTPException(
+            status_code=404,
+            detail="Attachment file not available.",
+        )
+
+    # Content-Disposition is latin-1: any non-ASCII byte (smart
+    # quotes, emoji) in the filename raises UnicodeEncodeError in
+    # starlette and turns the download into a 500. Restrict the
+    # header name to ASCII printable characters.
     safe_name = (
         "".join(
-            c for c in (attachment.original_name or "file") if c.isprintable() and c not in "\r\n"
+            c for c in (attachment.original_name or "file")
+            if 32 <= ord(c) < 127 and c not in '"\\'
         )
         or "file"
     )

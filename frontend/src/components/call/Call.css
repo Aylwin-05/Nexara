@@ -225,6 +225,8 @@
 
     object-fit: cover;
 
+    transform: scaleX(-1);
+
 }
 
 .call-local-video {
@@ -238,6 +240,8 @@
     width: 150px;
 
     max-height: 110px;
+
+    transform: scaleX(-1);
 
     border-radius: 10px;
 

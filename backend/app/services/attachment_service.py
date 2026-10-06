@@ -414,6 +414,9 @@ class AttachmentService:
         if attachment is None:
             return False
 
+        if not attachment.storage_path:
+            return False
+
         path = Path(attachment.storage_path)
 
         if path.exists():

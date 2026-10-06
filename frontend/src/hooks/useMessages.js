@@ -687,6 +687,118 @@ export default function useMessages(
 
     }
 
+    //------------------------------------------
+    // Cross-window decrypt self-heal
+    //
+    // A message sent from another window/device of the
+    // SAME account can fail to decrypt on first echo: the
+    // sender publishes the account-key sync copy a beat
+    // after relaying, so the recipient's first try finds no
+    // sync envelope and settles for "[Sent from another
+    // device]". The failing device has the keys the message
+    // needs, so a short refetch (which returns the sync
+    // copy) recovers the real text instead of leaving the
+    // message stuck as a placeholder.
+    //------------------------------------------
+
+    const pendingSelfHeals = new Set();
+
+    async function selfHealMessage(messageId, conversationId) {
+
+        for (
+            let attempt = 0;
+            attempt < 3;
+            attempt += 1
+        ) {
+
+            try {
+
+                const history =
+                    await messageService.getMessages(
+                        conversationId,
+                        { limit: 50 }
+                    );
+
+                const fresh = history.find(
+                    (item) => item.id === messageId
+                );
+
+                if (!fresh) return;
+
+                const refreshed =
+                    await decryptIncoming(fresh);
+
+                // A still-undecyptable placeholder means this
+                // window genuinely cannot read the message
+                // (e.g. locked history) — leave it as-is.
+                if (
+                    refreshed &&
+                    !isDecryptPlaceholder(refreshed)
+                ) {
+
+                    setMessages(previous =>
+                        previous.map(message =>
+                            message.id === messageId
+                                ? {
+                                    ...message,
+                                    content: refreshed,
+                                    attachments:
+                                        fresh.attachments ||
+                                        message.attachments ||
+                                        [],
+                                    reactions:
+                                        fresh.reactions ||
+                                        message.reactions ||
+                                        [],
+                                }
+                                : message
+                        )
+                    );
+
+                    return;
+
+                }
+
+            }
+            catch (error) {
+
+                logger.error(
+                    "Self-heal decrypt failed:",
+                    error
+                );
+
+            }
+
+            await new Promise(resolve =>
+                setTimeout(resolve, 700)
+            );
+
+        }
+
+    }
+
+    function scheduleSelfHeal(messageId, conversationId) {
+
+        const key =
+            `${conversationId}:${messageId}`;
+
+        if (pendingSelfHeals.has(key)) return;
+
+        pendingSelfHeals.add(key);
+
+        setTimeout(() => {
+
+            pendingSelfHeals.delete(key);
+
+            void selfHealMessage(
+                messageId,
+                conversationId
+            );
+
+        }, 700);
+
+    }
+
     useEffect(() => {
 
         if (!conversation) {
@@ -809,6 +921,26 @@ export default function useMessages(
 
                             const plaintext =
                                 await decryptIncoming(event);
+
+                                // A sibling window/device of the
+                                // same account that failed the
+                                // first decrypt gets one self-heal
+                                // pass once the sender's sync copy
+                                // is live (the echo races it).
+                                if (
+                                    event.sender_id ===
+                                        user?.id &&
+                                    isDecryptPlaceholder(
+                                        plaintext
+                                    )
+                                ) {
+
+                                    scheduleSelfHeal(
+                                        event.id,
+                                        conversation.id,
+                                    );
+
+                                }
 
                                 const message = {
 
@@ -2327,14 +2459,63 @@ try {
             // account's other browsers can decrypt the echo.
             //--------------------------------------------------
 
-            const [peerBundle, myBundle] = await Promise.all([
-                deviceService.getBundle(
-                    conversation.other_user.id
-                ),
-                deviceService.getBundle(
-                    user.id
-                ),
-            ]);
+            let peerBundle;
+            let myBundle;
+
+            try {
+
+                [peerBundle, myBundle] =
+                    await Promise.all([
+                        deviceService.getBundle(
+                            conversation.other_user.id
+                        ),
+                        deviceService.getBundle(
+                            user.id
+                        ),
+                    ]);
+
+            }
+            catch (error) {
+
+                // A 404 means the requested user has no usable
+                // device (never registered, or signed prekey
+                // expired). There is nothing to encrypt for, so
+                // say which side is missing instead of the
+                // opaque "Request failed with status code 404".
+                if (
+                    error?.response?.status === 404 &&
+                    String(error?.config?.url ?? "")
+                        .includes("/bundle")
+                ) {
+
+                    const url = String(
+                        error?.config?.url ?? ""
+                    );
+
+                    const peerId =
+                        conversation.other_user?.id;
+
+                    if (
+                        peerId &&
+                        url.includes(String(peerId))
+                    ) {
+
+                        throw new Error(
+                            `${conversation.other_user.display_name || "This contact"} isn't reachable yet — ask them to open Nexara so their device keys are ready.`
+                        );
+
+                    }
+
+                    throw new Error(
+                        "Your device keys aren't ready — "
+                        + "reopen Nexara to re-register."
+                    );
+
+                }
+
+                throw error;
+
+            }
 
             const allDevices = [
                 ...(peerBundle?.devices ?? []),
@@ -2476,10 +2657,13 @@ try {
                         : [],
             };
 
-            setMessages(previous => [
-                ...previous,
-                localMessage,
-            ]);
+            setMessages(previous =>
+                previous.some(entry =>
+                    entry.id === localMessage.id
+                )
+                    ? previous
+                    : [...previous, localMessage],
+            );
 
             onNewMessage?.(localMessage);
 

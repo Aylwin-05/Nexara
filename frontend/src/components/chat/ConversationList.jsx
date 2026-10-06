@@ -29,6 +29,9 @@ export default function ConversationList({
         updateSettings,
         conversationsError,
         refreshConversations,
+        conversationHasMore,
+        conversationLoadingMore,
+        loadMoreConversations,
     } = useChatSocket();
 
     const [showArchived, setShowArchived] =
@@ -39,6 +42,17 @@ export default function ConversationList({
 
     const [joinModalOpen, setJoinModalOpen] =
         useState(false);
+
+    function handleListScroll(event) {
+
+        const el = event.currentTarget;
+
+        const nearBottom =
+            el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+
+        if (nearBottom) loadMoreConversations();
+
+    }
 
     if (loading) {
 
@@ -202,7 +216,10 @@ export default function ConversationList({
 
                 </div>
 
-            <div className="conv-list-body">
+            <div
+                className="conv-list-body"
+                onScroll={handleListScroll}
+            >
 
                 {
 
@@ -375,6 +392,24 @@ export default function ConversationList({
                     )
 
                 }
+
+                {conversationLoadingMore && (
+
+                    <div className="conv-skeleton">
+
+                        <div className="skeleton conv-skeleton-avatar" />
+
+                        <div className="conv-skeleton-lines">
+
+                            <div className="skeleton" style={{ height: 12, width: "55%" }} />
+
+                            <div className="skeleton" style={{ height: 10, width: "80%" }} />
+
+                        </div>
+
+                    </div>
+
+                )}
 
             </div>
 

@@ -82,6 +82,30 @@
     line-height: 1.5;
 }
 
+/* ---------- "check your email" notice ---------- */
+
+.otp-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    margin-top: 16px;
+    padding: 10px 14px;
+    border: 1px solid var(--accent-soft);
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    color: var(--text-2);
+    font-size: 13px;
+    line-height: 1.45;
+    text-align: left;
+}
+
+.otp-notice svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: var(--accent);
+}
+
 /* ---------- new-account legal consent ---------- */
 
 .otp-consent {

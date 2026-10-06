@@ -13,14 +13,21 @@ import recoveryService from "./recoveryService";
 import { signalKeyStore } from "../crypto/signal/keyStore";
 import { replenishOneTimePrekeys } from "../crypto/signal/prekeyManager";
 import { clearKeyPair } from "../crypto/keyStorage";
-import { b64encode } from "../crypto/signal/bytes";
+import { b64encode, b64decode } from "../crypto/signal/bytes";
 import { nativePlatform } from "../utils/platform.js";
 import {
+    buildRegisterPayload,
+    generateDeviceId,
     generateDeviceIdentity,
     generateOneTimePrekeys,
-    generateDeviceId,
-    buildRegisterPayload,
+    generateSignedPrekey,
 } from "../crypto/signal/identity";
+
+// The server refuses to serve a signed prekey once it has hit
+// its 30-day TTL (SIGNED_PREKEY_TTL_DAYS). Any device that has
+// not rotated in that window becomes unreachable for X3DH —
+// the every-boot check below keeps ours fresh.
+const ROTATE_SPK_AFTER_MS = 25 * 24 * 60 * 60 * 1000;
 
 // ==========================================================
 // First-run device registration is NOT idempotent by itself:
@@ -77,6 +84,74 @@ function withDeviceLock(fn) {
 
 }
 
+// The signed prekey is replaced while the Ed25519 identity
+// stays fixed (the server's rotate endpoint expires any older
+// key_id). Nothing here is fallible enough to block boot, so
+// caller wraps it in try/catch.
+async function rotateSignedPrekeyIfDue() {
+
+    const [meta, identity] = await Promise.all([
+        signalKeyStore.getMeta(),
+        signalKeyStore.getIdentity(),
+    ]);
+
+    const issuedAt = meta?.spkIssuedAt ?? 0;
+
+    if (
+        issuedAt > 0 &&
+        Date.now() - issuedAt < ROTATE_SPK_AFTER_MS
+    ) {
+
+        return false;
+
+    }
+
+    const spks = await signalKeyStore.getAllSignedPrekeys();
+
+    const latest = spks
+        ? [...spks].sort(
+            (a, b) => (a.keyId ?? 0) - (b.keyId ?? 0)
+        ).at(-1)
+        : null;
+
+    if (!latest?.keyId || !identity?.identityKeyPrivate) {
+
+        // Nothing to rotate against; the fresh-registration path
+        // will produce a full key set.
+        return false;
+
+    }
+
+    const spk = generateSignedPrekey({
+        identityPrivateKey: b64decode(
+            identity.identityKeyPrivate,
+        ),
+        keyId: latest.keyId + 1,
+    });
+
+    await signalKeyStore.saveSignedPrekey({
+        keyId: spk.keyId,
+        publicKey: b64encode(spk.publicKey),
+        signature: b64encode(spk.signature),
+        privateKey: b64encode(spk.privateKey),
+    });
+
+    await deviceService.rotateSignedPrekey({
+        device_id: meta.deviceId,
+        key_id: spk.keyId,
+        public_key: b64encode(spk.publicKey),
+        signature: b64encode(spk.signature),
+    });
+
+    await signalKeyStore.saveMeta({
+        ...meta,
+        spkIssuedAt: Date.now(),
+    });
+
+    return true;
+
+}
+
 export function ensureDeviceRegistered({
     platform = null,
     deviceName = null,
@@ -123,6 +198,26 @@ export function ensureDeviceRegistered({
                     );
 
                 if (stillKnown) {
+
+                    // Signed prekeys expire server-side after 30
+                    // days. Rotate ours when it is old (or the
+                    // age is unknown — legacy devices — which
+                    // covers the very devices that have silently
+                    // gone offline). Never let a rotation failure
+                    // block the boot path.
+                    try {
+
+                        await rotateSignedPrekeyIfDue();
+
+                    }
+                    catch (error) {
+
+                        console.error(
+                            "Signed prekey rotation failed:",
+                            error,
+                        );
+
+                    }
 
                     return {
                         deviceId: existing.deviceId,
@@ -184,6 +279,7 @@ export function ensureDeviceRegistered({
                 isPrimary,
                 platform,
                 deviceName,
+                spkIssuedAt: Date.now(),
             });
 
             // The account's recovery key was created by THIS

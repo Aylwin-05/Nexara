@@ -9,7 +9,7 @@ from app.models.conversation_participant import (
 from app.models.group_invite_link import GroupInviteLink
 from app.models.user import User
 from app.repositories.base_repository import BaseRepository
-from sqlalchemy import and_, delete, func, select
+from sqlalchemy import and_, delete, func, or_, select
 
 
 class ConversationRepository(BaseRepository):
@@ -90,17 +90,54 @@ class ConversationRepository(BaseRepository):
     async def get_user_conversations(
         self,
         user_id: UUID,
+        limit: int | None = None,
+        before: UUID | None = None,
     ):
+        """Newest-first list, optionally cursor-paginated.
 
-        result = await self.execute(
+        `before` pages older: only conversations strictly older than
+        the cursor conversation are returned. `limit`/before mirror
+        the message-history pagination; `limit=None` returns all
+        (used by device key fan-out, which needs everything).
+        """
+
+        stmt = (
             select(Conversation)
             .join(
                 ConversationParticipant,
                 Conversation.id == ConversationParticipant.conversation_id,
             )
             .where(ConversationParticipant.user_id == user_id)
-            .order_by(Conversation.updated_at.desc())
         )
+
+        if before is not None:
+            cursor_updated_at = (
+                select(Conversation.updated_at).where(Conversation.id == before).scalar_subquery()
+            )
+
+            # updated_at DESC with the id as a tiebreaker, so a
+            # page boundary is stable for same-timestamp bursts.
+            stmt = stmt.where(
+                or_(
+                    Conversation.updated_at < cursor_updated_at,
+                    and_(
+                        Conversation.updated_at == cursor_updated_at,
+                        Conversation.id < before,
+                    ),
+                )
+            )
+
+        if limit:
+            result = await self.execute(
+                stmt.order_by(
+                    Conversation.updated_at.desc(),
+                    Conversation.id.desc(),
+                ).limit(limit)
+            )
+        else:
+            result = await self.execute(
+                stmt.order_by(Conversation.updated_at.desc())
+            )
 
         return result.scalars().all()
 

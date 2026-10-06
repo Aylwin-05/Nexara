@@ -6,17 +6,22 @@ const mocks = vi.hoisted(() => ({
     saveOneTimePrekeys: vi.fn(),
     saveMeta: vi.fn(),
     getMeta: vi.fn(),
+    getIdentity: vi.fn(),
+    getAllSignedPrekeys: vi.fn(),
     getSyncSecret: vi.fn(),
     getSyncRecord: vi.fn(),
     clearDeviceMaterial: vi.fn(),
     listDevices: vi.fn(),
     registerDevice: vi.fn(),
+    rotateSignedPrekey: vi.fn(),
     deviceCounter: 0,
 }));
 
 vi.mock("../crypto/signal/keyStore", () => ({
     signalKeyStore: {
         getMeta: mocks.getMeta,
+        getIdentity: mocks.getIdentity,
+        getAllSignedPrekeys: mocks.getAllSignedPrekeys,
         saveIdentity: mocks.saveIdentity,
         saveSignedPrekey: mocks.saveSignedPrekey,
         saveOneTimePrekeys: mocks.saveOneTimePrekeys,
@@ -31,6 +36,7 @@ vi.mock("./deviceService", () => ({
     default: {
         listDevices: mocks.listDevices,
         registerDevice: mocks.registerDevice,
+        rotateSignedPrekey: mocks.rotateSignedPrekey,
         uploadPreKeys: vi.fn().mockResolvedValue({}),
         removeDevice: vi.fn().mockResolvedValue({}),
     },
@@ -56,6 +62,7 @@ vi.mock("../crypto/signal/prekeyManager", () => ({
 
 vi.mock("../crypto/signal/bytes", () => ({
     b64encode: (x) => String(x),
+    b64decode: (x) => x,
 }));
 
 const identity = vi.hoisted(() => ({
@@ -63,6 +70,7 @@ const identity = vi.hoisted(() => ({
     generateDeviceIdentity: vi.fn(),
     generateOneTimePrekeys: vi.fn(),
     buildRegisterPayload: vi.fn(),
+    generateSignedPrekey: vi.fn(),
 }));
 
 vi.mock("../crypto/signal/identity", () => identity);
@@ -77,6 +85,8 @@ describe("ensureDeviceRegistered", () => {
         vi.clearAllMocks();
         mocks.deviceCounter = 0;
         mocks.getMeta.mockResolvedValue(null);
+        mocks.getIdentity.mockResolvedValue(null);
+        mocks.getAllSignedPrekeys.mockResolvedValue(null);
         mocks.getSyncSecret.mockResolvedValue(null);
         mocks.getSyncRecord.mockResolvedValue(null);
         mocks.saveIdentity.mockResolvedValue(undefined);
@@ -85,6 +95,7 @@ describe("ensureDeviceRegistered", () => {
         mocks.saveMeta.mockResolvedValue(undefined);
         mocks.listDevices.mockResolvedValue({ devices: [] });
         mocks.registerDevice.mockResolvedValue({ success: true, is_primary: true });
+        mocks.rotateSignedPrekey.mockResolvedValue({ success: true });
 
         identity.generateDeviceId.mockImplementation(
             () => `web-dev-${++mocks.deviceCounter}`
@@ -107,6 +118,14 @@ describe("ensureDeviceRegistered", () => {
         ]);
         identity.buildRegisterPayload.mockImplementation(
             (p) => ({ device_id: p.deviceId })
+        );
+        identity.generateSignedPrekey.mockImplementation(
+            ({ identityPrivateKey, keyId }) => ({
+                keyId,
+                publicKey: "spk-new-pub",
+                privateKey: "spk-new-priv",
+                signature: "spk-new-sig",
+            })
         );
     });
 
@@ -180,6 +199,66 @@ describe("ensureDeviceRegistered", () => {
         expect(mocks.registerDevice).not.toHaveBeenCalled();
         expect(result.deviceId).toBe("web-dev-existing");
         expect(result.generated).toBe(false);
+
+    });
+
+    it("rotates an expired signed prekey so the device stays reachable", async () => {
+
+        // No spkIssuedAt = legacy device. Its 30-day signed
+        // prekey is surely expired server-side, so the boot
+        // must replace it (the send-404 regression).
+        mocks.getMeta.mockResolvedValue({
+            deviceId: "web-dev-expired",
+            isPrimary: true,
+        });
+        mocks.getIdentity.mockResolvedValue({
+            identityKeyPrivate: "id-priv-legacy",
+        });
+        mocks.getAllSignedPrekeys.mockResolvedValue([
+            { keyId: 7, publicKey: "spk-pub", privateKey: "spk-priv", signature: "sig" },
+        ]);
+        mocks.listDevices.mockResolvedValue({
+            devices: [{ device_id: "web-dev-expired" }],
+        });
+
+        const result = await ensureDeviceRegistered();
+
+        expect(result.generated).toBe(false);
+        expect(mocks.registerDevice).not.toHaveBeenCalled();
+        expect(mocks.rotateSignedPrekey).toHaveBeenCalledTimes(1);
+        const uploaded = mocks.rotateSignedPrekey.mock.calls[0][0];
+        expect(uploaded).toMatchObject({
+            device_id: "web-dev-expired",
+            key_id: 8,
+            public_key: "spk-new-pub",
+        });
+        expect(mocks.saveSignedPrekey).toHaveBeenCalledWith(
+            expect.objectContaining({ keyId: 8 })
+        );
+        expect(mocks.saveMeta).toHaveBeenCalledWith(
+            expect.objectContaining({
+                deviceId: "web-dev-expired",
+                spkIssuedAt: expect.any(Number),
+            })
+        );
+
+    });
+
+    it("does NOT rotate a freshly-issued signed prekey", async () => {
+
+        mocks.getMeta.mockResolvedValue({
+            deviceId: "web-dev-fresh",
+            isPrimary: true,
+            spkIssuedAt: Date.now(),
+        });
+        mocks.listDevices.mockResolvedValue({
+            devices: [{ device_id: "web-dev-fresh" }],
+        });
+
+        const result = await ensureDeviceRegistered();
+
+        expect(result.generated).toBe(false);
+        expect(mocks.rotateSignedPrekey).not.toHaveBeenCalled();
 
     });
 

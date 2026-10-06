@@ -7,6 +7,9 @@ const chatSocket = {
     updateSettings: vi.fn(),
     conversationsError: null,
     refreshConversations: vi.fn(),
+    conversationHasMore: false,
+    conversationLoadingMore: false,
+    loadMoreConversations: vi.fn(),
 };
 
 vi.mock("../../context/ChatSocketContext", () => ({
@@ -56,5 +59,22 @@ describe("ConversationList", () => {
         expect(chatSocket.refreshConversations).toHaveBeenCalled();
 
         chatSocket.conversationsError = null;
+    });
+
+    it("loads the next page when the user scrolls near the bottom", () => {
+        chatSocket.conversationHasMore = true;
+
+        const { container } = renderList();
+
+        fireEvent.scroll(
+            container.querySelector(".conv-list-body"),
+            { target: { scrollTop: 1000 } },
+        );
+
+        expect(
+            chatSocket.loadMoreConversations,
+        ).toHaveBeenCalled();
+
+        chatSocket.conversationHasMore = false;
     });
 });

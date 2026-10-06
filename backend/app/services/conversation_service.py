@@ -196,9 +196,15 @@ class ConversationService:
     async def my_conversations(
         self,
         current_user: User,
+        limit: int | None = None,
+        before: UUID | None = None,
     ):
 
-        conversations = await self.conversation_repository.get_user_conversations(current_user.id)
+        conversations = await self.conversation_repository.get_user_conversations(
+            current_user.id,
+            limit=limit,
+            before=before,
+        )
 
         conversation_ids = [conversation.id for conversation in conversations]
 

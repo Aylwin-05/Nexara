@@ -336,3 +336,26 @@ Status: items 2–4 shipped 2026-10-06.
 8. **Re-audit `ecdsa`** CVE-2024-23342 fix and drop `.trivyignore` when shipped (P2).
 9. **Vite bundle budget + axe-core in CI** (P2).
 10. **OG image + optional sitemap + SW release cache-busting** (P2).
+
+---
+
+## 19. USER-FEEDBACK FIX ROUND (2026-10-06, from `docs/user-reviews-2026-10-06.txt`)
+
+Shipped this session (verified: pytest 213 passed / vitest 49 / node 58 / tsc / build):
+
+- **Removed `frontend/public/nexara-hud.html`** — debug HUD page was shipping to prod (review #44). No code references it. 🧹
+- **Rate-limit gaps closed** (audit §5 + review #37 invite spam):
+  - `POST /conversations/join-with-link` → dedicated `conversations.join_link` bucket (10/60) instead of sharing `conversations.group`.
+  - `POST /messages/read-all/{id}` → `messages.read_all` 60/60.
+  - `GET /messages/pinned/{id}` → `messages.pinned` 120/60.
+  - `POST/DELETE /stories/{id}/react` → `stories.react` 60/60; `POST /stories/{id}/reply` → `stories.reply` 20/60; `GET /stories/{id}/media` → `stories.media` 120/60.
+  - `POST /devices/register` → 10/60; `GET /devices/{user}/bundle` → 60/60 (also guards OPK drain); `POST /devices/prekeys/upload` → 30/60; `POST /devices/prekeys/signed` → 10/60.
+  - `keys.py` already had per-user limits (10/60 upload, 60/60 get) — no change.
+- **Reaction ceiling raised** 60→120/min (review #14; no test depended on the value).
+- **OTP page "check your email" notice** (review #17) — highlighted banner under the email on the OTP stage.
+- **Tab-title unread count** (review #42) — `ChatSocketContext` drives `document.title` `(N)S Nexara`.
+- **Story countdown** (review #3) — StoryViewer header shows "· Expires in Xh Ym" (live via the existing progress ticker).
+- **404 page** (review #6) — branded glass-panel card with gradient "404" and link home.
+
+Deferred (not code-blocked, need product/design/decisions — see `docs/user-reviews-2026-10-06.txt`):
+global message search; i18n; WebAuthn (or drop tables); email-less accounts; group voice rooms; push-to-talk/who's-speaking; edit history + group activity log; stickers/GIF; quiet hours + split notification toggles; bulk multi-forward; compressed-send presets; 2GB share cap; mark-as-read-on-open; close-friends list + per-story mute; story sticker reactions; recovery-code PDF/email rescue; metadata minimization + bulk purge; keys/ciphertext export; native App Store/Play apps + iOS share sheet; self-host docs; corporate audit features; colorblind shape states; low-end performance mode. Legal pages (F-23) still blocked on operator name/address/jurisdiction.

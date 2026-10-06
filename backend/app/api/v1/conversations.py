@@ -1,6 +1,7 @@
 import mimetypes
 import traceback
 from pathlib import Path
+from typing import Optional
 from uuid import UUID
 
 from app.core.file_config import (
@@ -44,6 +45,7 @@ from fastapi import (
     Depends,
     File,
     HTTPException,
+    Query,
     UploadFile,
 )
 from fastapi.responses import FileResponse
@@ -201,6 +203,8 @@ async def update_conversation_settings(
 async def my_conversations(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    limit: int = Query(50, ge=1, le=100),
+    before: Optional[UUID] = Query(None),
 ):
     conversation_repository = ConversationRepository(db)
     message_repository = MessageRepository(db)
@@ -210,7 +214,11 @@ async def my_conversations(
         message_repository,
     )
 
-    return await service.my_conversations(current_user)
+    return await service.my_conversations(
+        current_user,
+        limit=limit,
+        before=before,
+    )
 
 
 # ==========================================================
@@ -549,7 +557,7 @@ async def set_group_admin(
 @router.post(
     "/join-with-link",
     dependencies=[
-        rate_limit("conversations.group", 10, 60),
+        rate_limit("conversations.join_link", 10, 60),
     ],
 )
 async def join_group_with_link(

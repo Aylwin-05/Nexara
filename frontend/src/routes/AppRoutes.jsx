@@ -24,20 +24,18 @@ function PageLoader() {
 
 function NotFound() {
     return (
-        <div
-            style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                minHeight: "100vh",
-                gap: "12px",
-                fontFamily: "sans-serif",
-            }}
-        >
-            <h2>404</h2>
-            <p>Page not found.</p>
-            <a href="/">Go home</a>
+        <div className="nf-wrap">
+            <div className="nf-card">
+                <h2 className="nf-code">404</h2>
+                <p className="nf-title">This page went off the grid.</p>
+                <p className="nf-sub">
+                    The link may be mistyped, or the page was removed.
+                    Message your way back home.
+                </p>
+                <a className="nf-home" href="/">
+                    ← Back to start
+                </a>
+            </div>
         </div>
     );
 }

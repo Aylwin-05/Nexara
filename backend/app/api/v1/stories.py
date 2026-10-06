@@ -105,7 +105,12 @@ class StoryReactionRequest(BaseModel):
     emoji: str
 
 
-@router.post("/{story_id}/react")
+@router.post(
+    "/{story_id}/react",
+    dependencies=[
+        rate_limit("stories.react", 60, 60),
+    ],
+)
 async def react_to_story(
     story_id: UUID,
     req: StoryReactionRequest,
@@ -149,7 +154,12 @@ async def react_to_story(
     return {"success": True, "action": "added", "emoji": req.emoji}
 
 
-@router.delete("/{story_id}/react")
+@router.delete(
+    "/{story_id}/react",
+    dependencies=[
+        rate_limit("stories.react", 60, 60),
+    ],
+)
 async def remove_story_reaction(
     story_id: UUID,
     current_user: User = Depends(get_current_user),
@@ -191,7 +201,12 @@ class StoryReplyRequest(BaseModel):
     nonce: str
 
 
-@router.post("/{story_id}/reply")
+@router.post(
+    "/{story_id}/reply",
+    dependencies=[
+        rate_limit("stories.reply", 20, 60),
+    ],
+)
 async def reply_to_story(
     story_id: UUID,
     req: StoryReplyRequest,
@@ -302,7 +317,12 @@ async def mark_viewed(
 # ==========================================================
 
 
-@router.get("/{story_id}/media")
+@router.get(
+    "/{story_id}/media",
+    dependencies=[
+        rate_limit("stories.media", 120, 60),
+    ],
+)
 async def story_media(
     story_id: str,
     current_user: User = Depends(get_current_user),

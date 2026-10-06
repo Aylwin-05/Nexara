@@ -628,6 +628,67 @@ def test_upload_download_encrypted_bin(api_client):
     assert resp.status_code == 200
 
 
+def test_attachment_download_missing_file_returns_404(api_client):
+    client = api_client
+    (token_a, _) = _register(client, EMAIL_A)
+    (token_b, user_b) = _register(client, EMAIL_B)
+    conversation_id = _friend_and_conversation(client, token_a, user_b["id"], token_b)
+    message = _send_message(client, conversation_id, token_a)
+    resp = client.post(
+        f"/api/v1/attachments/upload/{message['id']}",
+        headers=_auth(token_a),
+        files={"file": ("bundle.pdf.bin", b"D" * 512, "application/octet-stream")},
+    )
+    assert resp.status_code == 200, resp.text
+    attachment = resp.json()["attachment"]
+    url = f"/api/v1/attachments/{attachment['id']}"
+
+    assert client.get(url, headers=_auth(token_a)).status_code == 200
+
+    stored = Path(attachment["storage_path"])
+    assert stored.exists()
+    stored.unlink()
+
+    # A row whose file has been lost (cleanup, manual deletion,
+    # view-once expiry) must read as 404 — never a 500.
+    missing = client.get(url, headers=_auth(token_a))
+    assert missing.status_code == 404, missing.text
+
+    gone = client.delete(url, headers=_auth(token_a))
+    assert gone.status_code == 200, gone.text
+
+
+def test_attachment_download_non_ascii_filename_returns_200(api_client):
+    client = api_client
+    (token_a, _) = _register(client, EMAIL_A)
+    (token_b, user_b) = _register(client, EMAIL_B)
+    conversation_id = _friend_and_conversation(client, token_a, user_b["id"], token_b)
+    message = _send_message(client, conversation_id, token_a)
+    resp = client.post(
+        f"/api/v1/attachments/upload/{message['id']}",
+        headers=_auth(token_a),
+        files={
+            "file": (
+                "\u201cLost in a sky of falling petals\u201d.jpg",
+                b"\xff\xd8\xff\xe0" + b"\x00" * 1024,
+                "image/jpeg",
+            )
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    attachment_id = resp.json()["attachment"]["id"]
+
+    # Content-Disposition is latin-1; a smart-quote filename used to
+    # raise UnicodeEncodeError -> 500. Must be a clean 200 with an
+    # ASCII-safe header value.
+    download = client.get(f"/api/v1/attachments/{attachment_id}", headers=_auth(token_a))
+    assert download.status_code == 200, download.text
+    assert download.content[:4] == b"\xff\xd8\xff\xe0"
+    cd = download.headers["content-disposition"]
+    assert cd.encode("latin-1")  # header must be latin-1 encodable
+    assert "\u201c" not in cd and "\u201d" not in cd
+
+
 def test_attachment_rejected_for_non_participant(api_client):
     client = api_client
     (token_a, _) = _register(client, EMAIL_A)
@@ -4327,6 +4388,70 @@ def test_star_requires_participant(api_client):
     message_id = sent.json()["id"]
     resp = _star(client, token_c, message_id, True)
     assert resp.status_code == 400
+
+
+# ======================================================================
+# Message pins (per-user, like stars) — GET /messages/pinned was 500ing
+# in dev because the message_pins table only exists at alembic head.
+# ======================================================================
+
+
+def _pin(client, token, message_id):
+    return client.put(f"/api/v1/messages/{message_id}/pin", headers=_auth(token))
+
+
+def _pinned(client, token, conversation_id):
+    return client.get(
+        f"/api/v1/messages/pinned/{conversation_id}", headers=_auth(token)
+    )
+
+
+def test_pin_unpin_and_list(api_client):
+    client = api_client
+    (token_a, _user_a) = _register(client, EMAIL_A)
+    (token_b, user_b) = _register(client, EMAIL_B)
+    conversation_id = _dm(client, token_a, user_b["id"], token_b)
+    sent = _send(client, conversation_id, token_a, content="pin me")
+    assert sent.status_code == 200, sent.text
+    message_id = sent.json()["id"]
+
+    assert _pin(client, token_a, message_id).status_code == 200
+    assert _pin(client, token_a, message_id).status_code == 200  # idempotent
+    listed = _pinned(client, token_a, conversation_id).json()
+    assert listed["count"] == 1
+    assert listed["messages"][0]["id"] == str(message_id)
+
+    # Unpin removes it.
+    resp = client.delete(f"/api/v1/messages/{message_id}/pin", headers=_auth(token_a))
+    assert resp.status_code == 200, resp.text
+    assert _pinned(client, token_a, conversation_id).json()["count"] == 0
+
+
+def test_pin_is_personal_per_user(api_client):
+    client = api_client
+    (token_a, _user_a) = _register(client, EMAIL_A)
+    (token_b, user_b) = _register(client, EMAIL_B)
+    conversation_id = _dm(client, token_a, user_b["id"], token_b)
+    sent = _send(client, conversation_id, token_a, content="mine")
+    message_id = sent.json()["id"]
+    assert _pin(client, token_a, message_id).status_code == 200
+    listed_b = _pinned(client, token_b, conversation_id).json()
+    assert listed_b["count"] == 0
+    assert _pinned(client, token_a, conversation_id).json()["count"] == 1
+
+
+def test_pin_unknown_message_404_and_non_participant_forbidden(api_client):
+    client = api_client
+    (token_a, _user_a) = _register(client, EMAIL_A)
+    (token_b, user_b) = _register(client, EMAIL_B)
+    (token_c, _user_c) = _register(client, "carol@example.com")
+    conversation_id = _dm(client, token_a, user_b["id"], token_b)
+    sent = _send(client, conversation_id, token_a, content="secret")
+    message_id = sent.json()["id"]
+
+    assert _pin(client, token_a, uuid.uuid4()).status_code == 404
+    resp = _pinned(client, token_c, conversation_id)
+    assert resp.status_code == 403
 
 
 # ======================================================================

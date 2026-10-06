@@ -354,7 +354,7 @@ async def edit_message(
 @router.put(
     "/{message_id}/reaction",
     dependencies=[
-        rate_limit("messages.reaction", 60, 60),
+        rate_limit("messages.reaction", 120, 60),
     ],
 )
 async def toggle_reaction(
@@ -925,7 +925,12 @@ async def unpin_message(
     return {"success": True, "message": "Message unpinned."}
 
 
-@router.get("/pinned/{conversation_id}")
+@router.get(
+    "/pinned/{conversation_id}",
+    dependencies=[
+        rate_limit("messages.pinned", 120, 60),
+    ],
+)
 async def get_pinned_messages(
     conversation_id: UUID,
     current_user: User = Depends(get_current_user),
@@ -962,7 +967,12 @@ async def get_pinned_messages(
 # ==========================================================
 
 
-@router.post("/read-all/{conversation_id}")
+@router.post(
+    "/read-all/{conversation_id}",
+    dependencies=[
+        rate_limit("messages.read_all", 60, 60),
+    ],
+)
 async def mark_all_read(
     conversation_id: UUID,
     current_user: User = Depends(get_current_user),

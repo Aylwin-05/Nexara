@@ -292,13 +292,24 @@ export default function MessageList({
 
         const result = [];
 
-        messages.forEach((message, index) => {
+        // Guard against duplicate ids reaching the render list:
+        // WS echoes, history refreshes or a momentary optimistic/
+        // echo overlap would otherwise render the same message
+        // twice (duplicate React keys + stacked bubbles). Last
+        // version wins so the freshest (decrypted) copy is used.
+        const byId = new Map();
+
+        messages.forEach((message) => byId.set(message.id, message));
+
+        const deduped = [...byId.values()];
+
+        deduped.forEach((message, index) => {
 
             const currentDate =
                 new Date(message.created_at);
 
             const previous =
-                messages[index - 1];
+                deduped[index - 1];
 
             const previousDate =
                 previous
@@ -336,7 +347,7 @@ export default function MessageList({
                 !sameSender || !gapOk;
 
             const next =
-                messages[index + 1];
+                deduped[index + 1];
 
             const nextSender =
                 next?.sender_id;

@@ -32,6 +32,21 @@ function viewOnceKind(attachment) {
 
 }
 
+function formatBytes(bytes) {
+
+    if (!Number.isFinite(bytes) || bytes <= 0) return "";
+
+    const units = ["B", "KB", "MB", "GB"];
+
+    const i = Math.min(
+        units.length - 1,
+        Math.floor(Math.log(bytes) / Math.log(1024))
+    );
+
+    return `${(bytes / 1024 ** i).toFixed(i ? 1 : 0)} ${units[i]}`;
+
+}
+
 const MessageBubble = memo(function MessageBubble({
     message,
     onDelete,
@@ -53,6 +68,11 @@ groupInfo = {},
     const { user } = useAuth();
 
 const [attachmentUrls, setAttachmentUrls] = useState({});
+
+    // WhatsApp-style media reveal: images render blurred with a
+    // download chip until tapped, which saves the file and shows
+    // the clear version in place.
+    const [revealed, setRevealed] = useState({});
 
     const [failedAttachments, setFailedAttachments] = useState(
         () => new Set()
@@ -437,6 +457,9 @@ const [attachmentUrls, setAttachmentUrls] = useState({});
 
             const urls = {};
 
+            // Every new attachment set starts blurred (unrevealed).
+            setRevealed({});
+
 for (const attachment of message.attachments || []) {
 
                 // View-once media is NEVER fetched automatically —
@@ -570,6 +593,32 @@ catch (err) {
 const isMine =
         String(user?.id) ===
         String(message.sender_id);
+
+    // ----------------------------------------------------------
+    // Media reveal (WhatsApp-style): download + clear the blur
+    // ----------------------------------------------------------
+
+    function revealMedia(attachment, url) {
+
+        setRevealed(previous => ({
+            ...previous,
+            [attachment.id]: true,
+        }));
+
+        // Trigger a real save-to-disk for the decrypted blob.
+        const anchor = document.createElement("a");
+
+        anchor.href = url;
+
+        anchor.download = attachment.original_name || "image";
+
+        document.body.appendChild(anchor);
+
+        anchor.click();
+
+        anchor.remove();
+
+    }
 
     // ----------------------------------------------------------
     // View-once media: fetch + decrypt on demand (recipient only)
@@ -1259,21 +1308,83 @@ Reply
 
 case "image":
 
-                            return (
+                            const isRevealed = Boolean(revealed[attachment.id]);
 
+                            return (
                                 <div
                                     key={attachment.id}
+                                    className="chat-image-wrap"
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label={
+                                        isRevealed
+                                            ? "Open image"
+                                            : "Download image"
+                                    }
+                                    onClick={() => {
+                                        if (isRevealed) {
+                                            setLightbox({
+                                                attachment,
+                                                url,
+                                            });
+                                        } else {
+                                            revealMedia(
+                                                attachment,
+                                                url
+                                            );
+                                        }
+                                    }}
+                                    onKeyDown={event => {
+                                        if (
+                                            event.key !== "Enter" &&
+                                            event.key !== " "
+                                        ) {
+                                            return;
+                                        }
+                                        event.preventDefault();
+                                        if (isRevealed) {
+                                            setLightbox({
+                                                attachment,
+                                                url,
+                                            });
+                                        } else {
+                                            revealMedia(
+                                                attachment,
+                                                url
+                                            );
+                                        }
+                                    }}
                                 >
-
                                     <img
                                         src={url}
                                         alt={attachment.original_name}
-                                        className="chat-image"
-                                        onClick={() => setLightbox({
-                                            attachment,
-                                            url,
-                                        })}
+                                        className={`chat-image${isRevealed ? "" : " chat-image-blur"}`}
                                     />
+
+                                    {!isRevealed && (
+                                        <span className="chat-media-download">
+                                            <svg
+                                                width="22"
+                                                height="22"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                <polyline points="7 10 12 15 17 10" />
+                                                <line x1="12" y1="15" x2="12" y2="3" />
+                                            </svg>
+                                            <span className="chat-media-download-label">
+                                                Download
+                                                {formatBytes(attachment.size)
+                                                    ? ` · ${formatBytes(attachment.size)}`
+                                                    : ""}
+                                            </span>
+                                        </span>
+                                    )}
 
                                 </div>
 

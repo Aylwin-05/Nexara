@@ -6,12 +6,13 @@ const conversationService = {
     // Get All Conversations
     //==========================================================
 
-    async getConversations() {
+    async getConversations(params) {
 
         try {
 
             const response = await api.get(
-                "/conversations/"
+                "/conversations/",
+                { params },
             );
 
             return response.data;

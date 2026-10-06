@@ -356,6 +356,9 @@ export default function StoryViewer({
                     </span>
                     <span className="story-viewer-time">
                         {formatTime(story.created_at)}
+                        <span className="story-viewer-expires">
+                            {" "}· {formatTimeLeft(story.created_at)}
+                        </span>
                     </span>
 
                     <span className="story-viewer-actions">
@@ -691,5 +694,30 @@ function formatTime(value) {
     if (hours < 24) return `${hours}h ago`;
 
     return `${Math.floor(hours / 24)}d ago`;
+
+}
+
+function formatTimeLeft(value) {
+
+    if (!value) return "";
+
+    const minutesLeft = Math.max(
+        0,
+        Math.floor(
+            (new Date(value).getTime()
+                + 24 * 60 * 60 * 1000
+                - Date.now()) / 60000
+        ),
+    );
+
+    if (minutesLeft <= 0) return "Expires soon";
+
+    if (minutesLeft < 60) return `Expires in ${minutesLeft}m`;
+
+    const hours = Math.floor(minutesLeft / 60);
+
+    const minutes = minutesLeft % 60;
+
+    return `Expires in ${hours}h ${minutes}m`;
 
 }

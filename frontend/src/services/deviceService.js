@@ -47,6 +47,21 @@ const deviceService = {
     },
 
     // ======================================================
+    // Rotate Signed PreKey (same identity, fresh X25519 SPK)
+    // ======================================================
+
+    async rotateSignedPrekey(payload) {
+
+        const response = await api.post(
+            "/devices/prekeys/signed",
+            payload
+        );
+
+        return response.data;
+
+    },
+
+    // ======================================================
     // List My Devices
     // ======================================================
 

@@ -46,6 +46,16 @@ export function ChatSocketProvider({ children }) {
     const [conversationsError, setConversationsError] =
         useState(null);
 
+    // Cursor pagination for the sidebar list (newest 50 first,
+    // then older pages via loadMoreConversations).
+    const [conversationHasMore, setConversationHasMore] =
+        useState(false);
+
+    const [conversationLoadingMore, setConversationLoadingMore] =
+        useState(false);
+
+    const CONVERSATION_PAGE_SIZE = 50;
+
     // 24h status updates (WhatsApp-style stories)
     const [stories, setStories] =
         useState([]);
@@ -107,9 +117,15 @@ export function ChatSocketProvider({ children }) {
             setLoading(true);
 
             const data =
-                await conversationService.getConversations();
+                await conversationService.getConversations({
+                    limit: CONVERSATION_PAGE_SIZE,
+                });
 
             setConversations(data);
+
+            setConversationHasMore(
+                data.length === CONVERSATION_PAGE_SIZE
+            );
 
             setConversationsError(null);
 
@@ -172,6 +188,73 @@ export function ChatSocketProvider({ children }) {
         finally {
 
             setLoading(false);
+
+        }
+
+    }
+
+    //=====================================================
+    // Conversations: load the next (older) page, appended
+    // at the bottom of the sidebar. Mirrors useMessages'
+    // scroll-to-top pagination: fetched == page size means
+    // probably more.
+    //=====================================================
+
+    async function loadMoreConversations() {
+
+        if (
+            !conversationHasMore ||
+            conversationLoadingMore ||
+            loading
+        ) return;
+
+        const last = conversations[conversations.length - 1];
+
+        if (!last) return;
+
+        setConversationLoadingMore(true);
+
+        try {
+
+            const chunk =
+                await conversationService.getConversations({
+                    limit: CONVERSATION_PAGE_SIZE,
+                    before: last.id,
+                });
+
+            if (chunk.length) {
+
+                setConversations(previous => {
+
+                    const existing =
+                        new Set(previous.map(c => c.id));
+
+                    return [
+                        ...previous,
+                        ...chunk.filter(
+                            c => !existing.has(c.id)
+                        ),
+                    ];
+
+                });
+
+            }
+
+            setConversationHasMore(
+                chunk.length === CONVERSATION_PAGE_SIZE
+            );
+
+        }
+
+        catch (error) {
+
+            console.error(error);
+
+        }
+
+        finally {
+
+            setConversationLoadingMore(false);
 
         }
 
@@ -993,6 +1076,24 @@ export function ChatSocketProvider({ children }) {
 
     }
 
+    const totalUnread =
+        (conversations ?? []).reduce(
+            (sum, conversation) =>
+                sum + (conversation.unread_count ?? 0),
+            0,
+        );
+
+    // Surface the unread count in the browser tab title
+    // (web/PWA). Harmless no-op in the native shell.
+    useEffect(() => {
+
+        document.title =
+            totalUnread > 0
+                ? `(${totalUnread}) Nexara`
+                : "Nexara";
+
+    }, [totalUnread]);
+
     const value = {
 
         conversations,
@@ -1022,6 +1123,12 @@ export function ChatSocketProvider({ children }) {
         subscribe,
 
         refreshConversations: loadConversations,
+
+        conversationHasMore,
+
+        conversationLoadingMore,
+
+        loadMoreConversations,
 
         refreshStories,
 
