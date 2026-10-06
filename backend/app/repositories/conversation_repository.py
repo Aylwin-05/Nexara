@@ -135,9 +135,7 @@ class ConversationRepository(BaseRepository):
                 ).limit(limit)
             )
         else:
-            result = await self.execute(
-                stmt.order_by(Conversation.updated_at.desc())
-            )
+            result = await self.execute(stmt.order_by(Conversation.updated_at.desc()))
 
         return result.scalars().all()
 

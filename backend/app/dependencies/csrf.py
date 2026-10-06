@@ -13,11 +13,7 @@ def cookie_origin_allowed(request: Request) -> bool:
     carriers). `Referer` is a fallback for the odd client that omits
     Origin on POST (e.g. old Safari form posts).
     """
-    allowed = {
-        o.strip()
-        for o in settings.CORS_ORIGINS.split(",")
-        if o.strip()
-    }
+    allowed = {o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()}
 
     origin = request.headers.get("origin")
     if origin:

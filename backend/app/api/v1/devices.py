@@ -173,13 +173,8 @@ async def get_key_bundle(
         from app.core.enums import FriendRequestStatus
         from app.repositories.friend_repository import FriendRepository
 
-        friendship = await FriendRepository(db).get_existing_friendship(
-            current_user.id, user_id
-        )
-        if (
-            friendship is None
-            or friendship.status != FriendRequestStatus.ACCEPTED.value
-        ):
+        friendship = await FriendRepository(db).get_existing_friendship(current_user.id, user_id)
+        if friendship is None or friendship.status != FriendRequestStatus.ACCEPTED.value:
             raise HTTPException(
                 status_code=403,
                 detail="You can only fetch key bundles for friends.",
