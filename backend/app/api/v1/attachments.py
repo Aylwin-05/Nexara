@@ -40,6 +40,36 @@ router = APIRouter(
     tags=["Attachments"],
 )
 
+MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024
+ALLOWED_THUMBNAIL_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+def _validate_thumbnail(upload: UploadFile) -> None:
+    """Reject overlarge or spoofed thumbnails before they hit disk.
+
+    Thumbnails are client-side generated images (no server-side
+    plaintext), but they are still served back to every conversation
+    participant, so the file must actually be an image and stay small.
+    """
+    if upload.size is not None and upload.size > MAX_THUMBNAIL_BYTES:
+        raise HTTPException(status_code=413, detail="Thumbnail exceeds 5 MB limit.")
+
+    if upload.content_type and upload.content_type.lower() not in ALLOWED_THUMBNAIL_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail="Unsupported thumbnail type. Use JPEG, PNG, or WebP.",
+        )
+
+    head = upload.file.read(12)
+    upload.file.seek(0)
+
+    is_jpeg = head[:3] == b"\xff\xd8\xff"
+    is_png = head[:8] == b"\x89PNG\r\n\x1a\n"
+    is_webp = head[:4] == b"RIFF" and head[8:12] == b"WEBP"
+
+    if not (is_jpeg or is_png or is_webp):
+        raise HTTPException(status_code=415, detail="Not a valid image file.")
+
 
 # ==========================================================
 # Upload Attachment
@@ -92,6 +122,14 @@ async def upload_attachment(
         raise HTTPException(
             status_code=403,
             detail="You are not a member of this conversation.",
+        )
+
+    # Attachments belong to the message's sender: any participant could
+    # otherwise drop files onto someone else's message.
+    if message.sender_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the sender can attach files to this message.",
         )
 
     if encrypted:
@@ -202,6 +240,8 @@ async def upload_thumbnail(
     attachment = await attachment_repository.get_by_id(attachment_id)
     if attachment is None:
         raise HTTPException(status_code=404, detail="Attachment not found.")
+
+    _validate_thumbnail(thumbnail)
 
     message = await message_repository.get_by_id(attachment.message_id)
     if message is None:

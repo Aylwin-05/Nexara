@@ -5,6 +5,7 @@ from app.database.session import get_db
 from app.dependencies.auth import get_current_user
 from app.dependencies.rate_limit import rate_limit
 from app.models.message import Message
+from app.models.message_pin import MessagePin
 from app.models.user import User
 from app.repositories.attachment_repository import AttachmentRepository
 from app.repositories.block_repository import BlockRepository
@@ -28,8 +29,9 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
 )
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(
@@ -580,7 +582,7 @@ async def get_messages(
     conversation_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    limit: int = 50,
+    limit: int = Query(50, ge=1, le=200),
     before: UUID | None = None,
     device_id: str | None = None,
 ):
@@ -602,7 +604,7 @@ async def get_messages(
         messages = await service.get_messages(
             current_user=current_user,
             conversation_id=conversation_id,
-            limit=min(limit, 200) if limit > 0 else None,
+            limit=limit,
             before=before,
         )
 
@@ -811,17 +813,30 @@ async def delete_for_me(
 # ==========================================================
 
 
-@router.get("/search/{conversation_id}")
+@router.get(
+    "/search/{conversation_id}",
+    dependencies=[
+        rate_limit("messages.search", 20, 60),
+    ],
+)
 async def search_messages(
     conversation_id: UUID,
     q: str = "",
-    limit: int = 50,
+    limit: int = Query(50, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     conversation_repo = ConversationRepository(db)
     if not await conversation_repo.is_participant(conversation_id, current_user.id):
         raise HTTPException(status_code=403, detail="Not a participant.")
+
+    q = q.strip()
+    if not q:
+        return {"results": [], "count": 0}
+
+    # Escape LIKE wildcards so a % in user input cannot force a
+    # full-table scan or match beyond what was typed.
+    escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
     MessageRepository(db)
 
@@ -832,12 +847,12 @@ async def search_messages(
             Message.conversation_id == conversation_id,
             Message.deleted_for_everyone.is_(False),
             or_(
-                Message.ciphertext.ilike(f"%{q}%"),
-                Message.message_type.ilike(f"%{q}%"),
+                Message.ciphertext.ilike(f"%{escaped}%"),
+                Message.message_type.ilike(f"%{escaped}%"),
             ),
         )
         .order_by(Message.created_at.desc())
-        .limit(min(limit, 100))
+        .limit(limit)
     )
 
     result = await db.execute(stmt)
@@ -869,17 +884,17 @@ async def pin_message(
     if not await conversation_repo.is_participant(message.conversation_id, current_user.id):
         raise HTTPException(status_code=403, detail="Not a participant.")
 
-    message.is_pinned = True
-    await db.commit()
-
-    await manager.broadcast(
-        message.conversation_id,
-        {
-            "event": "message_pinned",
-            "message_id": str(message_id),
-            "pinned": True,
-        },
+    # Pinning is personal (per-user): one participant's pin must not
+    # show up for everyone else in the conversation.
+    existing = await db.execute(
+        select(MessagePin.id).where(
+            MessagePin.message_id == message_id,
+            MessagePin.user_id == current_user.id,
+        )
     )
+    if existing.scalar_one_or_none() is None:
+        db.add(MessagePin(message_id=message_id, user_id=current_user.id))
+    await db.commit()
 
     return {"success": True, "message": "Message pinned."}
 
@@ -899,17 +914,13 @@ async def unpin_message(
     if not await conversation_repo.is_participant(message.conversation_id, current_user.id):
         raise HTTPException(status_code=403, detail="Not a participant.")
 
-    message.is_pinned = False
-    await db.commit()
-
-    await manager.broadcast(
-        message.conversation_id,
-        {
-            "event": "message_pinned",
-            "message_id": str(message_id),
-            "pinned": False,
-        },
+    await db.execute(
+        delete(MessagePin).where(
+            MessagePin.message_id == message_id,
+            MessagePin.user_id == current_user.id,
+        )
     )
+    await db.commit()
 
     return {"success": True, "message": "Message unpinned."}
 
@@ -927,12 +938,13 @@ async def get_pinned_messages(
     stmt = (
         select(Message)
         .options(*_message_options())
+        .join(MessagePin, MessagePin.message_id == Message.id)
         .where(
+            MessagePin.user_id == current_user.id,
             Message.conversation_id == conversation_id,
-            Message.is_pinned,
             Message.deleted_for_everyone.is_(False),
         )
-        .order_by(Message.created_at.desc())
+        .order_by(MessagePin.created_at.desc())
         .limit(50)
     )
 

@@ -11,6 +11,7 @@ from app.core.rate_limit import (
 )
 from app.database.session import get_db
 from app.dependencies.auth import get_current_user
+from app.dependencies.csrf import verify_cookie_origin
 from app.dependencies.rate_limit import rate_limit
 from app.dependencies.turnstile import verify_turnstile
 from app.models.attachment import Attachment
@@ -151,12 +152,11 @@ async def send_otp(
         background_tasks=background_tasks,
     )
 
-    is_new = await repository.get_user_by_email(request_body.email) is None
-
+    # Generic response: is_new was removed because it lets anyone
+    # probe whether an email has an account (F-10).
     return SendOTPResponse(
         success=True,
         message="OTP sent successfully.",
-        is_new=is_new,
     )
 
 
@@ -506,6 +506,10 @@ async def reset_two_fa(
 @router.post(
     "/refresh",
     dependencies=[
+        # SameSite=None + cookie auth = CSRF surface; the Origin/
+        # Referer gate rejects any cross-site POST that would ride
+        # the victim's cookie (F-11).
+        Depends(verify_cookie_origin),
         # DEBUG (local dev / e2e on a scratch DB) lifts the burst:
         # the whole Playwright suite shares one client IP against the
         # in-memory limiter. Production keeps the strict cap.
@@ -596,6 +600,9 @@ async def refresh_token(
 @router.post(
     "/logout",
     response_model=MessageResponse,
+    dependencies=[
+        Depends(verify_cookie_origin),
+    ],
 )
 async def logout(
     request: Request,

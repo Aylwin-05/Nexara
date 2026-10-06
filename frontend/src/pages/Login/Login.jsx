@@ -177,7 +177,6 @@ export default function Login() {
             navigate("/otp", {
                 state: {
                     email,
-                    isNew: response?.is_new === true,
                 },
             });
         } catch (err) {

@@ -3,6 +3,7 @@
 
 fastapi==0.142.2
 uvicorn[standard]==0.54.0
+gunicorn==23.0.0
 
 # Async PostgreSQL driver (used by the application)
 asyncpg==0.31.0

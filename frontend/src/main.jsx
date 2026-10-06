@@ -2,15 +2,26 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
+import * as Sentry from "@sentry/react";
 import App from "./App";
 import "./index.css";
 import "./styles/mobile.css";
 import { AuthProvider } from "./context/AuthContext";
+import CookieConsent from "./components/layout/CookieConsent";
 import ErrorBoundary from "./components/layout/ErrorBoundary";
 import { applyTheme, getTheme } from "./utils/theme";
 import { registerServiceWorker } from "./services/pushService";
 import { initAndroidBack } from "./utils/androidBack";
 import { isNative } from "./utils/platform";
+
+if (import.meta.env.VITE_SENTRY_DSN) {
+    Sentry.init({
+        dsn: import.meta.env.VITE_SENTRY_DSN,
+        integrations: [Sentry.browserTracingIntegration()],
+        environment: import.meta.env.MODE,
+        tracesSampleRate: 0.1,
+    });
+}
 
 applyTheme(getTheme());
 
@@ -37,6 +48,7 @@ ReactDOM.createRoot(
             <BrowserRouter>
                 <AuthProvider>
                     <App />
+                    <CookieConsent />
                     <Toaster position="top-right" reverseOrder={false} />
                 </AuthProvider>
             </BrowserRouter>

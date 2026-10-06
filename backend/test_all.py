@@ -436,7 +436,10 @@ def test_message_history_pagination_limit_and_cursor(api_client):
     assert len(tail) == 1
     all_ids = [m["id"] for m in first + before + tail]
     assert len(set(all_ids)) == 5
-    full = client.get(f"/api/v1/messages/{conversation_id}?limit=0", headers=_auth(token_b)).json()
+    # limit=0 was historically "return everything"; the API now rejects
+    # it (ge=1) so a bogus value can't disable pagination. Max limit
+    # returns all rows when fewer exist.
+    full = client.get(f"/api/v1/messages/{conversation_id}?limit=200", headers=_auth(token_b)).json()
     assert len(full) == 5
     assert full[0]["id"] == tail[0]["id"]
     assert [m["id"] for m in full] == [m["id"] for m in (tail + before + first)]
@@ -792,10 +795,10 @@ def test_verify_used_otp_rejected(auth_client):
     assert _verify_otp(auth_client, otp=otp).status_code == 400
 
 
-def test_send_otp_reports_new_account(auth_client):
+def test_send_otp_does_not_leak_account_existence(auth_client):
     resp = auth_client.post("/api/v1/auth/send-otp", json={"email": EMAIL})
     assert resp.status_code == 200, resp.text
-    assert resp.json()["is_new"] is True
+    assert "is_new" not in resp.json()
 
 
 def test_verify_otp_new_account_requires_consent(auth_client):
@@ -819,7 +822,8 @@ def test_verify_otp_existing_account_skips_consent(auth_client):
     assert _verify_otp(client, otp=_request_otp(client)).status_code == 200
 
     resp = client.post("/api/v1/auth/send-otp", json={"email": EMAIL})
-    assert resp.json()["is_new"] is False
+    assert resp.status_code == 200
+    assert "is_new" not in resp.json()
 
     resp = _verify_otp(
         client,
@@ -867,6 +871,25 @@ def test_logout_revokes_family(auth_client):
     assert resp.status_code == 200
     resp = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh})
     assert resp.status_code == 401
+
+
+def test_csrf_rejects_cross_origin_cookie_requests(auth_client):
+    client = auth_client
+    otp = _request_otp(client)
+    assert _verify_otp(client, otp=otp).status_code == 200
+    refresh = _cookie_refresh(client)
+
+    evil = {"Origin": "https://evil.example"}
+    resp = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh}, headers=evil)
+    assert resp.status_code == 403
+
+    resp = client.post("/api/v1/auth/logout", json={"refresh_token": refresh}, headers=evil)
+    assert resp.status_code == 403
+
+    # Same-origin request is still allowed.
+    ok = {"Origin": "http://localhost:5173"}
+    resp = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh}, headers=ok)
+    assert resp.status_code == 200
 
 
 def test_refresh_without_token_401(auth_client):
@@ -1842,9 +1865,9 @@ def test_get_key_bundle(client):
     assert len(device["one_time_prekeys"]) == 1
 
 
-def test_get_bundle_unknown_user_404(client):
+def test_get_bundle_non_friend_or_unknown_user_403(client):
     resp = client.get(f"/api/v1/devices/{uuid.uuid4()}/bundle")
-    assert resp.status_code == 404
+    assert resp.status_code == 403
 
 
 def test_one_time_prekeys_are_single_use(client):

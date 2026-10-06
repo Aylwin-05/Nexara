@@ -157,6 +157,27 @@ async def get_key_bundle(
 
     service = _service(db)
 
+    # A key bundle exposes a user's identity + signed prekeys and
+    # CONSUMES one of their single-use one-time prekeys, so it may
+    # only be served to people the owner can talk to. Own-device sync
+    # is always allowed; anyone else needs an accepted friendship
+    # (stops OPK draining and identity enumeration by any authed user).
+    if user_id != current_user.id:
+        from app.core.enums import FriendRequestStatus
+        from app.repositories.friend_repository import FriendRepository
+
+        friendship = await FriendRepository(db).get_existing_friendship(
+            current_user.id, user_id
+        )
+        if (
+            friendship is None
+            or friendship.status != FriendRequestStatus.ACCEPTED.value
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="You can only fetch key bundles for friends.",
+            )
+
     bundle = await service.get_device_bundle(user_id)
 
     if not bundle["devices"]:

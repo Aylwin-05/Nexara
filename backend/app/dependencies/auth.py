@@ -70,8 +70,10 @@ async def get_current_user(
     # transaction and can release the pooled connection, so a one-off
     # SET would be lost before later statements run. See
     # app/database/database.py for the after_begin hook.
-    # Harmless under the superuser role (RLS bypassed). SQLite (tests)
-    # has no set_config, so it is skipped.
+    # Harmless under a superuser role (RLS bypassed), but the production
+    # app connects as the least-privilege nexara_app role, where this is
+    # what makes the FORCE RLS policies effective. SQLite (tests) has no
+    # set_config, so it is skipped.
     db.info["rls_user_id"] = str(user.id)
 
     if db.bind.dialect.name == "postgresql":

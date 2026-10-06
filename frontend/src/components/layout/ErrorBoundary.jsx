@@ -1,4 +1,5 @@
 import { Component } from "react";
+import * as Sentry from "@sentry/react";
 
 export default class ErrorBoundary extends Component {
 
@@ -23,6 +24,10 @@ export default class ErrorBoundary extends Component {
             error,
             info,
         );
+
+        Sentry.captureException(error, {
+            contexts: { react: { componentStack: info.componentStack } },
+        });
 
         this.setState({ errorInfo: info });
 

@@ -15,6 +15,7 @@ from .device import (
 from .friendship import Friendship
 from .group_invite_link import GroupInviteLink
 from .message import Message
+from .message_pin import MessagePin
 from .message_reaction import MessageReaction
 from .message_recipient_key import MessageRecipientKey
 from .message_star import MessageStar
@@ -42,6 +43,7 @@ __all__ = [
     "Friendship",
     "GroupInviteLink",
     "Message",
+    "MessagePin",
     "MessageReaction",
     "MessageStar",
     "OTPCode",

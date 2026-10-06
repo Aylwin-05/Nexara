@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 import { useAuth } from "../../context/AuthContext";
 
 import "./Chat.css";
@@ -57,6 +59,28 @@ export default function MessageInfoPanel({
 
     const { user } = useAuth();
 
+    // Keyboard accessibility: focus lands on the close button when the
+    // panel opens, Escape closes it, and focus returns to the opener
+    // when it unmounts. The backdrop stays a plain click-away for mouse
+    // users (a <button> wrapper would nest interactive content inside
+    // a button, which is invalid HTML).
+    const closeRef = useRef(null);
+    const lastFocusRef = useRef(null);
+
+    useEffect(() => {
+        lastFocusRef.current = document.activeElement;
+        closeRef.current?.focus();
+
+        const onKey = (e) => {
+            if (e.key === "Escape") onClose();
+        };
+        document.addEventListener("keydown", onKey);
+        return () => {
+            document.removeEventListener("keydown", onKey);
+            lastFocusRef.current?.focus();
+        };
+    }, []);
+
     if (!message) return null;
 
     const isMine = String(message.sender_id) === String(user?.id);
@@ -80,7 +104,13 @@ export default function MessageInfoPanel({
     const sentAt = formatDate(message.created_at);
 
     return (
-        <div className="msg-info-overlay" onClick={onClose}>
+        <div
+            className="msg-info-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Message info"
+            onClick={onClose}
+        >
 
             <div
                 className="msg-info-panel"
@@ -95,6 +125,7 @@ export default function MessageInfoPanel({
                         type="button"
                         className="msg-info-close"
                         aria-label="Close"
+                        ref={closeRef}
                         onClick={onClose}
                     >
                         <svg

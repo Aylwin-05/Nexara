@@ -3,8 +3,11 @@ Cloudflare Turnstile CAPTCHA verification dependency.
 
 When TURNSTILE_SECRET_KEY is configured, every request that uses
 this dependency must include a valid `cf-turnstile-response`
-header.  When the key is empty (local dev), the check is skipped
-so developers aren't blocked by CAPTCHA during testing.
+header.  The check is skipped ONLY in DEBUG when the key is empty
+so developers aren't blocked by CAPTCHA during testing.  In
+production the key is mandatory: a missing secret fails closed
+(every request is rejected) rather than silently disabling bot
+protection.
 """
 
 import logging
@@ -17,9 +20,8 @@ logger = logging.getLogger("app.dependencies.turnstile")
 
 TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
-# Fail-closed: if the secret is misconfigured, reject all
-# requests rather than silently skipping the check.
-_SKIP = settings.TURNSTILE_SECRET_KEY == ""
+# Debug-only escape hatch; production always enforces the check.
+_DEV_SKIP = settings.DEBUG and settings.TURNSTILE_SECRET_KEY == ""
 
 
 async def verify_turnstile(
@@ -27,12 +29,14 @@ async def verify_turnstile(
 ):
     """FastAPI dependency — verifies the Cloudflare Turnstile token."""
 
-    if _SKIP:
+    if _DEV_SKIP:
         return
 
     token = request.headers.get("cf-turnstile-response", "")
 
-    if not token:
+    # Fail-closed: a missing token OR a missing secret (misconfigured
+    # production) rejects the request instead of skipping the check.
+    if not token or settings.TURNSTILE_SECRET_KEY == "":
         raise HTTPException(
             status_code=403,
             detail="CAPTCHA verification required.",

@@ -208,6 +208,9 @@ app = FastAPI(
         "and a React + Vite frontend."
     ),
     version="1.0.0",
+    docs_url="/docs" if settings.APP_ENV == "development" else None,
+    redoc_url="/redoc" if settings.APP_ENV == "development" else None,
+    openapi_url="/openapi.json" if settings.APP_ENV == "development" else None,
     # debug deliberately left off: Starlette's debug=True makes
     # ServerErrorMiddleware render full Python/SQL tracebacks in HTTP
     # responses and bypasses the sanitizing exception handler below.

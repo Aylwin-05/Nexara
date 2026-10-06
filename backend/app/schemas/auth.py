@@ -143,9 +143,7 @@ class MessageResponse(BaseModel):
 
 
 class SendOTPResponse(MessageResponse):
-    # True when the email has no account yet: the client shows the
-    # Privacy/Terms consent checkboxes on the OTP page for this case.
-    is_new: bool = False
+    pass
 
 
 # ==========================================================

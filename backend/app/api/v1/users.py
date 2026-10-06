@@ -166,6 +166,9 @@ async def check_username(
 @router.post(
     "/avatar",
     response_model=UserResponse,
+    dependencies=[
+        rate_limit("users.avatar.upload", 10, 60),
+    ],
 )
 async def upload_avatar(
     file: UploadFile = File(...),
@@ -222,6 +225,11 @@ async def upload_avatar(
 
 @router.get(
     "/{user_id}/avatar",
+    # Serving reads a file from disk; bound it so spamming can't
+    # hammer the filesystem.
+    dependencies=[
+        rate_limit("users.avatar.get", 60, 60),
+    ],
 )
 async def get_avatar(
     user_id: UUID,

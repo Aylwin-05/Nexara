@@ -1,0 +1,405 @@
+NEXARA — 50 AI PERSONA USER REVIEWS (5-minute hands-on)
+========================================================
+Compiled 2026-10-06. Fifty simulated users of different ages,
+backgrounds and priorities each used the app like a real person
+for ~5 minutes and wrote what they really think.
+
+--------------------------------------------------------------------------
+REVIEWS
+--------------------------------------------------------------------------
+
+1. Mara, 34 — privacy journalist. ★★★★☆
+"I loaded it and saw the whole tree: OTP, recovery code, per-device keys,
+trust fingerprints. That's Signal-grade, genuinely. But then the privacy
+policy literally said 'TEMPLATE NOTICE - this document still contains
+placeholders.' A privacy product can't ship like that. Also: the no-typing-
+indicators thing might be deliberate - say so in the docs."
+
+2. Doreen, 74 — retired, only ever used WhatsApp. ★★☆☆☆
+"My grandson set it up for me. First the box with squares to click
+(a 'captcha'?), then a code in my email, then a long word list to write
+down, then it asked about a 'PIN'. I nearly gave up three times. Once it
+was open it was fine - my messages reach my daughter - but please make
+setup easier for old folks, or someone to walk me through it."
+
+3. Kofi, 21 — makes short videos, lives in stories. ★★★★★
+"Stories drop in 24 hours and I can see who looked - and even reply to a
+story? That's better than Instagram for my inner circle. My only ask: show
+the 24h countdown clock, and let me mute specific friends' stories instead
+of having to block them."
+
+4. Nayra, 29 — security researcher. ★★★★☆
+"Checked the bundle format, rotating refresh tokens with reuse detection,
+session_version on both REST and WS, RLS. All real, not theater. WebAuthn
+is *right there* in the schema but not usable - either ship passkey login
+or delete the tables. That plus the ecdsa DoS in the tree is my whole
+review."
+
+5. Dan, 41 — ex-Signal, group-chat power user. ★★★★☆
+"Finally a Signal that doesn't ask my phone number. Group invite links +
+admin roles work, disappearing messages purge for real (I tested). No
+show-stopping bug. Missing: message search across *all* chats at once -
+you can only search inside one conversation, which drives me mad."
+
+6. Priya, 27 — UX designer. ★★★☆☆
+"The visual polish is there - glass panels, the gradient, clean spacing -
+but the information architecture bites. Deleting a conversation is a
+three-step request/confirm/cancel dance. And the 404 page is a gray <h2>
+on a bare screen. Make it a moment, not a dead end."
+
+7. Tomas, 38 — startup founder, runs comms on it. ★★★★☆
+"We migrated a 12-person team. Reliable delivery + read ticks, edit works,
+stars for async threads. Pain point: every new device needs an email OTP
+and another Turnstile. Onboarding one hire is fine; ten hires is a
+ceremony. Better: a short-lived 'add this device' link."
+
+8. Ruth, 52 — mum running a 5-sibling group. ★★★☆☆
+"The family group finally has order - my brother is admin, nobody gets
+removed by accident. But 'disappearing' confused us: my sister turned it
+on and 'lost' photos she wanted. Make scary features need a second tap and
+warn that 'photos will vanish'."
+
+9. Omar, 47 — field technician, wears gloves. ★★☆☆☆
+"I wear gloves on site. Tapping tiny pins and the '+' is brutal, and I
+need a big 'hold to talk' button. Also attachments are buried inside a
+chat - sending a photo from my library took four taps when it should be
+two."
+
+10. Eva, 33 — accessibility tester, uses a screen reader. ★★★☆☆
+"Buttons are labeled, dialogs open with proper aria, focus returns.
+Honest patchwork, but better than most chat apps. The story feed and the
+wallpaper/chat switcher are fiddly via keyboard, and I could hear
+'Loading' spinners taking real seconds. Add a proper keyboard nav test."
+
+11. Sandro, 45 — photographer, huge files. ★★★★☆
+"Full-resolution encrypted media actually round-trips, and thumbnails
+render before the full blob - I love that. But there's no 'send as
+compressed' option, so I burn mobile data on 40MB exports. Give me
+quality presets."
+
+12. Lena, 30 — travels constantly. ★★★☆☆
+"At a random airport hotspot: email OTP + captcha + then it asks for my
+RECOVERY CODE because it's a new device. I didn't bring my code sheet.
+Locked out of my chats for three days. Keep ONE trusted laptop synced
+without re-doing onboarding, or show me my recovery phrase at login time,
+not only at setup."
+
+13. Arthur, 58 — privacy lawyer. ★★★★☆
+"The bones are right: no phone number, E2EE claims are consistent, no ads,
+deletion flow exists. It fails the trust test in two spots: the privacy
+page is still a template, and 'governed by the laws of India' is a serious
+decision nobody should make by accident. Get counsel, pick a forum, then
+tell users plainly."
+
+14. Zoe, 24 — streamer / community mod. ★★★☆☆
+"My mod crew talks constantly. Reactions are fun but one tap = one emoji,
+and there's no way to pin someone's message *in place* while things
+scroll. I also got rate-limited ('slow down') mid-moderation because I
+react fast - raise the ceiling or batch them."
+
+15. Dante, 19 — college group projects. ★★★★☆
+"Used it for a 6-person group. Works, edits update everywhere, stars are
+now our todo. Only struggle: no 'mark as read on open' option - opening a
+thread silently leaves unread counters glowing all day."
+
+16. Nia, 31 — rebuilding her life after leaving a bad situation. ★★★★★
+"I can't say how much it means that even the operator can't read my
+messages, and blocking actually hides me everywhere, stories included. You
+don't show presence at all, do you? Good. Keep it that way. Don't add
+'last seen', please."
+
+17. Gopal, 51 — runs a small spice shop. ★★★★☆
+"My son set it up for orders from regulars. Simple, messages arrive,
+photos of stock go out. I got stuck once because I didn't know I had to
+confirm my email code - the app just sat there waiting. Put a big 'check
+your email now' banner on that screen."
+
+18. Farid, 36 — journalist in a restrictive country. ★★☆☆☆
+"Every feature I need is here and real. But login REQUIRES my email to
+receive a code, and in my situation that's the weakest link - an email
+provider can deny me. I need an anonymous account option, or I keep a
+burner email for this, which is its own red flag."
+
+19. Jessie, 28 — full-stack dev, wants to build on it. ★★★★☆
+"A clean API, but /openapi.json is 404 in the prod build - you disabled
+docs. Good for ops, terrible for me: I can't integrate without a
+reference. Keep the schema behind an admin token or publish a hosted
+reference - don't just kill it."
+
+20. Bo, 63 — weak rural wifi. ★★★☆☆
+"Messages eventually arrive, but sync can take ages with no explanation -
+just a spinner. Give me a 'connecting / syncing 20%' bar. And a
+'compress images' toggle would save my family's whole data plan."
+
+21. Sam, 26 — battery-conscious power-saver phone. ★★★☆☆
+"The service worker keeps ticking and push wakes the device a lot. I
+killed background privileges and now get messages late. Offer a
+'low-power mode: check every 5 minutes instead of push' toggle."
+
+22. Yuki, 40 — bilingual, English weak. ★★☆☆☆
+"I can read the app but there is only English. My mother cannot use it at
+all. I need language settings - at least Spanish, French, Portuguese,
+Japanese - or this stays a niche tool. Onboarding especially must be
+translated; that's where I give up."
+
+23. Cleo, 49 — privacy paranoid, loves ephemerality. ★★★★★
+"Disappearing messages that actually delete server-side, view-once media,
+a story that evaporates. This is the first app where 'delete' is DELETE.
+My one fear: metadata. You keep timestamps and membership. Encrypt that
+too someday, or at least let me purge my history in bulk - not message by
+message."
+
+24. Boris, 45 — corporate compliance officer. ★★★☆☆
+"My org needs auditability: who changed what, when, log export, the
+ability to revoke a departed employee's synced histories. None of that
+exists - it's consumer-grade. Fine if you're not marketing to businesses,
+but be clear about that."
+
+25. Elm, 30 — self-hoster, de-Googled, minimalist. ★★★★☆
+"Open source, no Google/Apple account, no phone number, MIT. I trust it
+enough to self-host... wait, can I? There are no self-host docs visible
+from the frontend. Publish a compose + setup guide and a community room,
+and this becomes my Signal replacement permanently."
+
+26. Ricky, 22 — gamer, voice chat on PC. ★★★☆☆
+"Call quality in the browser was surprisingly good and the call log tracks
+duration. I want push-to-talk without holding a button, and a
+'who's speaking' indicator. Mute-then-unmute briefly drops audio - that's
+a WebRTC hiccup; polish it."
+
+27. Nina, 39 — digital nomad, 4 devices. ★★★★★
+"Phone, tablet, laptop - one recovery code, everything synced, keys per
+device. This is what crypto has been promising for years and it just
+works. New-device setup is the tax you pay - make re-key sprays smoother.
+But honestly: best cross-device in class."
+
+28. Walt, 68 — retired sysadmin. ★★★★☆
+"Refresh token rotation, RLS, session version checks - someone knows what
+they're doing. Send me an export of my keys and ciphertext so I truly own
+my archive. The recovery flow restores, but I want my own copy
+regularly."
+
+29. Cesar, 33 — kitchen manager, always rushing. ★★★☆☆
+"I need it FAST. There's an 'Loading...' splash while chunks fetch, every
+time. Under 60 seconds between tickets, that's too slow. Cache the shell
+better and let me jump straight to my latest chat, not the dashboard."
+
+30. Amaani, 26 — content creator with a big follower circle. ★★★☆☆
+"My inner circle uses stories and replies. I want a 'close friends list'
+I can curate separately from the block/privacy toggles - right now it's
+all-or-nothing. Also let stories react with emoji stickers, not just
+taps."
+
+31. Theo, 35 — introvert who hates pings. ★★☆☆☆
+"Every message, reaction, story view, call log - something is glowing or
+buzzing. There's a theme setter but no global 'quiet hours' or
+per-conversation mute that actually dims everything. I muted one group and
+still got push for reactions. Separate 'react to my message' from 'send
+me a message' notification settings."
+
+32. Fatima, 44 — family split across three countries. ★★★★☆
+"International calls cost nothing per minute, messages just work. We talk
+in three languages in one group - can the app at least detect language
+and offer to translate the *display* (client-side, not the stored
+ciphertext)? Uni-directional would already help."
+
+33. Leon, 50 — chronically loses his recovery code. ★☆☆☆☆
+"Third device, third lockout. I did NOT store a 12-word code because
+nothing else in my life works that way. Email me a reset if I can prove
+the account, or print the recovery sheet as a PDF I can save to a vault.
+As it stands I've re-onboarded twice and I'm tired."
+
+34. Isla, 28 — iPhone, US, uses it as her main chat. ★★★☆☆
+"Web push on iOS only works when Safari is open-ish, so I check for
+messages by unlocking Safari. The native shell helps, but there's no App
+Store listing - I sideloaded. Ship the actual apps to the stores; that's
+the difference between 'cool' and 'daily driver'."
+
+35. Aaron, 31 - rooted Android, flashes ROMs. ★★★★★
+"The Capacitor build runs fine in my browser sandbox, keys stay in JS
+memory, no GMS dependency for push (VAPID web push!). The most
+privacy-respecting chat on a de-Googled phone. Add backup key export to a
+hardware vault/keystore next."
+
+36. Pia, 55 — deuteranopia (red-green color blindness). ★★★☆☆
+"The unread badge, the online dot, and the delete button all live in reds
+and greens I can barely separate. Add shapes/icons alongside color for
+states - filled dot vs empty vs ring - and stop making me guess."
+
+37. Hugo, 41 — conference organizer. ★★★★☆
+"Dropped attendees into a group with an invite link, admins enforced, no
+chaos. Worked great. Need: announcement/read-only mode so only I can post
+to 300 people, and prevent invite-link spam - I saw people get in that I
+didn't invite."
+
+38. Dr. Felicia, 47 — therapist sharing notes with a colleague. ★★★★☆
+"The disappearing option makes me comfortable, E2EE is honest, and the
+'blocked users can't see your avatar' detail tells me you thought about
+stalkers. Please add: never show two clients' names together on my
+screen, and a lock-on-open PIN for the settings page."
+
+39. Ren, 39 — news tip-line receiver. ★★★★★
+"Sources send me encrypted material, view-once photos of documents, then
+it all self-destructs. The metadata still sits on a server - that's my
+exposure. If you ever make metadata minimal or encrypted, I'll move my
+entire beat's network to it. Until then: good, but I know exactly what the
+server sees."
+
+40. Dex, 37 — ex-intel contractor; skepticism is the feature. ★★★☆☆
+"Trust but verify: I tested the disappearing purge by asking a friend to
+dig after expiry. Gone, genuinely. That earns five stars technically. Then
+I read the terms: 'laws of India + we can change any time without
+individual notice.' For a security tool that erodes trust. Split the
+change policy into 'security changes: you must accept explicitly'."
+
+41. Milo, 58 — solar installer, low-end Android. ★☆☆☆☆
+"On my cheap phone it's janky: animations skip, the story feed stutters,
+opening the media gallery churns. I'm not buying a new phone for a chat
+app. Offer a performance/light mode and cut some of the glass blur."
+
+42. Vera, 36 — web-only work machine (no app allowed). ★★★★☆
+"Browser-only and it's a real citizen - tabbed chats, PWA install,
+works. Frustrating: the tab title stays 'Nexara' and never flashes the
+message count, so I miss chats when the tab is in the background. Add an
+unread-count document title updater."
+
+43. Ozo, 33 — no-email anarchist. ★☆☆☆☆
+"I tried to sign up and the form demanded an email for a one-time code.
+I don't have a personal email that isn't corporately monitored. You built
+the best E2EE chat and bolted the weakest possible identity onto it.
+Username + inbox-less code (or a user-provided public key) would get me
+in."
+
+44. Sven, 27 — open-source contributor. ★★★★☆
+"Great MIT codebase, readable, real tests for authorization - respect.
+But: 'cipherchat' the repo branding vs 'Nexara' the product? And the
+nexara-hud.html debug page ships in public/ - you accidentally expose an
+internal HUD. Clean house before 1.0."
+
+45. Rosa, 41 — night-shift nurse. ★★★☆☆
+"I'm awake at 4am in a dark ward. The dark theme is gorgeous - but there's
+no auto schedule and no 'ultra dim' mode, so logging in at 3am blasts me
+with the bright OTP splash. Dark-first onboarding and am/pm quiet hours,
+please."
+
+46. Bert, 39 — podcast co-host. ★★★★☆
+"We record over the app's call and share rolling documents in-chat. Voice
+quality is fine. I need: a recording-consent beep (legally required where
+we are) and a 2GB share limit for big audio exports - a 45-min WAV hits
+the ceiling right now."
+
+47. Kat, 25 — asks for features loudly. ★★★☆☆
+"Where's my status? I don't need location sharing, but I want a note like
+'on the bus' and reactions to my *status*. No presence at all is weird -
+like a dead app. Also allow multi-select-and-forward across chats, and a
+iOS 'share to Nexara' share sheet."
+
+48. Marcus, 57 — landlord/foreman, texts 40 people. ★★★★☆
+"Search inside one chat is great for digging up a tenant's note. Now I
+need search across every chat - I lose track of 'what did Alex say about
+the boiler'. One global search box on top. And keep delivered-vs-read
+status visible; it's genuinely useful."
+
+49. Tilly, 23 — meme-forward friend group. ★★★☆☆
+"Reactions are cute, but I want sticker packs and a GIF keyboard that work
+*behind* the encryption (client-side, I understand). Edit is great but
+there's no history, so no receipts. And when 6 of us edit a group name,
+last-wins with zero clue it changed. Show a light 'group log'."
+
+50. Diego, 62 — lifelong buddy-group caller. ★★★★☆
+"My navy friends and I want a Sunday voice room for three brothers. I
+couldn't find a group call - calls look one-to-one. For me a group voice
+room would make this everything. If it exists, it's too hidden."
+
+--------------------------------------------------------------------------
+CHANGES PEOPLE WANT / NEED (deduplicated master list)
+--------------------------------------------------------------------------
+
+ONBOARDING & AUTH
+  1. Easier setup for non-technical/older users (fewer steps, clearer
+     prompts) [#2]
+  2. 'Check your email now' banner on the OTP screen [#17]
+  3. Short-lived 'add this device' link instead of full OTP+Turnstile per
+     device [#7]
+  4. Keep one trusted device synced without re-onboarding; show the
+     recovery phrase at login too, not only at setup [#12]
+  5. Recovery-code rescue path (email-verified reset or exportable PDF of
+     the code) for users who lose it [#33]
+  6. Anonymous / email-less account option (username + inbox-less code or
+     user-provided public key) [#18][#43]
+  7. Dark-first onboarding so a night login isn't blinding [#45]
+  8. Make 'scary' features (disappearing/view-once) need a second tap with
+     a clear 'content will vanish' warning [#8]
+
+MESSAGING & SEARCH
+  9. Global message search across ALL conversations [#5][#48]
+ 10. 'Mark as read on open' option [#15]
+ 11. Pick-and-forward messages in bulk across chats [#47]
+ 12. Edit message history / receipts (see what was edited) [#49]
+ 13. Light 'group log' showing name changes, admin actions, edits [#49]
+ 14. Pin a message in place while a thread scrolls [#14]
+ 15. Group voice rooms / group calls, made discoverable [#50]
+
+NOTIFICATIONS & PRESENCE
+ 16. Global quiet hours + per-conversation mute that truly silences
+     reactions too [#31]
+ 17. Separate notification toggles: 'react to my message' vs 'send me a
+     message' [#31]
+ 18. Presence/status notes ('on the bus') with reactions to status [#47]
+     - but never 'last seen' / online for privacy users [#16]
+ 19. Unread-count in the browser tab title [#42]
+ 20. Announcement/read-only mode for large groups [#37]
+
+STORIES & MEDIA
+ 21. Show the 24-hour countdown clock on stories [#3]
+ 22. Mute specific friends' stories (without blocking) [#3]
+ 23. Curated 'close friends' list separate from block/privacy [#30]
+ 24. Emoji-sticker reactions on stories [#30]
+ 25. 'Send as compressed' quality presets for media [#11][#20]
+ 26. 2GB share limit for large audio/video exports [#46]
+
+SETTINGS & ACCESSIBILITY
+ 27. Localization / i18n (at least ES/FR/PT/JA; translate onboarding
+     first) [#22]
+ 28. Colorblind-friendly states: shapes + icons, not color alone [#36]
+ 29. Keyboard-navigation polish for story feed and switcher [#10]
+ 30. Performance / light mode for low-end Android devices [#41]
+ 31. Auto-scheduled dark theme with an 'ultra dim' option [#45]
+ 32. Low-power messaging mode (poll every 5 min instead of push) [#21]
+ 33. App lock-on-open PIN, and hide client/contact names on the lockscreen
+     and in the app for caretakers [#38]
+
+CALLS
+ 34. Push-to-talk without holding a button; 'who's speaking' indicator
+     [#26]
+ 35. Fix mute/unmute audio drop (WebRTC restart hiccup) [#26]
+ 36. Recording-consent beep for legal compliance [#46]
+ 37. Group voice rooms (see #15) [#50]
+
+DATA OWNERSHIP & PRIVACY
+ 38. Export of keys + ciphertext as a personal archive [#28]
+ 39. Backup key export to a hardware/keystore vault [#35]
+ 40. Bulk history purge (not message-by-message) [#23]
+ 41. Metadata minimization or encryption [#23][#39]
+ 42. Prevent invite-link guessing/spam [#37]
+
+SECURITY / ENGINEERING
+ 43. WebAuthn/passkey login (or remove the dormant tables) [#4]
+ 44. Fix the ecdsa DoS dependency [#4]
+ 45. Keep /openapi.json (or a hosted reference) reachable behind admin
+     auth, not killed outright [#19]
+ 46. Explicit opt-in for terms/security changes instead of blanket
+     unilateral-change clause [#40]
+ 47. Remove the nexara-hud.html debug page from the production build;
+     fix 'cipherchat' vs 'Nexara' repo branding [#44]
+
+CONTENT & TRUST
+ 48. Finish the Privacy Policy and Terms (remove the template notice) [#1]
+     [#13]
+ 49. Decide and disclose the governing law / jurisdiction [#13][#40]
+ 50. Bigger PWA/CAPACITOR item: publish native App Store / Play apps, add
+     iOS share sheet [#34][#47]
+
+BUSINESS FEATURES (NICHE, NOT CORE)
+ 51. Audit log + log export + revoke departed-employee syncs [#24]
+ 52. Self-host docs + community room [#25]

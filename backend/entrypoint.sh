@@ -28,8 +28,21 @@ done
 
 echo "[entrypoint] Database is ready"
 
-echo "[entrypoint] Running migrations..."
-alembic upgrade head
+if [ "${MIGRATE_ONLY:-false}" = "true" ]; then
+  echo "[entrypoint] Running migrations (migrate-only mode)..."
+  alembic upgrade head
+  echo "[entrypoint] Migrations complete"
+  exit 0
+fi
+
+if [ "${SKIP_MIGRATIONS:-false}" = "true" ]; then
+  # Production: migrations run in the one-shot backend-migrate service,
+  # never in the app processes (avoids the replicas migration race).
+  echo "[entrypoint] Skipping migrations (SKIP_MIGRATIONS=true)"
+else
+  echo "[entrypoint] Running migrations..."
+  alembic upgrade head
+fi
 
 echo "[entrypoint] Starting server..."
 

@@ -23,11 +23,9 @@ export default function OTP() {
     const email =
         location.state?.email || "";
 
-    // New-email registrations must accept Privacy + Terms before the
-    // account is created; existing accounts never see the checkboxes.
-    const isNew =
-        location.state?.isNew === true;
-
+    // Consent is required on every login (not just new accounts):
+    // send-otp no longer reveals whether the email has an account,
+    // and existing users' consents are already on file server-side.
     const [consentPrivacy, setConsentPrivacy] =
         useState(false);
 
@@ -116,7 +114,7 @@ export default function OTP() {
 
         }
 
-        if (isNew && !(consentPrivacy && consentTerms)) {
+        if (!(consentPrivacy && consentTerms)) {
 
             setError(
                 "Please accept the Privacy Policy and Terms of Service."
@@ -788,9 +786,7 @@ export default function OTP() {
 
                         }
 
-                        {isNew && (
-
-                            <div className="otp-consent">
+                        <div className="otp-consent">
 
                                 <label className="otp-consent-row">
 
@@ -845,8 +841,6 @@ export default function OTP() {
                                 </label>
 
                             </div>
-
-                        )}
 
                         <button
                             type="submit"

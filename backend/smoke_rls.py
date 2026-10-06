@@ -4,19 +4,34 @@ Register two users (A, B) as friends, create a private conversation,
 exchange messages, verify both members can read and verify purge under
 'system' scope. This exercises all three RLS policies via real API
 paths — not direct SQL.
+
+Configurable through env vars so it runs both locally (Windows dev
+backend) and in CI (Linux, test stack):
+  RLS_BASE_URL    API base URL          default http://localhost:8000/api/v1
+  RLS_OTP_LOG     file the backend logs "[DEV] OTP" to
+  RLS_PSQL        psql binary path      default auto-detect
+  RLS_PURGE_WAIT  seconds to wait for the purge tick (default 65)
 """
 
 import os
+import platform
 import random
 import re
+import shutil
 import subprocess
 import time
 import uuid
 
 import httpx
 
-BASE = "http://localhost:8000/api/v1"
-LOG = r"C:\Users\dell\AppData\Local\Temp\opencode\nexara-backend.log"
+BASE = os.environ.get("RLS_BASE_URL", "http://localhost:8000/api/v1")
+LOG = os.environ.get(
+    "RLS_OTP_LOG",
+    r"C:\Users\dell\AppData\Local\Temp\opencode\nexara-backend.log",
+)
+PSQL = os.environ.get("RLS_PSQL", shutil.which("psql") or "")
+PURGE_WAIT = int(os.environ.get("RLS_PURGE_WAIT", "65"))
+DEV_ONLY_PASSWORD = os.environ.get("PGPASSWORD", "DEV_ONLY_CHANGE_ME")
 
 otp_pattern = re.compile(r"\[DEV\] OTP for (.+?): (\d{6})")
 
@@ -26,12 +41,16 @@ def make_email(tag: str) -> str:
 
 
 def get_otp(email: str, last_n: int = 50) -> str | None:
-    out = subprocess.run(
-        [
+    if platform.system() == "Windows":
+        cmd = [
             "powershell",
             "-Command",
             f"Get-Content '{LOG}' -Tail {last_n} | Select-String 'OTP for {email}'",
-        ],
+        ]
+    else:
+        cmd = ["sh", "-c", f"tail -{last_n} '{LOG}' | grep 'OTP for {email}'"]
+    out = subprocess.run(
+        cmd,
         capture_output=True,
         text=True,
         timeout=8,
@@ -166,14 +185,11 @@ with httpx.Client(base_url=BASE, timeout=15) as c:
         # Fast-forward expires_at via direct SQL so we don't wait 60 s.
         env_full = {
             **os.environ,
-            "PGPASSWORD": os.environ.get(
-                "PGPASSWORD",
-                "DEV_ONLY_CHANGE_ME",
-            ),
+            "PGPASSWORD": DEV_ONLY_PASSWORD,
         }
         subprocess.run(
             [
-                "C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe",
+                PSQL,
                 "-h",
                 "localhost",
                 "-U",
@@ -188,8 +204,8 @@ with httpx.Client(base_url=BASE, timeout=15) as c:
             capture_output=True,
             timeout=8,
         )
-        print("[+] Set expires_at to past; waiting 65 s for purge tick...")
-        time.sleep(65)
+        print(f"[+] Set expires_at to past; waiting {PURGE_WAIT} s for purge tick...")
+        time.sleep(PURGE_WAIT)
         r2 = c.get(f"/messages/{cid}", headers=headers(tokA))
         all_msgs = r2.json() if isinstance(r2.json(), list) else r2.json().get("messages")
         still_there = [m for m in all_msgs if m.get("id") == disappearing_id]
@@ -199,9 +215,12 @@ with httpx.Client(base_url=BASE, timeout=15) as c:
     import websocket  # websocket-client (pip installed in test env)
 
     ws_url = "ws://localhost:8000/ws/me"
-    ws = websocket.create_connection(ws_url, timeout=8)
-    ws.send(f'{{"token":"{tokA}","device_id":"smoke-device"}}')
-    # should receive presence / ack; not send/receive real WS message here
+    # Auth rides the Sec-WebSocket-Protocol subprotocol as nexara.<token>.
+    ws = websocket.create_connection(
+        ws_url,
+        subprotocols=[f"nexara.{tokA}"],
+        timeout=8,
+    )
     ws.settimeout(3)
     try:
         ws.recv()

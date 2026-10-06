@@ -79,6 +79,13 @@ async def websocket_endpoint(
             await websocket.close(code=1008)
             return
 
+        # Match the HTTP path: a token minted for an older session
+        # version (before a logout / deactivation / 2FA change) must
+        # not open a socket.
+        if current_user.session_version != payload.get("ver"):
+            await websocket.close(code=1008)
+            return
+
         # Match the HTTP path: a token issued before the last logout /
         # deactivation is rejected even though it has not expired yet.
         if current_user.session_version != payload.get("ver"):
